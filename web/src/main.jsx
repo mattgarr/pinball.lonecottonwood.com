@@ -13,10 +13,12 @@ import TV from './routes/TV.jsx';
 import Host from './routes/Host.jsx';
 import HostQR from './routes/HostQR.jsx';
 import HostTest from './routes/HostTest.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import './styles.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
+    <ErrorBoundary>
     <BrowserRouter>
       <Routes>
         <Route path="/tv" element={<TV />} />
@@ -36,5 +38,6 @@ createRoot(document.getElementById('root')).render(
         </Route>
       </Routes>
     </BrowserRouter>
+    </ErrorBoundary>
   </React.StrictMode>
 );

@@ -155,7 +155,7 @@ export default function HostTest() {
                 return (
                   <div key={a.method} className={`cmp-row${v ? (v.correct ? ' good' : ' bad') : ''}`}>
                     <span>{METHODS.find(x => x.key === a.method)?.label}{v ? (v.correct ? ' ✅' : ' ❌') : ''}</span>
-                    <span className="mono">{a.result?.scores?.length ? a.result.scores.map(s => `P${s.slot} ${fmt(s.value)}`).join(' · ') : (a.result ? '—' : 'failed')}</span>
+                    <span className="mono">{a.result?.scores?.length ? a.result.scores.map(s => `P${s.slot} ${fmt(s.value)}`).join(' · ') : (a.result ? <span className="cmp-note">nothing: {a.result.note || 'no scores seen'}</span> : <span className="cmp-note">failed (no response){a.clipSent ? '' : ' · no clip'}</span>)}</span>
                     <span>{a.result?.confidence === 'high' ? 'yes' : a.result ? 'no' : ''}</span>
                     <span className="mono" title={`capture ${sec(a.captureMs)} + send ${sec(a.uploadMs)} + AI ${sec(a.result?.ms)}`}>{sec(a.captureMs + (a.sendMs || 0))}s</span>
                   </div>

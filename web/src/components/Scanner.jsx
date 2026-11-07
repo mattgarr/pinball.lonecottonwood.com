@@ -64,6 +64,7 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
   const isVideo = mode === 'video' || mode === 'burst';
   const clipMs = mode === 'burst' ? 2500 : 5000;
   const vfps = testMode?.fps || (FLAG?.startsWith('video') && Number(FLAG.replace('video', ''))) || machine?.scan_fps || (mode === 'burst' ? 10 : 8);
+  const guide = captureTips(machine);
   const label0 = mode === 'burst' ? 'Burst' : mode === 'video' ? 'Video' : 'Frames';
   const video = useRef(null);
   const box = useRef(null);
