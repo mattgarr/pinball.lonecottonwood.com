@@ -1260,3 +1260,4 @@ button.led:active { filter: brightness(1.25); }
 .tips-card ul { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
 .tips-card summary { cursor: pointer; }
 .timing { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: #ddd; margin-bottom: 6px; }
+.host-link { align-self: center; margin-top: 18px; font-size: 13px; color: var(--muted); opacity: 0.7; }

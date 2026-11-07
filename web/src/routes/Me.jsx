@@ -164,6 +164,8 @@ export default function Me() {
         )}
       </Sheet>
 
+      <Link to="/host" className="host-link">🔧 Host tools</Link>
+
       <Sheet open={switchOpen} onClose={() => setSwitchOpen(false)} title="Switch player">
         <div className="muted small">Sharing a phone? Your scores stay saved. Get back in any time with your name + PIN.</div>
         <button type="button" className="cta" onClick={() => signOutTo('/rejoin')}>Someone who already joined</button>
