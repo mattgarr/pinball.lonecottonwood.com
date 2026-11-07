@@ -17,6 +17,12 @@ description: Download real backglass/translite images for a pinball machine (IPD
     ```
   - Files land in `~/Downloads/pw-<slug>.jpg`. Check with `ls ~/Downloads/pw-*.jpg`.
   - **Chrome allows only one automatic download per site** until the user allows "multiple downloads" for ipdb.org (the address-bar icon, or `chrome://settings/content/automaticDownloads`). That's a browser setting, so ask the user to flip it. Don't change it yourself.
+- **Most reliable method, no downloads needed: full-resolution capture.** Navigate the Chrome tab straight to the image URL (`https://www.ipdb.org/images/<id>/<file>.jpg`), get the image's on-screen box with
+  `const i=document.images[0],r=i.getBoundingClientRect(),k=1440/innerWidth; [r.x*k,r.y*k,(r.x+r.width)*k,(r.y+r.height)*k]`
+  (1440 = the screenshot frame width; check what the screenshot reports), then
+  `computer zoom` with that region, `save_to_disk: true`, and **scale 1** (the saved file uses the scale you pass).
+  It saves a PNG of about 1300px under the session's `tool-results/` folder; convert with `sips -s format jpeg`. This is how Fathom, Whirlwind, White Water and Cactus Canyon were done.
+- The same capture works for Google Images previews, e.g. test photos for the score reader.
 - **Dungeons & Dragons (Stern 2025):** not on IPDB. Use sternpinball.com's game page. The Premium/LE backglass (beholder) is the one this party's machine uses.
 
 ## Known-good IPDB images

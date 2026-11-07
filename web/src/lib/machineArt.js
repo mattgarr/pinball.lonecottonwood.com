@@ -1,7 +1,7 @@
 // Maps a machine name to its bundled art in web/public/machines/.
 // Real backglass photos live at <slug>.jpg; hand-made <slug>.svg files remain as fallbacks.
 // Add a slug to PHOTO_SLUGS when its .jpg is added (see web/public/machines/CREDITS.md).
-const PHOTO_SLUGS = new Set(['dungeons-dragons', 'centaur']);
+const PHOTO_SLUGS = new Set(['dungeons-dragons', 'centaur', 'fathom', 'whirlwind', 'white-water', 'cactus-canyon']);
 
 export function machineSlug(name) {
   return String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');

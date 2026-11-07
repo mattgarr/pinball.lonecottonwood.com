@@ -44,6 +44,8 @@ function normalise(r) {
   let scores = [];
   if (Array.isArray(r.scores)) {
     scores = r.scores
+      // A display showing 0 / "00" is an unused player slot, not a score: drop it.
+      .filter(s => !(s && s.value !== null && s.value !== undefined && Number(s.value) === 0))
       .map((s, i) => ({ slot: Number(s?.slot) || i + 1, value: Number.isFinite(Number(s?.value)) && Number(s?.value) > 0 ? Math.round(Number(s.value)) : null }))
       .sort((a, b) => a.slot - b.slot);
   } else if (r.value != null) {
