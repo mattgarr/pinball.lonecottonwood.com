@@ -14,7 +14,7 @@ function flagMode() {
   } catch { return null; }
 }
 const FLAG = flagMode();
-const VIDEO_MS = 5000;
+
 
 
 // Point-and-wait score scanner. Opens the live camera and starts scanning by itself:
@@ -27,10 +27,12 @@ const VIDEO_MS = 5000;
 // onFallback(fromTap) — use the phone's regular camera instead.
 const SCAN_MS = 3500;   // long enough to catch displays that alternate (scores <-> high score)
 const EVERY_MS = 250;
-const KEEP = 6;         // frames sent per round, spread evenly over the scan
+const KEEP = 4;         // frames sent per round, spread evenly over the scan
 const ROUNDS = 3;
 const AIM_MS = 1800; // countdown before the first capture, so people can aim
-const MAX_SIDE = 1280;  // cropped frame size sent to the AI
+const MAX_SIDE = 1024;  // cropped frame size sent to the AI
+const CLIP_SIDE = 960;  // video clip size
+const CLIP_BPS = 1_500_000; // video bitrate: small uploads matter more than pixels
 
 function sharpness(ctx, w, h) {
   const { data } = ctx.getImageData(0, 0, w, h);
@@ -55,11 +57,14 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
   const { machines } = useParty();
   const machineId = testMode?.machineId ?? machineIdFromUrl();
   const machine = machines.find(m => m.id === machineId);
-  const isVideo = testMode ? testMode.mode === 'video'
-    : FLAG ? FLAG.startsWith('video') : machine?.scan_mode === 'video';
-  const vfps = testMode ? (testMode.fps || 4)
-    : FLAG?.startsWith('video') ? (Number(FLAG.replace('video', '')) || 4) : (machine?.scan_fps || 4);
-  const guide = captureTips(machine);
+  // Method: 'burst' (2.5 s clip), 'video' (5 s clip) or 'frames' (still frames, voted).
+  const mode = testMode ? testMode.mode
+    : FLAG ? (FLAG === 'burst' ? 'burst' : FLAG.startsWith('video') ? 'video' : 'frames')
+    : (machine?.scan_mode || 'frames');
+  const isVideo = mode === 'video' || mode === 'burst';
+  const clipMs = mode === 'burst' ? 2500 : 5000;
+  const vfps = testMode?.fps || (FLAG?.startsWith('video') && Number(FLAG.replace('video', ''))) || machine?.scan_fps || (mode === 'burst' ? 10 : 8);
+  const label0 = mode === 'burst' ? 'Burst' : mode === 'video' ? 'Video' : 'Frames';
   const video = useRef(null);
   const box = useRef(null);
   const stream = useRef(null);
@@ -69,6 +74,15 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
   const [round, setRound] = useState(0);
   const [msg, setMsg] = useState('');
   const [count, setCount] = useState(3);
+  const [upload, setUpload] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [job, setJob] = useState(null); // calibration: which method is being sent
+  useEffect(() => {
+    if (phase !== 'reading') return;
+    const t0 = Date.now(); setElapsed(0);
+    const t = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 500);
+    return () => clearInterval(t);
+  }, [phase]);
 
   useEffect(() => {
     alive.current = true;
@@ -139,7 +153,7 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
   async function recordClip() {
     const v = video.current;
     const c = cropRect();
-    const k = Math.min(1, 1280 / Math.max(c.w, c.h));
+    const k = Math.min(1, CLIP_SIDE / Math.max(c.w, c.h));
     const W = Math.round(c.w * k / 2) * 2, H = Math.round(c.h * k / 2) * 2;
     const canvas = Object.assign(document.createElement('canvas'), { width: W, height: H });
     const ctx = canvas.getContext('2d');
@@ -150,20 +164,20 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
     const type = types.find(t => window.MediaRecorder?.isTypeSupported?.(t));
     let rec = null; const chunks = [];
     try {
-      rec = new MediaRecorder(src, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: 5_000_000 });
+      rec = new MediaRecorder(src, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: CLIP_BPS });
       rec.ondataavailable = e => { if (e.data?.size) chunks.push(e.data); };
       rec.start(250);
     } catch { rec = null; }
     let best = { score: -1, url: null };
     const t0 = performance.now(); let n = 0;
-    while (alive.current && performance.now() - t0 < VIDEO_MS) {
+    while (alive.current && performance.now() - t0 < clipMs) {
       ctx.drawImage(v, c.x, c.y, c.w, c.h, 0, 0, W, H);
       if (n++ % 6 === 0) {
         sctx.drawImage(canvas, 0, 0, small.width, small.height);
         const sc = sharpness(sctx, small.width, small.height);
-        if (sc > best.score) best = { score: sc, url: canvas.toDataURL('image/jpeg', 0.85) };
+        if (sc > best.score) best = { score: sc, url: canvas.toDataURL('image/jpeg', 0.75) };
       }
-      setProgress(Math.min(1, (performance.now() - t0) / VIDEO_MS));
+      setProgress(Math.min(1, (performance.now() - t0) / clipMs));
       await sleep(33); // ~30 fps into the recording, so high Gemini sampling rates see distinct frames
     }
     let clip = null;
@@ -175,7 +189,104 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
     return { still: best.url, clip };
   }
 
+  // Calibration: ONE 5-second capture feeds every method (same moment, same glare), then each method
+  // is sent and timed on its own. Returns [{ method, fps, frame, result, captureMs, uploadMs, sendMs, uploadKB, clipSent }].
+  async function captureAll() {
+    const v = video.current;
+    const c = cropRect();
+    const kc = Math.min(1, CLIP_SIDE / Math.max(c.w, c.h));
+    const W = Math.round(c.w * kc / 2) * 2, H = Math.round(c.h * kc / 2) * 2;
+    const clipCanvas = Object.assign(document.createElement('canvas'), { width: W, height: H });
+    const cctx = clipCanvas.getContext('2d');
+    const kf = Math.min(1, MAX_SIDE / Math.max(c.w, c.h));
+    const FW = Math.round(c.w * kf), FH = Math.round(c.h * kf);
+    const frameCanvas = Object.assign(document.createElement('canvas'), { width: FW, height: FH });
+    const fctx = frameCanvas.getContext('2d');
+    const small = Object.assign(document.createElement('canvas'), { width: 200, height: Math.max(1, Math.round(200 * H / W)) });
+    const sctx = small.getContext('2d', { willReadFrequently: true });
+    const types = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+    const type = types.find(t => window.MediaRecorder?.isTypeSupported?.(t));
+    const src = clipCanvas.captureStream ? clipCanvas.captureStream(30) : stream.current;
+    const mkRec = () => {
+      try {
+        const chunks = [];
+        const rec = new MediaRecorder(src, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: CLIP_BPS });
+        rec.ondataavailable = e => { if (e.data?.size) chunks.push(e.data); };
+        rec.start(250);
+        return { rec, chunks };
+      } catch { return null; }
+    };
+    const toUrl = r => new Promise(res => {
+      if (!r) return res(null);
+      r.rec.onstop = () => {
+        const blob = new Blob(r.chunks, { type: (r.rec.mimeType || type || 'video/mp4').split(';')[0] });
+        if (!blob.size) return res(null);
+        const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob);
+      };
+      r.rec.stop();
+    });
+    const burstRec = mkRec(), videoRec = mkRec();
+    let burstClipP = null;
+    const stills = []; let bestBurst = { score: -1 }, bestVideo = { score: -1 };
+    const t0 = performance.now(); let n = 0, lastStill = -1e9;
+    while (alive.current && performance.now() - t0 < 5000) {
+      const t = performance.now() - t0;
+      cctx.drawImage(v, c.x, c.y, c.w, c.h, 0, 0, W, H);
+      if (n++ % 6 === 0) {
+        sctx.drawImage(clipCanvas, 0, 0, small.width, small.height);
+        const sc = sharpness(sctx, small.width, small.height);
+        if (t < 2500 && sc > bestBurst.score) bestBurst = { score: sc, url: clipCanvas.toDataURL('image/jpeg', 0.75) };
+        if (sc > bestVideo.score) bestVideo = { score: sc, url: clipCanvas.toDataURL('image/jpeg', 0.75) };
+        if (t < SCAN_MS && t - lastStill >= EVERY_MS) {
+          fctx.drawImage(v, c.x, c.y, c.w, c.h, 0, 0, FW, FH);
+          stills.push({ score: sc, t, url: frameCanvas.toDataURL('image/jpeg', 0.8) });
+          lastStill = t;
+        }
+      }
+      if (t >= 2500 && !burstClipP) burstClipP = toUrl(burstRec);
+      setProgress(Math.min(1, t / 5000));
+      await sleep(33);
+    }
+    const burstClip = await (burstClipP || toUrl(burstRec));
+    const videoClip = await toUrl(videoRec);
+    // frames: one sharp still from each slice of time
+    const per = Math.ceil(stills.length / KEEP); const picked = [];
+    for (let i = 0; i < stills.length; i += per) { const b = stills.slice(i, i + per).sort((a, b2) => b2.score - a.score)[0]; if (b) picked.push(b); }
+    const frameUrls = picked.sort((a, b) => b.score - a.score).map(f => f.url);
+    stream.current?.getTracks().forEach(t => t.stop());
+
+    const jobs = [
+      { method: 'burst', fps: 10, frame: bestBurst.url, opts: burstClip ? { video: burstClip, fps: 10 } : {}, captureMs: 2500, kb: (bestBurst.url?.length || 0) + (burstClip?.length || 0) },
+      { method: 'video', fps: 8, frame: bestVideo.url, opts: videoClip ? { video: videoClip, fps: 8 } : {}, captureMs: 5000, kb: (bestVideo.url?.length || 0) + (videoClip?.length || 0) },
+      { method: 'frames', fps: null, frame: frameUrls[0], extra: frameUrls.slice(1), opts: {}, captureMs: SCAN_MS, kb: frameUrls.reduce((t, f) => t + f.length, 0) },
+    ];
+    const out = [];
+    for (let i = 0; i < jobs.length && alive.current; i++) {
+      const j = jobs[i];
+      setJob({ i, n: jobs.length, label: j.method });
+      if (!j.frame) { out.push({ ...j, result: null, uploadMs: null, sendMs: null, uploadKB: 0, clipSent: false }); continue; }
+      if (j.extra) scanFrames.set(j.frame, j.extra);
+      setPhase('sending'); setUpload(0);
+      const ts = performance.now();
+      const result = await readScoreFromPhoto(j.frame, { id: machineId }, {
+        ...j.opts,
+        onProgress: p => { if (p.phase === 'upload') setUpload(p.frac); else setPhase('reading'); },
+      });
+      out.push({ method: j.method, fps: j.fps, frame: j.frame, result, captureMs: j.captureMs, uploadMs: result?.uploadMs ?? null,
+        sendMs: Math.round(performance.now() - ts), uploadKB: Math.round(j.kb * 0.75 / 1024), clipSent: !!j.opts.video });
+    }
+    return out;
+  }
+
   async function run() {
+    if (testMode?.all) {
+      setPhase('scanning');
+      const all = await captureAll();
+      if (!alive.current) return;
+      alive.current = false;
+      onResult?.({ all, frame: all.find(a => a.frame)?.frame });
+      return;
+    }
     const rounds = testMode ? 1 : ROUNDS;
     for (let r = 1; r <= rounds && alive.current; r++) {
       const tStart = performance.now();
@@ -193,13 +304,16 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
       const captureMs = Math.round(performance.now() - tStart);
       scanFrames.set(frames[0], frames.slice(1));
       if (!machineId) { finish(frames[0]); return; } // not on a machine page: let the caller read it
-      setPhase('reading');
-      const result = await readScoreFromPhoto(frames[0], { id: machineId }, opts);
+      setPhase('sending'); setUpload(0);
+      const result = await readScoreFromPhoto(frames[0], { id: machineId }, {
+        ...opts,
+        onProgress: p => { if (p.phase === 'upload') setUpload(p.frac); else setPhase('reading'); },
+      });
       if (!alive.current) return;
       if (testMode) {
         alive.current = false;
         stream.current?.getTracks().forEach(t => t.stop());
-        onResult?.({ frame: frames[0], result, ms: Math.round(performance.now() - tStart), captureMs, uploadKB: Math.round(frames.reduce((t, f) => t + f.length, 0) * 0.75 / 1024) + (opts.video ? Math.round(opts.video.length * 0.75 / 1024) : 0), mode: isVideo ? 'video' : 'frames', fps: isVideo ? vfps : null, clipSent: !!opts.video });
+        onResult?.({ frame: frames[0], result, ms: Math.round(performance.now() - tStart), captureMs, uploadMs: result?.uploadMs ?? null, method: mode, uploadKB: Math.round(frames.reduce((t, f) => t + f.length, 0) * 0.75 / 1024) + (opts.video ? Math.round(opts.video.length * 0.75 / 1024) : 0), mode, fps: isVideo ? vfps : null, clipSent: !!opts.video });
         return;
       }
       if (result?.scores?.some(s => s.value > 0)) { readCache.set(frames[0], result); finish(frames[0]); return; }
@@ -226,37 +340,35 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
   const label =
     phase === 'starting' ? 'Starting camera…'
     : phase === 'aiming' ? `Aim at the scores… ${count}`
-    : phase === 'scanning' ? (round > 1 ? 'Watching for the scores…' : 'Hold on the scores… tilt the phone slightly')
-    : phase === 'reading' ? 'Reading the scores…'
+    : phase === 'scanning' ? (testMode?.all ? 'Recording 5 s · hold steady, tilt slightly' : round > 1 ? 'Watching for the scores…' : 'Hold steady · tilt slightly')
+    : phase === 'sending' ? (job ? `Testing ${job.i + 1} of ${job.n} (${job.label}): sending…` : 'Sending…')
+    : phase === 'reading' ? (job ? `Testing ${job.i + 1} of ${job.n} (${job.label}): reading… ${elapsed}s` : `Reading the scores… ${elapsed}s`)
     : phase === 'waiting' ? 'Waiting for the scores screen…'
     : "Couldn't spot the scores";
 
   return (
     <div className="scanner" role="dialog" aria-label="Scan the score display">
       <video ref={video} className="scanner-video" playsInline muted />
-      <div ref={box} className={`scanner-frame ${guide.shape}${phase === 'reading' ? ' reading' : ''}`} />
+      <div ref={box} className={`scanner-frame ${guide.shape}${phase === 'reading' || phase === 'sending' ? ' reading' : ''}`} />
       <div className="scanner-top">
-        <div className="scanner-hint">
-          {guide.aim}
-          <div className="scanner-hint-sub">{guide.note || 'Tilt the phone a little while it scans to dodge glare.'}</div>
-          {(testMode || FLAG) && <span className="scanner-badge">{isVideo ? `VIDEO · ${vfps} fps` : 'FRAMES'}{testMode ? ' · TEST' : ''}</span>}
-        </div>
+        <span className="scanner-pill">{machine?.name}{testMode?.all ? ' · calibration' : (testMode || FLAG) ? ` · ${label0}${isVideo ? ` ${vfps}fps` : ''}${testMode ? ' · test' : ''}` : ''}</span>
         <button type="button" className="scanner-x" onClick={() => { alive.current = false; onCancel(); }} aria-label="Cancel">✕</button>
       </div>
       <div className="scanner-bottom">
         <div className="scanner-tip">{label}</div>
-        {(phase === 'scanning' || phase === 'reading') && (
-          <div className={`scanner-bar${phase === 'reading' ? ' pulse' : ''}`}><span style={{ width: `${phase === 'reading' ? 100 : Math.round(progress * 100)}%` }} /></div>
-        )}
+        {(phase === 'starting' || phase === 'aiming') && <div className="scanner-sub">{guide.aim}</div>}
+        {phase === 'scanning' && <div className="scanner-bar"><span style={{ width: `${Math.round(progress * 100)}%` }} /></div>}
+        {phase === 'sending' && <div className="scanner-bar send"><span style={{ width: `${Math.round(upload * 100)}%` }} /></div>}
+        {phase === 'reading' && <div className="scanner-spinner" aria-hidden="true" />}
         {phase === 'waiting' && (
-          <div className="muted small scanner-sub">
+          <div className="scanner-sub">
             {msg && /high|attract|not visible|champion/i.test(msg) ? 'The display is showing something else right now. ' : ''}
             Keep pointing at it. Many machines cycle back to the scores.
           </div>
         )}
         {phase === 'gaveup' ? (
           <>
-            <div className="muted small scanner-sub">Tip: scan right after the game ends, while the final scores are up.</div>
+            <div className="scanner-sub">Tip: scan right after the game ends, while the final scores are up.</div>
             <button type="button" className="scanner-go" onClick={retry}>↻ Scan again</button>
             <button type="button" className="linkbtn small scanner-alt" onClick={() => { alive.current = false; onCancel(); }}>Type it instead</button>
           </>

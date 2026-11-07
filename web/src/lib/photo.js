@@ -30,28 +30,31 @@ export const scanFrames = new Map();
 // Reads the live scanner already did, keyed by the frame it hands back (avoids a second AI call).
 export const readCache = new Map();
 
-// Sends the photo to the read-score function. Resolves to
-//   { scores: [{ slot, value }], confidence: 'high'|'low', note, photoPath }
+// Sends the photo (plus scan frames / video clip) to the read-score function. Resolves to
+//   { scores: [{ slot, value }], confidence: 'high'|'low', note, photoPath, uploadMs }
 // or null if the service is unreachable (the UI then falls back to the keypad).
+// opts: { video, fps, onProgress({ phase: 'upload'|'reading', frac }) }
 export async function readScoreFromPhoto(jpegDataUrl, machine, opts = {}) {
   if (readCache.has(jpegDataUrl)) return readCache.get(jpegDataUrl);
-  const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), 40000); // never leave "Reading…" hanging
-  try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/read-score`, {
-      method: 'POST',
-      signal: ctl.signal,
-      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
-      body: JSON.stringify({ token: getToken(), machine_id: machine.id, image: jpegDataUrl, extra: scanFrames.get(jpegDataUrl) ?? [], video: opts.video, fps: opts.fps }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!data) return null;
-    if (data.photoPath) photoPaths.set(jpegDataUrl, data.photoPath);
-    if (data.error) return { scores: [], confidence: 'low', note: data.error, photoPath: null };
-    return data;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
+  const body = JSON.stringify({ token: getToken(), machine_id: machine.id, image: jpegDataUrl, extra: scanFrames.get(jpegDataUrl) ?? [], video: opts.video, fps: opts.fps });
+  const t0 = performance.now();
+  const { data, upDone } = await new Promise(resolve => {
+    const xhr = new XMLHttpRequest();
+    let upDoneAt = null;
+    xhr.open('POST', `${SUPABASE_URL}/functions/v1/read-score`);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('apikey', SUPABASE_KEY);
+    xhr.timeout = 45000; // never leave "Reading…" hanging
+    xhr.upload.onprogress = e => { if (e.lengthComputable) opts.onProgress?.({ phase: 'upload', frac: e.loaded / e.total }); };
+    xhr.upload.onload = () => { upDoneAt = performance.now(); opts.onProgress?.({ phase: 'reading' }); };
+    xhr.onload = () => { let d = null; try { d = JSON.parse(xhr.responseText); } catch { /* bad response */ } resolve({ data: d, upDone: upDoneAt }); };
+    xhr.onerror = xhr.ontimeout = xhr.onabort = () => resolve({ data: null, upDone: upDoneAt });
+    opts.onProgress?.({ phase: 'upload', frac: 0 });
+    xhr.send(body);
+  });
+  if (!data) return null;
+  data.uploadMs = upDone ? Math.round(upDone - t0) : null;
+  if (data.photoPath) photoPaths.set(jpegDataUrl, data.photoPath);
+  if (data.error) return { scores: [], confidence: 'low', note: data.error, photoPath: null, uploadMs: data.uploadMs };
+  return data;
 }

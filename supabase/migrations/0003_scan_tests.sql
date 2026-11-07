@@ -52,3 +52,13 @@ grant execute on function
   public.host_scan_tests(text),
   public.host_set_scan_mode(text, int, text, int)
 to anon, authenticated;
+
+-- 'burst' (2.5 s low-bitrate clip) added after the first Centaur tests; default for all machines.
+create or replace function public.host_set_scan_mode(p_pass text, p_machine_id int, p_mode text, p_fps int)
+returns void language plpgsql security definer set search_path = public, extensions as $$
+begin
+  perform public._require_host(p_pass);
+  if p_mode not in ('frames', 'video', 'burst') then raise exception 'Unknown scan mode.'; end if;
+  update public.machines set scan_mode = p_mode, scan_fps = greatest(1, least(15, coalesce(p_fps, 4))) where id = p_machine_id;
+end $$;
+update public.machines set scan_mode = 'burst', scan_fps = 10 where true;

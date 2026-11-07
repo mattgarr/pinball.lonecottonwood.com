@@ -1261,3 +1261,25 @@ button.led:active { filter: brightness(1.25); }
 .tips-card summary { cursor: pointer; }
 .timing { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: #ddd; margin-bottom: 6px; }
 .host-link { align-self: center; margin-top: 18px; font-size: 13px; color: var(--muted); opacity: 0.7; }
+/* scanner v3: tidy overlay */
+.scanner-top { justify-content: space-between; }
+.scanner-pill { background: rgba(0,0,0,0.6); color: #fff; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 999px; }
+.scanner-hint, .scanner-badge { display: none; }
+.scanner-sub { color: #e6e6f0; font-size: 14px; max-width: 380px; line-height: 1.35; }
+.scanner-bar.send span { background: #7ee0a1; }
+.scanner-spinner { width: 34px; height: 34px; border-radius: 999px; border: 4px solid rgba(255,255,255,0.2); border-top-color: var(--accent); animation: scan-spin 0.8s linear infinite; }
+@keyframes scan-spin { to { transform: rotate(360deg); } }
+.test-photo { width: 100%; border-radius: 12px; }
+.cmp { display: flex; flex-direction: column; gap: 4px; background: #000; border-radius: 12px; padding: 10px; }
+.cmp-row { display: grid; grid-template-columns: 1.1fr 2fr 0.6fr 0.6fr; gap: 6px; font-size: 14px; padding: 6px 4px; border-radius: 8px; align-items: center; }
+.cmp-row.head { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+.cmp-row .mono { color: var(--accent); }
+.cmp-row.good { background: rgba(34,197,94,0.18); } .cmp-row.bad { background: rgba(239,68,68,0.18); }
+.cal-list { display: flex; flex-direction: column; gap: 10px; }
+.cal-row { background: var(--panel); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.cal-name { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.cal-cells { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.cal-cell { text-align: center; font-size: 12px; padding: 6px; border-radius: 8px; border: 1px dashed rgba(255,255,255,0.2); color: var(--muted); }
+.cal-cell.good { background: rgba(34,197,94,0.22); border: 1px solid #22c55e; color: #fff; }
+.cal-cell.bad { background: rgba(239,68,68,0.22); border: 1px solid #ef4444; color: #fff; }
+.cal-cell.mixed { background: rgba(255,204,0,0.18); border: 1px solid #ffcc00; color: #fff; }

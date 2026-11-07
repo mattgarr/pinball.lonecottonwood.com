@@ -5,121 +5,64 @@ import { getHostPass, host, photoUrl, useParty } from '../lib/store.js';
 import { machineArt } from '../lib/machineArt.js';
 import { photoPaths } from '../lib/photo.js';
 import { fmt } from '../lib/scoring.js';
-import Scanner from '../components/Scanner.jsx';
 import { captureTips, GENERAL_TIPS } from '../lib/captureTips.js';
+import Scanner from '../components/Scanner.jsx';
 
-// Host "Test & calibrate": a guided matrix of machine × capture method. Each test captures, shows what
-// the reader got, and records the truth so we can measure accuracy/speed and pick the best method per machine.
+// Host "Test & calibrate": ONE capture per machine. The scanner records 5 seconds once and runs every
+// method on that same footage (burst clip, 5 s clip, still frames), timing each. The host confirms the
+// real scores once; we log a result per method and recommend the best method per machine / display type.
 const METHODS = [
-  { key: 'frames', label: 'Frames', mode: 'frames', fps: null, blurb: '6 sharp frames over 4 s, cropped, each read separately, then voted.' },
-  { key: 'video4', label: 'Video 4', mode: 'video', fps: 4, blurb: '5-second clip, AI samples 4 frames/second.' },
-  { key: 'video8', label: 'Video 8', mode: 'video', fps: 8, blurb: '5-second clip, AI samples 8 frames/second.' },
-  { key: 'video15', label: 'Video 15', mode: 'video', fps: 15, blurb: '5-second clip, AI samples 15 frames/second.' },
+  { key: 'burst', label: 'Burst', mode: 'burst', fps: 10 },
+  { key: 'video', label: 'Video 5s', mode: 'video', fps: 8 },
+  { key: 'frames', label: 'Frames', mode: 'frames', fps: null },
 ];
-const CONDITIONS = ['lights off', 'lights on', 'glare', 'multiplayer', 'alternating screen', 'close up', 'whole backbox'];
-const methodOf = t => (t.method === 'video' ? `video${t.fps}` : 'frames');
-
+const methodKey = t => (t.method === 'burst' ? 'burst' : t.method === 'video' ? 'video' : 'frames');
+const CONDITIONS = ['lights off', 'lights on', 'glare', 'multiplayer', 'alternating screen'];
 const TYPE_LABEL = { '7-segment': '7-segment', alphanumeric: 'alphanumeric', 'dot-matrix': 'dot-matrix', 'modern-lcd': 'LCD' };
+const sec = ms => (ms == null ? '?' : (ms / 1000).toFixed(1));
+const scoresKey = arr => (arr ?? []).filter(s => s.value > 0).map(s => `${s.slot}:${s.value}`).sort().join(',');
 
 export default function HostTest() {
   const { machines, me } = useParty();
   const [tests, setTests] = useState([]);
   const [err, setErr] = useState('');
-  const [cell, setCell] = useState(null);      // { machine, method }
+  const [machine, setMachine] = useState(null);  // machine being calibrated
   const [conds, setConds] = useState([]);
   const [scanning, setScanning] = useState(false);
-  const [review, setReview] = useState(null);  // { frame, result, ms, ... }
-  const [truth, setTruth] = useState({});      // slot -> string
-  const [saving, setSaving] = useState(false);
-  const [view, setView] = useState('grid');    // grid | results
-  const [run, setRun] = useState(null);        // guided run: { machineId, idx, results: [{label, correct, ms}], done }
-  const [focus, setFocus] = useState(() => { try { return Number(localStorage.getItem('pw.testFocus')) || null; } catch { return null; } });
-  const pickFocus = id => { setFocus(id); try { id ? localStorage.setItem('pw.testFocus', String(id)) : localStorage.removeItem('pw.testFocus'); } catch { /* ignore */ } };
+  const [review, setReview] = useState(null);    // { all: [...] }
+  const [truth, setTruth] = useState({});
+  const [saved, setSaved] = useState(null);      // per-method verdicts after save
+  const [busy, setBusy] = useState(false);
 
-  async function load() {
-    try { setTests(await host.scanTests()); } catch (e) { setErr(e.message); }
-  }
+  async function load() { try { setTests(await host.scanTests()); } catch (e) { setErr(e.message); } }
   useEffect(() => { load(); }, []);
 
   const stats = useMemo(() => {
     const s = {};
     for (const t of tests) {
-      const k = `${t.machine_id}:${methodOf(t)}`;
-      s[k] ??= { n: 0, ok: 0, ms: 0, ai: 0 };
-      s[k].n++; if (t.correct) s[k].ok++; s[k].ms += t.ms || 0; s[k].ai += (t.ms || 0) - (t.result?.captureMs || 0);
+      const k = `${t.machine_id}:${methodKey(t)}`;
+      s[k] ??= { n: 0, ok: 0, hi: 0, ms: 0 };
+      s[k].n++; if (t.correct) s[k].ok++; if (t.result?.confidence === 'high') s[k].hi++; s[k].ms += t.ms || 0;
     }
     return s;
   }, [tests]);
 
   if (!getHostPass()) return <div className="screen"><div className="err">Unlock Host first.</div><Link className="link" to="/host">Go to Host →</Link></div>;
-  if (!me) return <div className="screen"><div className="err">Join as a player on this phone first (the scanner needs a player). Then come back.</div><Link className="link" to="/join">Join →</Link></div>;
-
-  const scope = focus ? machines.filter(m => m.id === focus) : machines;
-  const nextCell = () => {
-    for (const m of scope) for (const meth of METHODS) if (!stats[`${m.id}:${meth.key}`]) return { machine: m, method: meth };
-    return null;
-  };
-
-  function openCell(c) { setCell(c); setReview(null); setErr(''); }
-
-  // Guided run: every method on one machine, in order.
-  function startRun(m) {
-    pickFocus(m.id);
-    setRun({ machineId: m.id, idx: 0, results: [], done: false });
-    openCell({ machine: m, method: METHODS[0] });
-  }
-  function advanceRun(entry) {
-    if (!run) { setCell(null); return; }
-    const results = entry ? [...run.results, entry] : run.results;
-    const idx = run.idx + 1;
-    const m = machines.find(x => x.id === run.machineId);
-    if (idx < METHODS.length) { setRun({ ...run, idx, results }); openCell({ machine: m, method: METHODS[idx] }); }
-    else { setRun({ ...run, idx, results, done: true }); setCell(null); }
-  }
-
-  function onResult(r) {
-    setScanning(false);
-    setReview(r);
-    const t = {};
-    for (const s of r.result?.scores ?? []) t[s.slot] = String(s.value);
-    setTruth(t);
-  }
-
-  async function save(correct) {
-    setSaving(true); setErr('');
-    const truthArr = Object.entries(truth)
-      .map(([slot, v]) => ({ slot: Number(slot), value: Number(String(v).replace(/\D/g, '')) }))
-      .filter(x => x.value > 0).sort((a, b) => a.slot - b.slot);
-    const got = (review.result?.scores ?? []).map(s => `${s.slot}:${s.value}`).sort().join(',');
-    const want = truthArr.map(s => `${s.slot}:${s.value}`).join(',');
-    try {
-      await host.logScanTest({
-        machineId: cell.machine.id, method: cell.method.mode, fps: cell.method.fps, conditions: conds.join(', '),
-        truth: truthArr, result: { ...(review.result ?? {}), captureMs: review.captureMs, uploadKB: review.uploadKB }, correct: correct ?? got === want, ms: review.ms,
-        photoPath: review.result?.photoPath || photoPaths.get(review.frame) || null,
-      });
-      await load();
-      const ok = correct ?? got === want;
-      setReview(null);
-      setErr(`Saved ✓ ${cell.machine.name} · ${cell.method.label}: ${ok ? 'right' : 'wrong'}`);
-      advanceRun({ label: cell.method.label, correct: ok, ms: review.ms });
-    } catch (e) { setErr(e.message); }
-    finally { setSaving(false); }
-  }
+  if (!me) return <div className="screen"><div className="err">Join as a player on this phone first (the scanner needs one), then come back.</div><Link className="link" to="/join">Join →</Link></div>;
 
   function bestFor(m) {
     let best = null;
     for (const meth of METHODS) {
       const st = stats[`${m.id}:${meth.key}`]; if (!st) continue;
-      const score = st.ok / st.n - (st.ms / st.n) / 600000; // accuracy first, speed breaks ties
-      if (!best || score > best.score) best = { meth, score, st };
+      // accuracy first, then how often it's sure (fewer double-checks), then speed
+      const score = st.ok / st.n + 0.2 * (st.hi / st.n) - (st.ms / st.n) / 100000;
+      if (!best || score > best.score) best = { meth, st, score };
     }
     return best;
   }
-  // Apply this machine's winning method to it, or to every machine with the same display type.
   async function useBest(m, allOfType = false) {
     const best = bestFor(m);
-    if (!best) { setErr('Test at least one method first.'); return; }
+    if (!best) return;
     const targets = allOfType ? machines.filter(x => x.display_type === m.display_type) : [m];
     try {
       for (const t of targets) await host.setScanMode(t.id, best.meth.mode, best.meth.fps || 4);
@@ -127,28 +70,70 @@ export default function HostTest() {
     } catch (e) { setErr(e.message); }
   }
 
-  // ---------- capture/review screen ----------
-  if (cell) {
-    const m = cell.machine, meth = cell.method;
+  function start(m) { setMachine(m); setReview(null); setSaved(null); setErr(''); }
+
+  function onResult(r) {
+    setScanning(false);
+    setReview(r);
+    // Pre-fill the truth with the reading most methods agree on (prefer confident ones).
+    const tally = {};
+    for (const a of r.all) for (const s of a.result?.scores ?? []) {
+      const k = `${s.slot}:${s.value}`; tally[k] = (tally[k] || 0) + (a.result.confidence === 'high' ? 2 : 1);
+    }
+    const bySlot = {};
+    for (const [k, w] of Object.entries(tally)) {
+      const [slot, value] = k.split(':');
+      if (!bySlot[slot] || w > bySlot[slot].w) bySlot[slot] = { value, w };
+    }
+    setTruth(Object.fromEntries(Object.entries(bySlot).map(([slot, x]) => [slot, x.value])));
+  }
+
+  async function save() {
+    setBusy(true); setErr('');
+    const truthArr = Object.entries(truth).map(([slot, v]) => ({ slot: Number(slot), value: Number(String(v).replace(/\D/g, '')) }))
+      .filter(x => x.value > 0).sort((a, b) => a.slot - b.slot);
+    const want = scoresKey(truthArr);
+    const verdicts = [];
+    try {
+      for (const a of review.all) {
+        const correct = !!a.result && scoresKey(a.result.scores) === want;
+        verdicts.push({ method: a.method, correct });
+        await host.logScanTest({
+          machineId: machine.id, method: a.method, fps: a.fps, conditions: conds.join(', '), truth: truthArr,
+          result: { ...(a.result ?? {}), captureMs: a.captureMs, uploadMs: a.uploadMs, sendMs: a.sendMs, uploadKB: a.uploadKB, clipSent: a.clipSent },
+          correct, ms: a.captureMs + (a.sendMs || 0),
+          photoPath: a.result?.photoPath || photoPaths.get(a.frame) || null,
+        });
+      }
+      await load();
+      setSaved(verdicts);
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  }
+
+  const nextMachine = () => machines.find(m => m.id !== machine?.id && !METHODS.some(x => stats[`${m.id}:${x.key}`]))
+    || machines.find(m => m.id !== machine?.id);
+
+  // ---------------- one machine ----------------
+  if (machine) {
+    const m = machine, tips = captureTips(m);
+    const best = bestFor(m);
+    const sameType = machines.filter(x => x.display_type === m.display_type);
     return (
       <div className="screen test-page">
-        <button className="back linkbtn" onClick={() => { setCell(null); setRun(null); }}>← {run ? 'stop run' : 'test grid'}</button>
-        {run && <div className="run-progress">Test {run.idx + 1} of {METHODS.length} on {m.name}{METHODS.map((x, i) => <span key={x.key} className={`rp-dot${i < run.idx ? ' done' : i === run.idx ? ' now' : ''}`} />)}</div>}
+        <button className="back linkbtn" onClick={() => setMachine(null)}>← all machines</button>
         <div className="test-head">
           <img src={machineArt(m.name)} alt="" />
-          <div>
-            <div className="test-machine">{m.name}</div>
-            <div className="test-method">{meth.label}</div>
-          </div>
+          <div><div className="test-machine">{m.name}</div><div className="muted small">one capture tests all 3 methods</div></div>
         </div>
-        {!review ? (
+
+        {!review && (
           <>
             <ol className="test-steps">
-              <li>Finish a game on <strong>{m.name}</strong> (or leave its final scores showing). Multiplayer is a great test. Write down or remember the real scores.</li>
-              <li><strong>Aim:</strong> {captureTips(m).aim}</li>
-              {captureTips(m).note && <li>{captureTips(m).note}</li>}
-              <li><strong>This test:</strong> {meth.blurb}</li>
-              <li>After the 3-2-1, hold steady and tilt the phone slightly to move glare around.</li>
+              <li>Finish a game on <strong>{m.name}</strong> and note the real scores (2+ players is a great test).</li>
+              <li><strong>Aim:</strong> {tips.aim}</li>
+              {tips.note && <li>{tips.note}</li>}
+              <li>Tap capture. After 3-2-1 it records 5 seconds: hold steady and tilt slightly. Then it tests each method (about 30 s).</li>
             </ol>
             <div className="test-conds">
               {CONDITIONS.map(c => (
@@ -156,48 +141,60 @@ export default function HostTest() {
                   onClick={() => setConds(x => x.includes(c) ? x.filter(y => y !== c) : [...x, c])}>{c}</button>
               ))}
             </div>
-            <button className="cta" onClick={() => setScanning(true)}>📸 Start capture</button>
-            {run && <button className="linkbtn small" onClick={() => advanceRun(null)}>Skip this method</button>}
-          </>
-        ) : (
-          <>
-            <div className="test-result">
-              {review.frame && <img src={review.frame} alt="captured" />}
-              <div className="test-got">
-                <div className="timing">
-                  <span>⏱ <strong>{(review.ms / 1000).toFixed(1)} s</strong> total</span>
-                  <span>capture {(review.captureMs / 1000).toFixed(1)} s</span>
-                  <span>AI {((review.ms - review.captureMs) / 1000).toFixed(1)} s</span>
-                  <span>{review.uploadKB} KB sent</span>
-                </div>
-                <div className="muted small">Reader got{review.mode === 'video' ? ` (video ${review.fps} fps${review.clipSent ? '' : ', NO CLIP: still only'})` : ''}:</div>
-                {review.result?.scores?.length
-                  ? review.result.scores.map(s => <div key={s.slot} className="mono">P{s.slot}: {fmt(s.value)}</div>)
-                  : <div className="muted">nothing{review.result?.note ? `: ${review.result.note}` : ''}</div>}
-                {review.result?.confidence && <div className="muted small">confidence: {review.result.confidence}</div>}
-              </div>
-            </div>
-            <button className="cta" disabled={saving} onClick={() => save(true)}>✅ Correct</button>
-            <div className="card-lite">
-              <div className="small"><strong>Wrong or missing?</strong> Enter what the displays really showed:</div>
-              <div className="truth-grid">
-                {[1, 2, 3, 4].map(slot => (
-                  <label key={slot}>P{slot}
-                    <input inputMode="numeric" value={truth[slot] ?? ''} placeholder="—"
-                      onChange={e => setTruth(t => ({ ...t, [slot]: e.target.value.replace(/\D/g, '') }))} />
-                  </label>
-                ))}
-              </div>
-              <button className="secondary" disabled={saving} onClick={() => save(null)}>Save real scores</button>
-            </div>
-            <button className="linkbtn small" onClick={() => setReview(null)}>Discard and capture again</button>
-            <div className="muted small">The game's over and scores are gone? Leave this screen open, play another game, then capture again.</div>
+            <button className="cta" onClick={() => setScanning(true)}>📸 Capture</button>
           </>
         )}
-        {err && <div className="err">{err}</div>}
+
+        {review && (
+          <>
+            {review.frame && <img className="test-photo" src={review.frame} alt="captured" />}
+            <div className="cmp">
+              <div className="cmp-row head"><span>Method</span><span>Read</span><span>Sure?</span><span>Time</span></div>
+              {review.all.map(a => {
+                const v = saved?.find(x => x.method === a.method);
+                return (
+                  <div key={a.method} className={`cmp-row${v ? (v.correct ? ' good' : ' bad') : ''}`}>
+                    <span>{METHODS.find(x => x.key === a.method)?.label}{v ? (v.correct ? ' ✅' : ' ❌') : ''}</span>
+                    <span className="mono">{a.result?.scores?.length ? a.result.scores.map(s => `P${s.slot} ${fmt(s.value)}`).join(' · ') : (a.result ? '—' : 'failed')}</span>
+                    <span>{a.result?.confidence === 'high' ? 'yes' : a.result ? 'no' : ''}</span>
+                    <span className="mono" title={`capture ${sec(a.captureMs)} + send ${sec(a.uploadMs)} + AI ${sec(a.result?.ms)}`}>{sec(a.captureMs + (a.sendMs || 0))}s</span>
+                  </div>
+                );
+              })}
+              <div className="muted small">Time = capture + send + AI. Tap a time to see the split.</div>
+            </div>
+
+            {!saved ? (
+              <div className="card-lite">
+                <div className="small"><strong>Real scores</strong> (filled in from the best guess; fix anything wrong):</div>
+                <div className="truth-grid">
+                  {[1, 2, 3, 4].map(slot => (
+                    <label key={slot}>Player {slot}
+                      <input inputMode="numeric" value={truth[slot] ?? ''} placeholder="not playing"
+                        onChange={e => setTruth(t => ({ ...t, [slot]: e.target.value.replace(/\D/g, '') }))} />
+                    </label>
+                  ))}
+                </div>
+                <button className="cta" disabled={busy} onClick={save}>{busy ? 'Saving…' : '✅ These are the real scores. Save'}</button>
+                <button className="linkbtn small" onClick={() => setReview(null)}>Discard and capture again</button>
+              </div>
+            ) : (
+              <div className="card-lite">
+                {best && <div>Best for {m.name} so far: <strong>{best.meth.label}</strong> ({best.st.ok}/{best.st.n} right, sure {best.st.hi}/{best.st.n}, {sec(best.st.ms / best.st.n)} s)</div>}
+                <div className="muted small">Now using: {m.scan_mode}</div>
+                {best && <button className="secondary" onClick={() => useBest(m)}>Use {best.meth.label} for {m.name}</button>}
+                {best && sameType.length > 1 && <button className="secondary" onClick={() => useBest(m, true)}>Use for all {TYPE_LABEL[m.display_type]} ({sameType.map(x => x.name).join(', ')})</button>}
+                <button className="secondary" onClick={() => { setReview(null); setSaved(null); }}>↻ Capture {m.name} again</button>
+                {nextMachine() && <button className="cta" onClick={() => start(nextMachine())}>▶ Next machine: {nextMachine().name}</button>}
+              </div>
+            )}
+          </>
+        )}
+
+        {err && <div className={err.startsWith('✓') ? 'ok' : 'err'}>{err}</div>}
         {scanning && createPortal(
           <Scanner
-            testMode={{ mode: meth.mode, fps: meth.fps, machineId: m.id }}
+            testMode={{ all: true, machineId: m.id }}
             onResult={onResult}
             onCancel={() => setScanning(false)}
             onFallback={() => { setScanning(false); setErr('Camera unavailable on this device/browser.'); }}
@@ -209,111 +206,50 @@ export default function HostTest() {
     );
   }
 
-  // ---------- end of a guided run ----------
-  if (run?.done) {
-    const m = machines.find(x => x.id === run.machineId);
-    const best = bestFor(m);
-    const sameType = machines.filter(x => x.display_type === m.display_type);
-    return (
-      <div className="screen test-page">
-        <h1>{m.name}: done 🎉</h1>
-        <div className="card-lite">
-          {run.results.map((r, i) => <div key={i} className="tr-row"><span>{r.label}</span><span>{r.correct ? '✅' : '❌'} {(r.ms / 1000).toFixed(1)} s total</span></div>)}
-          {!run.results.length && <div className="muted small">All methods skipped.</div>}
-        </div>
-        {best && (
-          <div className="card-lite">
-            <div>Best so far for {m.name}: <strong>{best.meth.label}</strong> ({best.st.ok}/{best.st.n} right, {(best.st.ms / best.st.n / 1000).toFixed(1)} s)</div>
-            <button className="cta" onClick={() => useBest(m)}>Use {best.meth.label} for {m.name}</button>
-            {sameType.length > 1 && <button className="secondary" onClick={() => useBest(m, true)}>Use for all {TYPE_LABEL[m.display_type] || m.display_type} machines ({sameType.map(x => x.name).join(', ')})</button>}
-          </div>
-        )}
-        {err && <div className={/^(✓|Saved)/.test(err) ? 'ok' : 'err'}>{err}</div>}
-        <button className="secondary" onClick={() => startRun(m)}>↻ Run {m.name} again</button>
-        {(() => { const nx = machines.find(x => x.id !== m.id && !METHODS.some(meth => stats[`${x.id}:${meth.key}`])); return nx ? <button className="cta" onClick={() => startRun(nx)}>▶ Next machine: {nx.name}</button> : null; })()}
-        <button className="linkbtn small" onClick={() => setRun(null)}>Back to the grid</button>
-      </div>
-    );
-  }
-
-  // ---------- grid / results ----------
-  const done = Object.keys(stats).filter(k => scope.some(m => k.startsWith(m.id + ':'))).length, total = scope.length * METHODS.length;
+  // ---------------- overview ----------------
   return (
     <div className="screen test-page">
       <Link className="back" to="/host">← Host</Link>
       <h1>🧪 Test &amp; calibrate</h1>
-      <p className="muted small">Each cell is one machine × one capture method. Test as many as you can: {done}/{total} tried, {tests.length} captures logged.</p>
-      <div className="row gap">
-        <button className={`chip${view === 'grid' ? ' on' : ''}`} onClick={() => setView('grid')}>Test grid</button>
-        <button className={`chip${view === 'results' ? ' on' : ''}`} onClick={() => setView('results')}>Results</button>
-      </div>
-      {err && <div className={/^(✓|Saved)/.test(err) ? 'ok' : 'err'}>{err}</div>}
+      <p className="muted small">One capture per machine tests all three methods on the same footage. Do each machine once (twice if results disagree), then apply the best.</p>
+      {err && <div className={err.startsWith('✓') ? 'ok' : 'err'}>{err}</div>}
+      {nextMachine() && <button className="cta" onClick={() => start(nextMachine())}>▶ Calibrate {nextMachine().name}</button>}
+      <details className="card-lite tips-card"><summary><strong>How to capture (read once)</strong></summary><ul>{GENERAL_TIPS.map(t => <li key={t}>{t}</li>)}</ul></details>
 
-      <div className="test-focus">
-        <span className="muted small">Machine:</span>
-        <button className={`chip${!focus ? ' on' : ''}`} onClick={() => pickFocus(null)}>All</button>
-        {machines.map(m => <button key={m.id} className={`chip${focus === m.id ? ' on' : ''}`} onClick={() => pickFocus(m.id)}>{m.name}</button>)}
-      </div>
-
-      {view === 'grid' ? (
-        <>
-          <details className="card-lite tips-card"><summary><strong>How to capture (read once)</strong></summary><ul>{GENERAL_TIPS.map(t => <li key={t}>{t}</li>)}</ul></details>
-          {focus
-            ? <button className="cta" onClick={() => startRun(machines.find(x => x.id === focus))}>▶ Run all {METHODS.length} tests on {machines.find(x => x.id === focus)?.name}</button>
-            : <div className="muted small">Pick a machine above to run its guided test, or tap any cell.</div>}
-          {nextCell()
-            ? <button className="secondary" onClick={() => openCell(nextCell())}>Single test: {nextCell().machine.name} · {nextCell().method.label}</button>
-            : <div className="ok">All methods tried{focus ? ' on this machine' : ''}. Tap any cell to test it again, or see Results.</div>}
-          <div className="test-grid">
-            <div />{METHODS.map(m => <div key={m.key} className="tg-head">{m.label}</div>)}
-            {scope.map(m => (
-              <FragmentRow key={m.id} m={m} stats={stats} onPick={meth => openCell({ machine: m, method: meth })} />
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className="test-results">
-          {scope.map(m => (
-            <div key={m.id} className="card-lite">
-              <div className="row spread"><strong>{m.name}</strong><span className="muted small">now: {m.scan_mode === 'video' ? `video ${m.scan_fps}` : 'frames'}</span></div>
-              {METHODS.map(meth => {
-                const st = stats[`${m.id}:${meth.key}`];
-                return <div key={meth.key} className="tr-row"><span>{meth.label}</span><span className="mono">{st ? `${st.ok}/${st.n} right · ${(st.ms / st.n / 1000).toFixed(1)} s (AI ${(st.ai / st.n / 1000).toFixed(1)})` : '—'}</span></div>;
-              })}
+      <div className="cal-list">
+        {machines.map(m => {
+          const best = bestFor(m);
+          return (
+            <div key={m.id} className="cal-row">
+              <div className="cal-name">
+                <strong>{m.name}</strong>
+                <span className="muted small">using {m.scan_mode}{best && best.meth.mode !== m.scan_mode ? ` · best: ${best.meth.label}` : ''}</span>
+              </div>
+              <div className="cal-cells">
+                {METHODS.map(x => {
+                  const st = stats[`${m.id}:${x.key}`];
+                  const cls = !st ? '' : st.ok === st.n ? ' good' : st.ok === 0 ? ' bad' : ' mixed';
+                  return <span key={x.key} className={`cal-cell${cls}`} title={x.label}>{x.label}<br />{st ? `${st.ok}/${st.n} · ${sec(st.ms / st.n)}s` : '—'}</span>;
+                })}
+              </div>
               <div className="row gap">
-                <button className="ghost" onClick={() => useBest(m)}>Use best for {m.name}</button>
-                {machines.filter(x => x.display_type === m.display_type).length > 1 && <button className="ghost" onClick={() => useBest(m, true)}>…for all {TYPE_LABEL[m.display_type]}</button>}
+                <button className="ghost" onClick={() => start(m)}>▶ Test</button>
+                {best && best.meth.mode !== m.scan_mode && <button className="ghost" onClick={() => useBest(m)}>Use {best.meth.label}</button>}
               </div>
             </div>
-          ))}
-          <div className="card-lite">
-            <strong>Recent captures</strong>
-            {[...tests].reverse().slice(0, 30).map(t => (
-              <div key={t.id} className="tr-row small">
-                <span>{machines.find(m => m.id === t.machine_id)?.name} · {methodOf(t)}{t.conditions ? ` · ${t.conditions}` : ''}</span>
-                <span>{t.correct ? '✅' : '❌'} {(t.ms / 1000).toFixed(1)}s {t.photo_path && <a className="link" href={photoUrl(t.photo_path)} target="_blank" rel="noreferrer">photo</a>}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+          );
+        })}
+      </div>
 
-function FragmentRow({ m, stats, onPick }) {
-  return (
-    <>
-      <div className="tg-machine">{m.name}<div className="muted small">{m.scan_mode === 'video' ? `video ${m.scan_fps}` : 'frames'}</div></div>
-      {METHODS.map(meth => {
-        const st = stats[`${m.id}:${meth.key}`];
-        const cls = !st ? '' : st.ok === st.n ? ' good' : st.ok === 0 ? ' bad' : ' mixed';
-        return (
-          <button key={meth.key} className={`tg-cell${cls}`} onClick={() => onPick(meth)}>
-            {st ? `${st.ok}/${st.n}` : '+'}
-          </button>
-        );
-      })}
-    </>
+      <details className="card-lite">
+        <summary><strong>All captures ({tests.length})</strong></summary>
+        {[...tests].reverse().slice(0, 40).map(t => (
+          <div key={t.id} className="tr-row small">
+            <span>{machines.find(m => m.id === t.machine_id)?.name} · {methodKey(t)}{t.conditions ? ` · ${t.conditions}` : ''}</span>
+            <span>{t.correct ? '✅' : '❌'} {sec(t.ms)}s {t.photo_path && <a className="link" href={photoUrl(t.photo_path)} target="_blank" rel="noreferrer">photo</a>}</span>
+          </div>
+        ))}
+      </details>
+    </div>
   );
 }
