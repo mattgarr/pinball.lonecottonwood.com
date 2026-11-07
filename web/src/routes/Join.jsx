@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { actions, useParty } from '../lib/store.js';
 import { fileToAvatarDataUrl } from '../lib/image.js';
 import Avatar from '../components/Avatar.jsx';
-import PixelEmoji from '../components/PixelEmoji.jsx';
+import PixelEmoji, { PixelPhoto } from '../components/PixelEmoji.jsx';
 import Confetti from '../components/Confetti.jsx';
 
 const EMOJIS = [
@@ -86,7 +86,7 @@ export default function Join() {
       <div className="reg-photo">
         <button type="button" className="reg-photo-btn" onClick={() => fileRef.current?.click()}>
           {avatar
-            ? <img className="reg-photo-img" src={avatar} alt="your photo" />
+            ? <PixelPhoto src={avatar} size={84} grid={20} className="reg-photo-img" alt="your photo" />
             : <span className="reg-photo-emoji"><PixelEmoji e={emoji} size={48} grid={16} /></span>}
           <span className="reg-photo-badge">{avatar ? '↺' : <PixelEmoji e="📷" size={20} />}</span>
         </button>

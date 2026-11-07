@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 // Turns any emoji into a chunky 8-bit sprite: draw it on a tiny grid, snap colors and alpha to a few
 // levels, add a dark outline, then show it scaled up with hard pixel edges. Cached per emoji/grid.
 const cache = new Map();
@@ -62,6 +63,60 @@ export default function PixelEmoji({ e, size = 24, grid = 16, className = '', ti
       alt={title || e}
       draggable={false}
       style={{ imageRendering: 'pixelated', width: size, height: size, display: 'inline-block', verticalAlign: 'middle' }}
+    />
+  );
+}
+
+// ---- Pixelated selfies: shrink to a tiny grid, posterize to a retro palette, show with hard edges ----
+const photoCache = new Map();
+function pixelatePhoto(src, grid) {
+  const key = `${grid}|${src}`;
+  if (photoCache.has(key)) return photoCache.get(key);
+  const p = new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = c.height = grid;
+        const x = c.getContext('2d', { willReadFrequently: true });
+        const s = Math.min(img.width, img.height);
+        x.imageSmoothingEnabled = true;
+        x.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, grid, grid);
+        const d = x.getImageData(0, 0, grid, grid);
+        const L = 6;
+        for (let i = 0; i < d.data.length; i += 4) {
+          for (let k = 0; k < 3; k++) {
+            let v = d.data[i + k];
+            v = Math.max(0, Math.min(255, (v - 128) * 1.18 + 128 + 6)); // a touch more contrast/brightness
+            d.data[i + k] = Math.round((v / 255) * (L - 1)) * (255 / (L - 1));
+          }
+          d.data[i + 3] = 255;
+        }
+        x.putImageData(d, 0, 0);
+        resolve(c.toDataURL('image/png'));
+      } catch { resolve(src); }
+    };
+    img.onerror = () => resolve(src);
+    img.src = src;
+  });
+  photoCache.set(key, p);
+  return p;
+}
+
+export function PixelPhoto({ src, size = 32, grid = 28, className = '', alt = '' }) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    pixelatePhoto(src, grid).then(u => { if (alive) setUrl(u); });
+    return () => { alive = false; };
+  }, [src, grid]);
+  return (
+    <img
+      className={`px-photo ${className}`}
+      src={url || src}
+      alt={alt}
+      draggable={false}
+      style={{ imageRendering: 'pixelated', width: size, height: size, objectFit: 'cover', visibility: url ? 'visible' : 'hidden' }}
     />
   );
 }
