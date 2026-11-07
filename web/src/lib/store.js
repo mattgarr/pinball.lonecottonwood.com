@@ -41,7 +41,7 @@ function set(patch) {
 const subscribe = l => { listeners.add(l); return () => listeners.delete(l); };
 
 const PLAYER_COLS = 'id, display_name, emoji, color, avatar, first_timer, created_at';
-const SCORE_COLS = 'id, player_id, machine_id, value, voided, created_at';
+const SCORE_COLS = 'id, player_id, machine_id, value, voided, created_at, logged_by, photo_path, needs_review';
 
 async function fetchAllScores() {
   const out = [];
@@ -173,6 +173,10 @@ async function signIn(result) {
   return me;
 }
 
+import { photoPaths } from './photo.js';
+const photoPathFor = opts => opts?.photoPath || (opts?.photo ? photoPaths.get(opts.photo) : null) || null;
+export const photoUrl = path => (path ? `${SUPABASE_URL}/storage/v1/object/public/score-photos/${path}` : null);
+
 export const actions = {
   async join({ name, pin, emoji, firstTimer, avatar }) {
     const r = await rpc('join_party', { p_name: name, p_pin: pin, p_emoji: emoji, p_first_timer: firstTimer, p_avatar: avatar });
@@ -184,10 +188,19 @@ export const actions = {
     return signIn(r);
   },
   signOut() { setToken(null); set({ me: null }); },
-  async submitScore(machineId, value) {
-    const r = await rpc('submit_score', { p_token: getToken(), p_machine_id: machineId, p_value: value });
+  // opts: { photo } (a data URL that went through readScoreFromPhoto) or { photoPath }.
+  async submitScore(machineId, value, opts = {}) {
+    const r = await rpc('submit_score', { p_token: getToken(), p_machine_id: machineId, p_value: value, p_photo_path: photoPathFor(opts) });
     if (!state.scores.some(s => s.id === r.score_id)) {
       set({ scores: [...state.scores, { id: r.score_id, player_id: state.me?.id, machine_id: machineId, value, voided: false, created_at: new Date().toISOString() }] });
+    }
+    return r;
+  },
+  // Log a score for a friend who played the same game.
+  async submitScoreFor(playerId, machineId, value, opts = {}) {
+    const r = await rpc('submit_score_for', { p_token: getToken(), p_player_id: playerId, p_machine_id: machineId, p_value: value, p_photo_path: photoPathFor(opts) });
+    if (!state.scores.some(s => s.id === r.score_id)) {
+      set({ scores: [...state.scores, { id: r.score_id, player_id: playerId, machine_id: machineId, value, voided: false, created_at: new Date().toISOString(), logged_by: state.me?.id }] });
     }
     return r;
   },
@@ -203,6 +216,7 @@ export const host = {
   setStatus: status => hostCall('host_set_status', { p_status: status }),
   reveal: (active, matchDigits = null) => hostCall('host_reveal', { p_active: active, p_match_digits: matchDigits }),
   voidScore: (id, voided) => hostCall('host_void', { p_score_id: id, p_voided: voided }),
+  markReviewed: id => hostCall('host_review', { p_score_id: id }),
   addScore: (playerId, machineId, value) => hostCall('host_add_score', { p_player_id: playerId, p_machine_id: machineId, p_value: value }),
   resetPin: (playerId, pin) => hostCall('host_reset_pin', { p_player_id: playerId, p_new_pin: pin }),
   removePlayer: playerId => hostCall('host_remove_player', { p_player_id: playerId }),

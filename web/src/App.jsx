@@ -1,17 +1,33 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useParty } from './lib/store.js';
+import { captureFakeFlag } from './lib/scoreReader.js';
 import Avatar from './components/Avatar.jsx';
+
+captureFakeFlag(); // read ?fakephoto=… before the join redirect drops the query string
 
 // Pages anyone can see without joining.
 function isPublicPath(p) {
   return p === '/join' || p === '/rejoin' || p === '/host' || p === '/about' || /^\/machine\/\d+\/guide$/.test(p);
 }
 
+function useOnline() {
+  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine !== false));
+  useEffect(() => {
+    const up = () => setOnline(true);
+    const down = () => setOnline(false);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); };
+  }, []);
+  return online;
+}
+
 export default function App() {
   const { me, meChecked, error, ready } = useParty();
   const nav = useNavigate();
   const loc = useLocation();
+  const online = useOnline();
 
   useEffect(() => {
     if (!meChecked) return;
@@ -21,20 +37,31 @@ export default function App() {
     }
   }, [meChecked, me, loc.pathname, nav]);
 
-  if (!meChecked || (!ready && !error)) return <div className="screen center"><div className="muted">Loading…</div></div>;
+  // New screen → start at the top (steps within a machine flow keep their own scroll).
+  useEffect(() => { window.scrollTo(0, 0); }, [loc.pathname, loc.state?.step]);
+
+  if (!meChecked || (!ready && !error)) {
+    return (
+      <div className="boot">
+        <div className="boot-logo">🎯</div>
+        <div className="boot-name">Pinball Wizard</div>
+        <div className="spinner" aria-label="Loading" />
+      </div>
+    );
+  }
 
   return (
     <div className="app">
       <header className="topbar">
-        <button className="brand" onClick={() => nav('/')}>
-          <span className="brand-full">🎯 Pinball Wizard</span>
-          <span className="brand-short">🎯 PW</span>
-        </button>
+        <Link to="/" className="brand" aria-label="Pinball Wizard home">
+          <span className="brand-mark">🎯</span>
+          <span className="brand-word">Pinball Wizard</span>
+        </Link>
         <div className="topbar-right">
           <Link to="/about" className="topbar-link">How to play</Link>
           {me ? (
-            <Link to="/me" className="me" style={{ borderColor: me.color }}>
-              <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={26} />
+            <Link to="/me" className="me" style={{ borderColor: me.color }} aria-label="My progress">
+              <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={28} />
               <span className="name">{me.display_name}</span>
             </Link>
           ) : (
@@ -42,7 +69,11 @@ export default function App() {
           )}
         </div>
       </header>
-      {error && !ready && <div className="offline">Can't reach the scoreboard. Check your connection; it'll retry.</div>}
+      {!online ? (
+        <div className="offline" role="status">📡 You're offline. Scores won't send until Wi-Fi is back.</div>
+      ) : error && !ready ? (
+        <div className="offline" role="status">Can't reach the scoreboard. Retrying…</div>
+      ) : null}
       <main className="main">
         <Outlet />
       </main>

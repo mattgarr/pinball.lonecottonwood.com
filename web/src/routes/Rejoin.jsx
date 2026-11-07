@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { actions, useParty } from '../lib/store.js';
 import Avatar from '../components/Avatar.jsx';
@@ -21,8 +21,13 @@ export default function Rejoin() {
       .sort((a, b) => a.display_name.localeCompare(b.display_name));
   }, [players, q]);
 
+  // Typing the 4th digit signs you in (no hunting for the button).
+  useEffect(() => {
+    if (picked && pin.length === 4 && !busy) submit();
+  }, [pin]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function submit(e) {
-    e.preventDefault();
+    e?.preventDefault();
     if (!/^\d{4}$/.test(pin)) { setErr('Enter your 4-digit PIN.'); return; }
     setBusy(true); setErr('');
     try {
@@ -54,7 +59,9 @@ export default function Rejoin() {
           />
         </label>
         {err && <div className="err">{err}</div>}
-        <button className="primary big" disabled={busy || pin.length !== 4} type="submit">{busy ? 'Checking…' : 'Get back in'}</button>
+        <div className="actionbar">
+          <button className="cta" disabled={busy || pin.length !== 4} type="submit">{busy ? 'Checking…' : 'Get back in'}</button>
+        </div>
         <p className="muted small">Forgot it? Find the host. They can reset your PIN.</p>
       </form>
     );
@@ -65,7 +72,7 @@ export default function Rejoin() {
       <h1>Get back in</h1>
       <p className="muted">Tap your name, then enter your PIN.</p>
       <label className="field">
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search names" autoComplete="off" />
+        <input className="picker-search" value={q} onChange={e => setQ(e.target.value)} placeholder="🔍  Search names" autoComplete="off" autoCorrect="off" spellCheck={false} />
       </label>
       <div className="pick-list">
         {!ready && <div className="muted">Loading…</div>}
@@ -73,7 +80,7 @@ export default function Rejoin() {
         {list.map(p => (
           <button key={p.id} className="pick-row" onClick={() => setPicked(p)}>
             <Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={34} />
-            <span>{p.display_name}</span>
+            <span className="pick-name">{p.display_name}</span>
           </button>
         ))}
       </div>

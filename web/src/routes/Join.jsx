@@ -13,7 +13,7 @@ const EMOJIS = [
 ];
 
 export default function Join() {
-  const { party } = useParty();
+  const { party, me } = useParty();
   const [params] = useSearchParams();
   const next = params.get('next') || '/';
   const [name, setName] = useState('');
@@ -57,8 +57,8 @@ export default function Join() {
           </div>
           <div className="reveal-label">You're in,</div>
           <div className="reveal-team">{welcome.display_name}</div>
-          <p className="welcome-pin">Your PIN <strong>{pin}</strong> gets you back in on any phone. Don't forget it!</p>
-          <button className="primary big" onClick={() => nav(next, { replace: true })}>Let's play →</button>
+          <p className="welcome-pin">Your PIN <strong>{pin}</strong> gets you back in on any phone. Screenshot this if you'll forget it!</p>
+          <button className="cta" onClick={() => nav(next, { replace: true })}>Let's play →</button>
         </div>
       </div>
     );
@@ -72,6 +72,13 @@ export default function Join() {
       <Link to={`/rejoin${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`} className="rejoin-banner">
         Already joined on another phone? <strong>Get back in →</strong>
       </Link>
+
+      {me && !welcome && (
+        <div className="note-ok">
+          This phone is signed in as <strong>{me.display_name}</strong>. Joining makes a new player.{' '}
+          <Link to="/" className="link">Back to machines</Link>
+        </div>
+      )}
 
       {closed && <div className="err">Scoring is closed for the night, so new players can't join.</div>}
 
@@ -101,6 +108,8 @@ export default function Join() {
           maxLength={24}
           placeholder="e.g. Quarter Slayer"
           autoComplete="off"
+          autoCapitalize="words"
+          enterKeyHint="next"
         />
       </label>
 
@@ -131,10 +140,12 @@ export default function Join() {
         <span>First time playing pinball? (There's a prize for that.)</span>
       </label>
 
-      {err && <div className="err">{err}</div>}
-      <button className="primary big" disabled={busy || closed} type="submit">
-        {busy ? 'Joining…' : 'Join'}
-      </button>
+      {err && <div className="err" role="alert">{err}</div>}
+      <div className="actionbar">
+        <button className="cta" disabled={busy || closed} type="submit">
+          {busy ? 'Joining…' : 'Join the party →'}
+        </button>
+      </div>
     </form>
   );
 }

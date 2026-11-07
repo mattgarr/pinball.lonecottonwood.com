@@ -4,14 +4,21 @@ import QR from '../components/QR.jsx';
 import Reveal from '../components/Reveal.jsx';
 import Avatar from '../components/Avatar.jsx';
 import Icon from '../components/Icon.jsx';
-import { machineArt } from '../lib/machineArt.js';
-import { fmtShort } from '../lib/scoring.js';
+import Cabinet from '../components/tv/Cabinet.jsx';
+import Ticker from '../components/tv/Ticker.jsx';
+import Takeover from '../components/tv/Takeover.jsx';
+import Toast from '../components/tv/Toast.jsx';
+import Dmd from '../components/tv/Dmd.jsx';
+import { BOARD_N, useLiveEvents } from '../components/tv/useLiveEvents.js';
 import { CountUp } from '../lib/useCountUp.js';
+import '../tv.css';
 
 export default function TV() {
-  const { machines, party, standings } = useStandings();
+  const { machines, players, scores, party, ready, standings } = useStandings();
   const awards = useAwards(standings, party?.reveal_active ? party.match_digits : null);
+  const live = useLiveEvents(standings, ready);
   const [flash, setFlash] = useState({});
+  const [hot, setHot] = useState({}); // machineId -> true while its cabinet celebrates
   const prev = useRef({});
 
   // Scale the fixed 1600x900 canvas to fill the screen.
@@ -46,127 +53,141 @@ export default function TV() {
     if (up.length) {
       const tok = Date.now();
       setFlash(f => ({ ...f, ...Object.fromEntries(up.map(id => [id, tok])) }));
-      setTimeout(() => setFlash(f => { const c = { ...f }; up.forEach(id => { if (c[id] === tok) delete c[id]; }); return c; }), 1300);
+      setTimeout(() => setFlash(f => { const c = { ...f }; up.forEach(id => { if (c[id] === tok) delete c[id]; }); return c; }), 1600);
     }
   }, [standings]);
 
+  // After a takeover, the cabinet it was about keeps glowing hot for a little while.
+  const tk = live.takeover;
+  useEffect(() => {
+    if (!tk) return;
+    const id = tk.machine.id;
+    setHot(h => ({ ...h, [id]: true }));
+    const t = setTimeout(() => setHot(h => { const c = { ...h }; delete c[id]; return c; }), 20000);
+    return () => clearTimeout(t);
+  }, [tk]);
+
   if (party?.reveal_active) {
-    return <div className="tv-frame"><Reveal standings={standings} awards={awards} /></div>;
+    return <div className="tv-frame tv2-frame"><Reveal standings={standings} awards={awards} /></div>;
   }
 
   const joinURL = `${location.origin}/`;
   const champ = awards.champion;
 
   return (
-    <div className="tv-frame">
-      <div className="tv tv-floor">
-        {party?.status === 'closed' && <div className="tv-closed-banner">Scoring closed · final standings</div>}
+    <div className="tv-frame tv2-frame">
+      <div className="tv tv2">
+        <div className="tv2-drift">
+          {party?.status === 'closed' && <div className="tv2-closed">Scoring closed · final standings</div>}
 
-        <section className="floor-cabinets">
-          {standings.machines.map(({ machine: m, top }) => (
-            <div key={m.id} className="cab">
-              <div className="cab-backbox">
-                <img className="cab-art" src={machineArt(m.name)} alt={m.name} />
+          <header className="tv2-head">
+            <div className="tv2-brand">
+              <span className="tv2-logo">PINBALL<b>WIZARD</b></span>
+              <span className="tv2-stats">{standings.meta.totalPlayers} players · {standings.meta.totalScores} games</span>
+            </div>
+            <Ticker scores={scores} players={players} machines={machines} n={8} />
+          </header>
+
+          <section className="tv2-cabs">
+            {standings.machines.map((entry, i) => (
+              <Cabinet key={entry.machine.id} entry={entry} i={i} hot={!!hot[entry.machine.id]} />
+            ))}
+          </section>
+
+          <div className="tv2-bottom">
+            <div className="pnl pnl-top">
+              <PanelHead icon="crown" title="Top Players" sub={`${standings.meta.rankedPlayers} ranked`} />
+              <div className="pb">
+                {standings.topPlayers.slice(0, BOARD_N).map(st => (
+                  <div key={st.player.id} className={`pr${st.rank <= 3 ? ` p${st.rank}` : ''}${flash[st.player.id] ? ' flash' : ''}`}>
+                    <span className="pr-rank">{st.rank}</span>
+                    <Avatar avatar={st.player.avatar} emoji={st.player.emoji} name={st.player.display_name} color={st.player.color} size={24} />
+                    <span className="pr-name">{st.player.display_name}{st.player.first_timer && <span className="pr-ft">NEW</span>}</span>
+                    <span className="pr-crowns">{st.crowns > 0 && <><Icon name="crown" size={15} stroke={2.2} />{st.crowns > 1 ? <span>×{st.crowns}</span> : null}</>}</span>
+                    <span className="pr-tables">{st.machinesPlayed}/{machines.length}</span>
+                    <Dmd className="pr-val" tone={st.rank === 1 ? 'hot' : undefined}><CountUp value={st.rating} /></Dmd>
+                  </div>
+                ))}
+                {standings.topPlayers.length === 0 && <div className="pnl-empty">Play 2 machines to get on the board</div>}
               </div>
-              <ol className="cab-scores">
-                {top.length ? top.map((s, i) => (
-                  <li key={s.player.id} className={s.rank === 1 ? 'cab-champ' : ''}>
-                    <span className="cab-rank">{s.rank === 1 ? <Icon name="crown" size={13} /> : s.rank}</span>
-                    <Avatar avatar={s.player.avatar} emoji={s.player.emoji} name={s.player.display_name} color={s.player.color} size={19} />
-                    <span className="cab-pname">{s.player.display_name}</span>
-                    <span className="cab-pscore dmd">{fmtShort(s.score)}</span>
-                  </li>
-                )) : <li className="cab-empty">No scores yet</li>}
-              </ol>
+              <div className="pnl-legend">RATING = your average finish across the machines you played (100 = 1st on every one). Best score per machine counts; 2+ machines to be ranked.</div>
             </div>
-          ))}
-        </section>
 
-        <div className="floor-bottom">
-          <div className="board board-top">
-            <div className="dash-head"><h2><span className="h-chip"><Icon name="crown" size={15} /></span>Top Players</h2>
-              <div className="dash-sub">{standings.meta.totalPlayers} playing</div>
+            <div className="pnl pnl-shame">
+              <PanelHead icon="skull" title="Wall of Shame" sub="lowest" />
+              <div className="pb">
+                {standings.bottomPlayers.length ? standings.bottomPlayers.map((st, i) => (
+                  <div key={st.player.id} className="pr shame">
+                    <span className="pr-rank">{i + 1}</span>
+                    <Avatar avatar={st.player.avatar} emoji={st.player.emoji} name={st.player.display_name} color={st.player.color} size={24} />
+                    <span className="pr-name">{st.player.display_name}</span>
+                    <span className="pr-worst">{st.worst ? `${st.worst.rank}/${st.worst.N}` : ''}</span>
+                    <Dmd className="pr-val" tone="red">{st.rating}</Dmd>
+                  </div>
+                )) : <div className="pnl-empty">Nobody… yet</div>}
+              </div>
+              <div className="pnl-legend">Lowest ratings (2+ machines), never anyone on Top Players. Ranked with love. 💀</div>
             </div>
-            <div className="pboard">
-              {standings.topPlayers.slice(0, 8).map(st => (
-                <div key={st.player.id} className={`prow${st.rank === 1 ? ' lead' : ''}${flash[st.player.id] ? ' flash' : ''}`}>
-                  <span className="prow-rank">{st.rank}</span>
-                  <Avatar avatar={st.player.avatar} emoji={st.player.emoji} name={st.player.display_name} color={st.player.color} size={24} />
-                  <span className="prow-name">{st.player.display_name}{st.player.first_timer && <span className="player-ft">NEW</span>}</span>
-                  <span className="prow-crowns">{st.crowns > 0 && <><Icon name="crown" size={14} />{st.crowns > 1 ? <span className="crown-x">×{st.crowns}</span> : null}</>}</span>
-                  <span className="prow-tables">{st.machinesPlayed}/{machines.length}</span>
-                  <span className="prow-val dmd"><CountUp value={st.rating} /></span>
-                </div>
-              ))}
-              {standings.topPlayers.length === 0 && <div className="board-empty">Play 2 machines to get on the board</div>}
-            </div>
-            <div className="tlegend">RATING = your average finish across the machines you played (100 = 1st on every one). Best score per machine counts; 2+ machines to be ranked.</div>
-          </div>
 
-          <div className="board board-shame">
-            <div className="dash-head"><h2><span className="h-chip"><Icon name="skull" size={15} /></span>Wall of Shame</h2><div className="dash-sub">lowest</div></div>
-            <div className="pboard">
-              {standings.bottomPlayers.length ? standings.bottomPlayers.map((st, i) => (
-                <div key={st.player.id} className="prow shame">
-                  <span className="prow-rank">{i + 1}</span>
-                  <Avatar avatar={st.player.avatar} emoji={st.player.emoji} name={st.player.display_name} color={st.player.color} size={24} />
-                  <span className="prow-name">{st.player.display_name}</span>
-                  <span className="prow-worst">{st.worst ? `${st.worst.rank}/${st.worst.N}` : ''}</span>
-                  <span></span>
-                  <span className="prow-val bad dmd">{st.rating}</span>
-                </div>
-              )) : <div className="board-empty">Nobody… yet</div>}
-            </div>
-            <div className="tlegend">Lowest ratings (2+ machines), never anyone on Top Players. Ranked with love. 💀</div>
-          </div>
+            <section className="pnl pnl-prizes">
+              <PanelHead icon="medal" title="Prizes" />
+              <div className="pz-list">
+                <Prize icon="trophy" name="Overall Champion" crit="highest rating" who={champ?.player} stat={champ ? `${champ.rating}/100` : ''} gold />
+                <Prize icon="star" name="Beginner's Luck" crit="best first-timer game" who={awards.beginnersLuck?.player}
+                  stat={awards.beginnersLuck ? `${awards.beginnersLuck.pct}% of top` : ''} />
+                <Prize icon="grind" name="The Grinder" crit="most games played" who={awards.grinder?.player}
+                  stat={awards.grinder ? `${awards.grinder.plays} games` : ''} />
+                <Prize icon="globe" name="Globetrotter" crit={`played all ${machines.length || 6} machines`} who={awards.globetrotters?.[0]}
+                  stat={awards.globetrotters?.length ? `${awards.globetrotters.length} so far` : ''} />
+                <Prize icon="burst" name="The Big Whiff" crit="lowest rating" who={awards.bigWhiff?.player}
+                  stat={awards.bigWhiff ? `${awards.bigWhiff.rating}/100` : ''} dim />
+                <Prize icon="ticket" name="The Match" crit="last 2 digits match the draw" stat="at the end" pending />
+              </div>
+            </section>
 
-          <section className="floor-prizes">
-            <div className="dash-head"><h2><span className="h-chip"><Icon name="medal" size={15} /></span>Prizes</h2></div>
-            <div className="prize-list">
-              <Prize icon="trophy" name="Overall Champion" crit="highest rating" who={champ?.player} stat={champ ? `${champ.rating}/100` : ''} />
-              <Prize icon="star" name="Beginner's Luck" crit="best first-timer game" who={awards.beginnersLuck?.player}
-                stat={awards.beginnersLuck ? `${awards.beginnersLuck.pct}% of top` : ''} />
-              <Prize icon="grind" name="The Grinder" crit="most games played" who={awards.grinder?.player}
-                stat={awards.grinder ? `${awards.grinder.plays} games` : ''} />
-              <Prize icon="globe" name="Globetrotter" crit="played all 6 machines" who={awards.globetrotters?.[0]}
-                stat={awards.globetrotters?.length ? `${awards.globetrotters.length} so far` : ''} />
-              <Prize icon="burst" name="The Big Whiff" crit="lowest rating" who={awards.bigWhiff?.player}
-                stat={awards.bigWhiff ? `${awards.bigWhiff.rating}/100` : ''} dim />
-              <Prize icon="ticket" name="The Match" crit="last 2 digits match the draw" stat="at the end" pending />
-            </div>
-          </section>
-
-          <section className="floor-qr">
-            <QR value={joinURL} size={170} />
-            <div className="floor-qr-text">
-              <div className="floor-qr-label">SCAN TO PLAY</div>
+            <section className="pnl pnl-qr">
+              <div className="qr-label">SCAN TO PLAY</div>
+              <div className="qr-box"><QR value={joinURL} size={150} light="#e9e9e9" /></div>
               <div className="qr-url">{location.host}</div>
-            </div>
-          </section>
+            </section>
+          </div>
+
+          {live.toast && <Toast key={live.toast.id} item={live.toast} onDone={live.nextToast} paused={!!tk} />}
         </div>
+
+        {tk && <Takeover key={tk.id} item={tk} queued={live.queued} onDone={live.nextTakeover} />}
       </div>
     </div>
   );
 }
 
-function Prize({ icon, name, crit, who, stat, pending, dim }) {
+function PanelHead({ icon, title, sub }) {
   return (
-    <div className={`prize${pending ? ' pending' : ''}${dim ? ' dim' : ''}`}>
-      <span className="prize-icon"><Icon name={icon} size={18} /></span>
-      <div className="prize-body">
-        <div className="prize-top">
-          <span className="prize-name">{name}</span>
-          <span className="prize-stat">{stat}</span>
+    <div className="pnl-head">
+      <h2><span className="pnl-chip"><Icon name={icon} size={16} stroke={2.1} /></span>{title}</h2>
+      {sub && <span className="pnl-sub">{sub}</span>}
+    </div>
+  );
+}
+
+function Prize({ icon, name, crit, who, stat, pending, dim, gold }) {
+  return (
+    <div className={`pz${pending ? ' pending' : ''}${dim ? ' dim' : ''}${gold ? ' gold' : ''}`}>
+      <span className="pz-icon"><Icon name={icon} size={19} stroke={2} /></span>
+      <div className="pz-body">
+        <div className="pz-top">
+          <span className="pz-name">{name}</span>
+          <span className="pz-stat">{stat}</span>
         </div>
-        <div className="prize-sub">
-          <span className="prize-crit">{crit}</span>
-          {!pending && <span className="prize-sep">·</span>}
+        <div className="pz-sub">
           {!pending && (who ? (
-            <span className="prize-leader">
-              <Avatar avatar={who.avatar} emoji={who.emoji} name={who.display_name} color={who.color} size={15} />
-              <span className="prize-who">{who.display_name}</span>
+            <span className="pz-leader">
+              <Avatar avatar={who.avatar} emoji={who.emoji} name={who.display_name} color={who.color} size={18} />
+              <span className="pz-who">{who.display_name}</span>
             </span>
-          ) : <span className="prize-who muted">up for grabs</span>)}
+          ) : <span className="pz-who muted">up for grabs</span>)}
+          {!pending && <span className="pz-sep">·</span>}
+          <span className="pz-crit">{crit}</span>
         </div>
       </div>
     </div>

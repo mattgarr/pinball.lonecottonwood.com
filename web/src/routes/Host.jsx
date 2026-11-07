@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { getHostPass, host, setHostPass, useParty } from '../lib/store.js';
+import { getHostPass, host, photoUrl, setHostPass, useParty } from '../lib/store.js';
 import { fmt } from '../lib/scoring.js';
 import Avatar from '../components/Avatar.jsx';
 
@@ -112,6 +112,8 @@ function HostPanel({ onLogout }) {
         </div>
       </section>
 
+      <ReviewQueue scores={scores} playerById={playerById} machineById={machineById} busy={busy} run={run} />
+
       <AddScore players={players} machines={machines} busy={busy} run={run} />
 
       <section className="card">
@@ -129,8 +131,8 @@ function HostPanel({ onLogout }) {
                 return (
                   <tr key={s.id} className={s.voided ? 'voided' : ''}>
                     <td className="muted small">{new Date(s.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</td>
-                    <td>{p?.emoji} {p?.display_name ?? '?'}</td>
-                    <td>{machineById.get(s.machine_id)?.name}</td>
+                    <td>{p?.emoji} {p?.display_name ?? '?'}{s.logged_by ? <span className="muted small"> (by {playerById.get(s.logged_by)?.display_name ?? '?'})</span> : null}</td>
+                    <td>{machineById.get(s.machine_id)?.name}{s.photo_path ? <> <a href={photoUrl(s.photo_path)} target="_blank" rel="noreferrer" title="proof photo">📸</a></> : null}</td>
                     <td className="ralign mono">{fmt(s.value)}</td>
                     <td>
                       {s.voided
@@ -170,6 +172,32 @@ function HostPanel({ onLogout }) {
 
       <WipeCard busy={busy} run={run} />
     </div>
+  );
+}
+
+// Scores that deserve a second look: a new #1 with no photo, or a score logged for someone else.
+function ReviewQueue({ scores, playerById, machineById, busy, run }) {
+  const queue = scores.filter(s => s.needs_review && !s.voided).sort((a, b) => b.id - a.id);
+  if (!queue.length) return null;
+  return (
+    <section className="card review-card">
+      <h2>Check these ({queue.length})</h2>
+      <p className="muted small">New high scores without a photo, or scores someone logged for a friend. Glance at the machine or ask the player, then keep or void.</p>
+      {queue.map(s => {
+        const p = playerById.get(s.player_id);
+        return (
+          <div key={s.id} className="host-player">
+            <span className="grow">
+              <strong>{p?.display_name ?? '?'}</strong> · {machineById.get(s.machine_id)?.name} · <span className="mono">{fmt(s.value)}</span>
+              {s.logged_by ? <span className="muted small"> · logged by {playerById.get(s.logged_by)?.display_name ?? '?'}</span> : null}
+              {s.photo_path ? <> · <a className="link" href={photoUrl(s.photo_path)} target="_blank" rel="noreferrer">photo</a></> : null}
+            </span>
+            <button className="ghost" disabled={busy} onClick={() => run(() => host.markReviewed(s.id), 'Marked OK.')}>Looks right</button>
+            <button className="ghost danger" disabled={busy} onClick={() => run(() => host.voidScore(s.id, true), 'Score voided.')}>Void</button>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 

@@ -1,58 +1,72 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useStandings } from '../lib/store.js';
 import { machineArt } from '../lib/machineArt.js';
-import { MIN_TABLES, ordinal } from '../lib/scoring.js';
+import { MIN_TABLES, fmtShort, ordinal } from '../lib/scoring.js';
+import Avatar from '../components/Avatar.jsx';
 
 export default function Home() {
   const { machines, me, standings, party } = useStandings();
-  const nav = useNavigate();
   const mine = me ? standings.stats.get(me.id) : null;
   const ranked = standings.meta.rankedPlayers;
+  const closed = party?.status === 'closed';
 
   return (
-    <div className="screen">
-      {party?.status === 'closed' && <div className="err">Scoring is closed. Final standings are on the TV.</div>}
-
+    <div className="screen home">
       {mine && (
-        <Link to="/me" className="progress-card">
-          <div>
-            <div className="progress-label">Your rating</div>
-            <div className="progress-big">
-              {mine.rating != null ? <>{mine.rating}<span className="muted small">/100</span></> : '—'}
+        <Link to="/me" className="rating-strip" aria-label="My progress">
+          <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={38} ring />
+          <div className="rs-main">
+            <div className="rs-label">{mine.rating != null ? 'Your rating' : 'Get ranked'}</div>
+            <div className="rs-line">
+              {mine.rating != null ? (
+                <><span className="rs-num">{mine.rating}</span><span className="rs-rank">{ordinal(mine.rank)} of {ranked}</span></>
+              ) : (
+                <span className="rs-todo">
+                  {mine.machinesPlayed === 0 ? 'Play any machine to start' : `Play ${MIN_TABLES - mine.machinesPlayed} more machine`}
+                </span>
+              )}
             </div>
           </div>
-          <div className="progress-side">
-            {mine.rating != null
-              ? <>{ordinal(mine.rank)} of {ranked}</>
-              : mine.machinesPlayed === 0
-                ? 'Play any machine to get started'
-                : `Play ${MIN_TABLES - mine.machinesPlayed} more machine to get ranked`}
-            <div className="muted small">{mine.machinesPlayed}/{machines.length} machines · {mine.plays} games · My progress →</div>
+          <div className="rs-dots" aria-label={`${mine.machinesPlayed} of ${machines.length} machines played`}>
+            {machines.map(m => {
+              const pm = mine.perMachine[m.id];
+              return <span key={m.id} className={`rs-dot${pm ? (pm.rank === 1 ? ' gold' : ' on') : ''}`} />;
+            })}
           </div>
+          <span className="rs-go" aria-hidden="true">›</span>
         </Link>
       )}
 
-      <h1>Pick a machine</h1>
-      <p className="muted">Tap one to log a score, or scan the QR on the machine. New to pinball? <Link to="/about" className="link">Read this first →</Link></p>
-      <div className="machine-grid">
-        {machines.map(m => {
+      {closed && <div className="err">Scoring is closed. Final standings are on the TV.</div>}
+
+      <div className="home-head">
+        <h1>Pick a machine</h1>
+        <div className="muted small">Tap the one you just played, or scan its QR. New to pinball? <Link to="/about" className="link">Start here</Link></div>
+      </div>
+
+      <div className="mgrid">
+        {machines.map((m, i) => {
           const pm = mine?.perMachine[m.id];
+          const champ = standings.machines.find(x => x.machine.id === m.id)?.champion;
           return (
-            <div key={m.id} className="machine-card" role="button" tabIndex={0}
-              onClick={() => nav(`/machine/${m.id}`)}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') nav(`/machine/${m.id}`); }}
-            >
-              <div className="machine-art-wrap">
-                <img className="machine-art" src={machineArt(m.name)} alt="" loading="lazy" />
-                {pm && <span className={`machine-badge${pm.rank === 1 ? ' gold' : ''}`}>{pm.rank === 1 ? '👑 ' : ''}{ordinal(pm.rank)}/{pm.N}</span>}
+            <Link key={m.id} to={`/machine/${m.id}`} className={`mcard${pm?.rank === 1 ? ' crowned' : ''}`} style={{ animationDelay: `${i * 40}ms` }}>
+              <img className="mcard-img" src={machineArt(m.name)} alt="" loading={i < 4 ? 'eager' : 'lazy'} decoding="async" />
+              <div className="mcard-shade" />
+              {pm ? (
+                <span className={`mcard-badge${pm.rank === 1 ? ' gold' : ''}`}>{pm.rank === 1 ? '👑 1st' : `${ordinal(pm.rank)}/${pm.N}`}</span>
+              ) : (
+                <span className="mcard-badge new">NEW</span>
+              )}
+              <div className="mcard-text">
+                <div className="mcard-name">{m.name}</div>
+                <div className="mcard-meta">
+                  {pm ? <>best <span className="amber mono">{fmtShort(pm.best)}</span></> : `${m.manufacturer} · ${m.year}`}
+                </div>
+                {champ && champ.player.id !== me?.id && (
+                  <div className="mcard-champ">👑 {champ.player.display_name} {fmtShort(champ.score)}</div>
+                )}
               </div>
-              <div className="machine-body">
-                <div className="machine-name">{m.name}</div>
-                <div className="machine-meta">{m.manufacturer} · {m.year}</div>
-                {!pm && <div className="machine-display">not played yet</div>}
-                <Link to={`/machine/${m.id}/guide`} className="machine-guide-link" onClick={e => e.stopPropagation()}>📖 guide</Link>
-              </div>
-            </div>
+            </Link>
           );
         })}
       </div>
