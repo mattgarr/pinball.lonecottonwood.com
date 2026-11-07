@@ -78,7 +78,9 @@ Deno.serve(async req => {
     const up = await db.storage.from('score-photos').upload(photoPath, bytes, { contentType: 'image/jpeg' });
     const savedPath = up.error ? null : photoPath;
 
-    const key = Deno.env.get('GEMINI_API_KEY');
+    // GEMINI_API_KEY, or any secret whose value looks like a Google AI key (it was once saved under another name).
+    const key = Deno.env.get('GEMINI_API_KEY') ??
+      Object.values(Deno.env.toObject()).find(v => /^(AIza|AQ\.)[\w.-]{20,}$/.test(v.trim()))?.trim();
     if (!key) return json({ scores: [], confidence: 'low', note: 'AI reading is not set up.', photoPath: savedPath });
 
     const prompt =

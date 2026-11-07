@@ -39,4 +39,4 @@ There's no CLI login or DB password; everything goes through the dashboard edito
 7. The service key in a function: `SUPABASE_SERVICE_ROLE_KEY`, falling back to the first value of the JSON in `SUPABASE_SECRET_KEYS`.
 
 ## Secrets
-Edge Functions → Secrets (`.../functions/secrets`). **Claude never types API keys or tokens into any site.** Open the page and have the user paste the value. `read-score` needs `GEMINI_API_KEY` (AI Studio key "Pinball Wizard score reader", project gen-lang-client-0027899820, billed to DefaultBilling, which holds the Ultra $40/month credit).
+Edge Functions → Secrets (`.../functions/secrets`). **Claude never types API keys or tokens into any site.** Open the page and have the user paste the value. `read-score` needs `GEMINI_API_KEY` (it also finds a key saved under another name, e.g. the current secret "Pinball Wizard") (AI Studio key "Pinball Wizard score reader", project gen-lang-client-0027899820, billed to DefaultBilling, which holds the Ultra $40/month credit).
