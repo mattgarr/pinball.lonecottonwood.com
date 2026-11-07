@@ -1253,3 +1253,4 @@ button.led:active { filter: brightness(1.25); }
 .tg-cell.mixed { background: rgba(255,204,0,0.2); border: 1px solid #ffcc00; color: #fff; }
 .test-results { display: flex; flex-direction: column; gap: 10px; }
 .tr-row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.test-focus { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

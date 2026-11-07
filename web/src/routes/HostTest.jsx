@@ -35,6 +35,8 @@ export default function HostTest() {
   const [truth, setTruth] = useState({});      // slot -> string
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState('grid');    // grid | results
+  const [focus, setFocus] = useState(() => { try { return Number(localStorage.getItem('pw.testFocus')) || null; } catch { return null; } });
+  const pickFocus = id => { setFocus(id); try { id ? localStorage.setItem('pw.testFocus', String(id)) : localStorage.removeItem('pw.testFocus'); } catch { /* ignore */ } };
 
   async function load() {
     try { setTests(await host.scanTests()); } catch (e) { setErr(e.message); }
@@ -54,8 +56,9 @@ export default function HostTest() {
   if (!getHostPass()) return <div className="screen"><div className="err">Unlock Host first.</div><Link className="link" to="/host">Go to Host →</Link></div>;
   if (!me) return <div className="screen"><div className="err">Join as a player on this phone first (the scanner needs a player). Then come back.</div><Link className="link" to="/join">Join →</Link></div>;
 
+  const scope = focus ? machines.filter(m => m.id === focus) : machines;
   const nextCell = () => {
-    for (const m of machines) for (const meth of METHODS) if (!stats[`${m.id}:${meth.key}`]) return { machine: m, method: meth };
+    for (const m of scope) for (const meth of METHODS) if (!stats[`${m.id}:${meth.key}`]) return { machine: m, method: meth };
     return null;
   };
 
@@ -84,7 +87,7 @@ export default function HostTest() {
       });
       await load();
       setReview(null);
-      setCell(nextCell());
+      setCell(null); // back to the grid for this machine; "Next" continues
     } catch (e) { setErr(e.message); }
     finally { setSaving(false); }
   }
@@ -174,7 +177,7 @@ export default function HostTest() {
   }
 
   // ---------- grid / results ----------
-  const done = Object.keys(stats).length, total = machines.length * METHODS.length;
+  const done = Object.keys(stats).filter(k => scope.some(m => k.startsWith(m.id + ':'))).length, total = scope.length * METHODS.length;
   return (
     <div className="screen test-page">
       <Link className="back" to="/host">← Host</Link>
@@ -186,19 +189,27 @@ export default function HostTest() {
       </div>
       {err && <div className={err.startsWith('✓') ? 'ok' : 'err'}>{err}</div>}
 
+      <div className="test-focus">
+        <span className="muted small">Machine:</span>
+        <button className={`chip${!focus ? ' on' : ''}`} onClick={() => pickFocus(null)}>All</button>
+        {machines.map(m => <button key={m.id} className={`chip${focus === m.id ? ' on' : ''}`} onClick={() => pickFocus(m.id)}>{m.name}</button>)}
+      </div>
+
       {view === 'grid' ? (
         <>
-          {nextCell() && <button className="cta" onClick={() => openCell(nextCell())}>▶ Next untested: {nextCell().machine.name} · {nextCell().method.label}</button>}
+          {nextCell()
+            ? <button className="cta" onClick={() => openCell(nextCell())}>▶ Next: {nextCell().machine.name} · {nextCell().method.label}</button>
+            : <div className="ok">All methods tried{focus ? ' on this machine' : ''}. Tap any cell to test it again, or see Results.</div>}
           <div className="test-grid">
             <div />{METHODS.map(m => <div key={m.key} className="tg-head">{m.label}</div>)}
-            {machines.map(m => (
+            {scope.map(m => (
               <FragmentRow key={m.id} m={m} stats={stats} onPick={meth => openCell({ machine: m, method: meth })} />
             ))}
           </div>
         </>
       ) : (
         <div className="test-results">
-          {machines.map(m => (
+          {scope.map(m => (
             <div key={m.id} className="card-lite">
               <div className="row spread"><strong>{m.name}</strong><span className="muted small">now: {m.scan_mode === 'video' ? `video ${m.scan_fps}` : 'frames'}</span></div>
               {METHODS.map(meth => {
