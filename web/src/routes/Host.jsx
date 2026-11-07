@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getHostPass, host, photoUrl, setHostPass, useParty } from '../lib/store.js';
 import { fmt } from '../lib/scoring.js';
 import Avatar from '../components/Avatar.jsx';
+import PixelEmoji from '../components/PixelEmoji.jsx';
 
 export default function Host() {
   const [authed, setAuthed] = useState(!!getHostPass());
@@ -134,7 +135,7 @@ function HostPanel({ onLogout }) {
                   <tr key={s.id} className={s.voided ? 'voided' : ''}>
                     <td className="muted small">{new Date(s.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</td>
                     <td>{p?.emoji} {p?.display_name ?? '?'}{s.logged_by ? <span className="muted small"> (by {playerById.get(s.logged_by)?.display_name ?? '?'})</span> : null}</td>
-                    <td>{machineById.get(s.machine_id)?.name}{s.photo_path ? <> <a href={photoUrl(s.photo_path)} target="_blank" rel="noreferrer" title="proof photo">📸</a></> : null}</td>
+                    <td>{machineById.get(s.machine_id)?.name}{s.photo_path ? <> <a href={photoUrl(s.photo_path)} target="_blank" rel="noreferrer" title="proof photo"><PixelEmoji e="📸" size={22} /></a></> : null}</td>
                     <td className="ralign mono">{fmt(s.value)}</td>
                     <td>
                       {s.voided

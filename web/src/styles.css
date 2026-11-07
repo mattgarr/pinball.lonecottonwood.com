@@ -1833,3 +1833,20 @@ h1 { font-size: 18px; text-shadow: 3px 3px 0 var(--nes-red); }
 .cal-name strong, .cal-name > :first-child { font-family: var(--px); font-weight: 400; font-size: 11px; text-transform: uppercase; line-height: 1.5; }
 /* the bar updates ~30x/s while recording: any width transition never catches up, so none */
 .scanner-bar span { transition: none !important; }
+
+/* ===== ALL-PIXEL TYPE: every bit of text in a pixel font =====
+   Press Start 2P stays on headings/buttons/scores (var(--px)). Everything else uses VT323, self-hosted
+   with size-adjust so it renders about as large as the old system font at the same CSS sizes. */
+@font-face {
+  font-family: 'VT323 Body';
+  src: url('/fonts/vt323.woff2') format('woff2');
+  font-display: swap;
+  size-adjust: 132%;
+}
+:root { --pxbody: 'VT323 Body', 'VT323', ui-monospace, monospace; }
+html, body, input, textarea, select, button, .crash { font-family: var(--pxbody); }
+body { letter-spacing: 0.02em; }
+/* pixel sprites never get smoothed */
+img.px-emoji { image-rendering: pixelated; image-rendering: crisp-edges; }
+.avatar-emoji { background: transparent; }
+.emoji-btn img { pointer-events: none; }

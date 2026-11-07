@@ -726,3 +726,10 @@
 .cab2-scores li.r1 .cab2-pname { font-size: 23px; }
 .cab2-scores li.r1 .cab2-pscore { font-size: 12px; }
 .rv-sub { font-size: 24px; }
+
+/* ALL-PIXEL TYPE on the TV too: the condensed/mono families become pixel fonts. */
+.tv2-frame, .tv-frame, .tv, .tv2, .reveal-tv, .rv-wrap {
+  --cond: 'VT323 Body', 'VT323', ui-monospace, monospace;
+  --mono: 'Press Start 2P', ui-monospace, monospace;
+}
+.tv-frame { font-family: 'VT323 Body', 'VT323', ui-monospace, monospace; }

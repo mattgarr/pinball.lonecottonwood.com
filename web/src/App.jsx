@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { getHostPass, useParty } from './lib/store.js';
 import { captureFakeFlag } from './lib/scoreReader.js';
 import Avatar from './components/Avatar.jsx';
+import PixelEmoji from './components/PixelEmoji.jsx';
 
 captureFakeFlag(); // read ?fakephoto=… before the join redirect drops the query string
 
@@ -43,7 +44,7 @@ export default function App() {
   if (!meChecked || (!ready && !error)) {
     return (
       <div className="boot">
-        <div className="boot-logo">🎯</div>
+        <div className="boot-logo"><PixelEmoji e="🎯" size={64} /></div>
         <div className="boot-name">Pinball Wizard</div>
         <div className="spinner" aria-label="Loading" />
       </div>
@@ -54,7 +55,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <Link to="/" className="brand" aria-label="Pinball Wizard home">
-          <span className="brand-mark">🎯</span>
+          <span className="brand-mark"><PixelEmoji e="🎯" size={24} /></span>
           <span className="brand-word">Pinball Wizard</span>
         </Link>
         <div className="topbar-right">

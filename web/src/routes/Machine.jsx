@@ -13,6 +13,7 @@ import ScorePad from '../components/ScorePad.jsx';
 import PhotoButton from '../components/PhotoButton.jsx';
 import PlayerPicker from '../components/PlayerPicker.jsx';
 import Sheet from '../components/Sheet.jsx';
+import PixelEmoji from '../components/PixelEmoji.jsx';
 
 const UNDO_MS = 15 * 60 * 1000;
 
@@ -354,7 +355,7 @@ function StartStep({ machine, mineHere, closed, onSwitch, onSnap, onType, onPhot
       ) : (
         <div className="start-actions">
           <PhotoButton className="snap-btn" onPhoto={onSnap} onError={onPhotoError}>
-            <span className="snap-icon" aria-hidden="true">📸</span>
+            <span className="snap-icon" aria-hidden="true"><PixelEmoji e="📸" size={40} /></span>
             <span className="snap-text">
               <span className="snap-title">Snap the score</span>
               <span className="snap-sub">Point at the display. It reads everyone's scores</span>
@@ -439,7 +440,7 @@ function ConfirmStep({ machine, value, photo, readInfo, me, machineScores, busy,
             <>
               <div className="crown-detail">Crown claims need a photo 📸 so the host can confirm it.</div>
               <PhotoButton className="snap-btn small" onPhoto={onAttach} onError={onPhotoError}>
-                <span className="snap-icon" aria-hidden="true">📸</span>
+                <span className="snap-icon" aria-hidden="true"><PixelEmoji e="📸" size={40} /></span>
                 <span className="snap-title">Add a photo of the display</span>
               </PhotoButton>
             </>
@@ -572,7 +573,7 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
                   <><span className="assignee-plus">＋</span><span>Pick player</span></>
                 )}
               </button>
-              {c?.warnings.map(w => <div key={w.kind} className="row-warn">🤔 <strong>{w.title}</strong> {w.detail}</div>)}
+              {c?.warnings.map(w => <div key={w.kind} className="row-warn"><PixelEmoji e="🤔" size={22} /> <strong>{w.title}</strong> {w.detail}</div>)}
               {c?.crown.claimedTop && <div className="row-crown">👑 {c.crown.contested ? 'New record!' : 'First on the board'}{c.needsPhoto ? ' A photo makes it official.' : ''}</div>}
               {r.error && <div className="row-err">{r.error}</div>}
             </div>
@@ -622,14 +623,14 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
             return (
               <div key={r.key} className="check-item">
                 <div className="check-who">{p?.display_name}: <span className="mono amber">{fmt(r.value)}</span></div>
-                {warnings.map(w => <div key={w.kind} className="warn-detail">🤔 <strong>{w.title}</strong> {w.detail}</div>)}
+                {warnings.map(w => <div key={w.kind} className="warn-detail"><PixelEmoji e="🤔" size={22} /> <strong>{w.title}</strong> {w.detail}</div>)}
                 {needsPhoto && <div className="warn-detail">👑 Crown claims need a photo 📸</div>}
               </div>
             );
           })}
           {flagged.some(f => f.needsPhoto) && (
             <PhotoButton className="snap-btn small" onPhoto={d => onAttach(d)} onError={onPhotoError}>
-              <span className="snap-icon" aria-hidden="true">📸</span><span className="snap-title">Add a photo of the display</span>
+              <span className="snap-icon" aria-hidden="true"><PixelEmoji e="📸" size={40} /></span><span className="snap-title">Add a photo of the display</span>
             </PhotoButton>
           )}
         </div>
@@ -668,7 +669,7 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
     <>
       <div className={`done-card${tookCrown ? ' crowned' : ''}`}>
         {tookCrown && <Confetti count={110} />}
-        {tookCrown && <div className="done-crown" aria-hidden="true">👑</div>}
+        {tookCrown && <div className="done-crown" aria-hidden="true"><PixelEmoji e="👑" size={72} grid={16} /></div>}
         {mine && !mine.duplicate && <div className="done-kicker" aria-hidden="true">{tookCrown ? 'NEW HIGH SCORE!' : 'STAGE CLEAR!'}</div>}
         <div className="done-machine">{machine.name}</div>
         <h1 className="done-title">{title}</h1>
@@ -726,7 +727,7 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
       )}
 
       <button type="button" className="friends-btn" onClick={onFriends}>
-        <span aria-hidden="true">👯</span> {friends.length ? 'Log more friends' : 'Played with friends? Log theirs too'}
+        <span aria-hidden="true"><PixelEmoji e="👯" size={22} /></span> {friends.length ? 'Log more friends' : 'Played with friends? Log theirs too'}
       </button>
 
       {next && (

@@ -1,3 +1,5 @@
+import PixelEmoji from './PixelEmoji.jsx';
+
 // One avatar to rule them all: a real selfie if we have one, else the chosen emoji,
 // else a monogram on the team color. Circular everywhere.
 export default function Avatar({ avatar, emoji, name, color, size = 32, ring = false }) {
@@ -13,8 +15,8 @@ export default function Avatar({ avatar, emoji, name, color, size = 32, ring = f
   }
   if (emoji) {
     return (
-      <span className="avatar avatar-emoji" style={{ ...dim, ...ringStyle, fontSize: Math.round(size * 0.6) }}>
-        {emoji}
+      <span className="avatar avatar-emoji" style={{ ...dim, ...ringStyle }}>
+        <PixelEmoji e={emoji} size={Math.round(size * 0.78)} grid={size >= 60 ? 20 : 14} />
       </span>
     );
   }

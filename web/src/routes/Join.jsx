@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { actions, useParty } from '../lib/store.js';
 import { fileToAvatarDataUrl } from '../lib/image.js';
 import Avatar from '../components/Avatar.jsx';
+import PixelEmoji from '../components/PixelEmoji.jsx';
 import Confetti from '../components/Confetti.jsx';
 
 const EMOJIS = [
@@ -86,8 +87,8 @@ export default function Join() {
         <button type="button" className="reg-photo-btn" onClick={() => fileRef.current?.click()}>
           {avatar
             ? <img className="reg-photo-img" src={avatar} alt="your photo" />
-            : <span className="reg-photo-emoji">{emoji}</span>}
-          <span className="reg-photo-badge">{avatar ? '↺' : '📷'}</span>
+            : <span className="reg-photo-emoji"><PixelEmoji e={emoji} size={48} grid={16} /></span>}
+          <span className="reg-photo-badge">{avatar ? '↺' : <PixelEmoji e="📷" size={20} />}</span>
         </button>
         <div className="reg-photo-text">
           <div className="reg-photo-title">{avatar ? 'Looking good' : 'Add a selfie'}</div>
@@ -130,7 +131,7 @@ export default function Join() {
         <span>{avatar ? 'Backup emoji' : 'Emoji'}</span>
         <div className="emoji-grid">
           {EMOJIS.map(e => (
-            <button key={e} type="button" className={`emoji-btn${emoji === e ? ' on' : ''}`} onClick={() => setEmoji(e)}>{e}</button>
+            <button key={e} type="button" className={`emoji-btn${emoji === e ? ' on' : ''}`} onClick={() => setEmoji(e)} aria-label={e}><PixelEmoji e={e} size={30} grid={14} /></button>
           ))}
         </div>
       </label>
