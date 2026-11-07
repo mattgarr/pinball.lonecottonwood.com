@@ -1254,3 +1254,9 @@ button.led:active { filter: brightness(1.25); }
 .test-results { display: flex; flex-direction: column; gap: 10px; }
 .tr-row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .test-focus { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.run-progress { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--accent); font-size: 14px; }
+.rp-dot { width: 10px; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.15); }
+.rp-dot.done { background: #22c55e; } .rp-dot.now { background: var(--accent); }
+.tips-card ul { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.tips-card summary { cursor: pointer; }
+.timing { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: #ddd; margin-bottom: 6px; }

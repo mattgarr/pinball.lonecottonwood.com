@@ -73,23 +73,25 @@ Deno.serve(async req => {
       auth: { persistSession: false },
     });
 
-    // Valid player + rate limit.
-    const gate = await db.rpc('photo_gate', { p_token: token });
+    // Valid player + rate limit, and the machine, in parallel.
+    const [gate, mres] = await Promise.all([
+      db.rpc('photo_gate', { p_token: token }),
+      db.from('machines').select('name, manufacturer, year, display_type').eq('id', machine_id).single(),
+    ]);
     if (gate.error) return json({ error: gate.error.message }, 403);
-
-    const { data: machine } = await db.from('machines').select('name, manufacturer, year, display_type').eq('id', machine_id).single();
+    const machine = mres.data;
     if (!machine) return json({ error: 'Unknown machine.' }, 400);
 
-    // Save the photo as proof first, so it's kept even if the AI read fails.
+    // Save the photo as proof in the background while the AI reads it.
     const photoPath = `photos/${crypto.randomUUID()}.jpg`;
     const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-    const up = await db.storage.from('score-photos').upload(photoPath, bytes, { contentType: 'image/jpeg' });
-    const savedPath = up.error ? null : photoPath;
+    const upload = db.storage.from('score-photos').upload(photoPath, bytes, { contentType: 'image/jpeg' });
+    const saved = async () => ((await upload).error ? null : photoPath);
 
     // GEMINI_API_KEY, or any secret whose value looks like a Google AI key (it was once saved under another name).
     const key = Deno.env.get('GEMINI_API_KEY') ??
       Object.values(Deno.env.toObject()).find(v => /^(AIza|AQ\.)[\w.-]{20,}$/.test(v.trim()))?.trim();
-    if (!key) return json({ scores: [], confidence: 'low', note: 'AI reading is not set up.', photoPath: savedPath });
+    if (!key) return json({ scores: [], confidence: 'low', note: 'AI reading is not set up.', photoPath: await saved() });
 
     const about = `the pinball machine "${machine.name}" (${machine.manufacturer} ${machine.year}, ${machine.display_type} display)`;
     const rules =
@@ -122,7 +124,7 @@ Deno.serve(async req => {
       });
       try {
         let r = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
-          method: 'POST', signal: AbortSignal.timeout(25000),
+          method: 'POST', signal: AbortSignal.timeout(label === 'video' ? 30000 : 12000),
           headers: { 'x-goog-api-key': key!, 'Content-Type': 'application/json', 'Api-Revision': '2026-05-20' },
           body: body({}),
         });
@@ -146,50 +148,63 @@ Deno.serve(async req => {
         { type: 'text', text: videoPrompt },
       ], 'video');
       const scores = (a?.scores ?? []).filter(x => Number.isInteger(x.slot) && Number.isFinite(x.value) && x.value > 0).sort((x, y) => x.slot - y.slot);
-      const res = { scores, confidence: a?.confidence === 'high' ? 'high' : 'low', note: a ? (a.note ?? '') : "Couldn't read the video.", photoPath: savedPath, mode: 'video', fps: Math.min(15, Math.max(1, Number(fps) || 4)), ms: Date.now() - t0 };
+      const res = { scores, confidence: a?.confidence === 'high' ? 'high' : 'low', note: a ? (a.note ?? '') : "Couldn't read the video.", photoPath: await saved(), mode: 'video', fps: Math.min(15, Math.max(1, Number(fps) || 4)), ms: Date.now() - t0 };
       console.log('read-score', JSON.stringify({ ...res, machine: machine.name, videoKB: Math.round(vdata.length * 0.75 / 1024), mime }));
       return json(res);
     }
 
-    // ---- Frames: read each separately, in parallel, then decide in code ----
+    // ---- Frames: read each separately, in parallel; stop early once enough frames agree ----
     const frames = [b64, ...extras];
-    const answers = await Promise.all(frames.map((d, i) => ask([{ type: 'text', text: framePrompt }, { type: 'image', data: d, mime_type: 'image/jpeg' }], 'frame' + i)));
-    const ok = answers.filter((a): a is Answer => !!a);
-    if (!ok.length) return json({ scores: [], confidence: 'low', note: "Couldn't read the photo. Type the score instead.", photoPath: savedPath });
     const good = (a: Answer) => (a.scores ?? []).filter(x => Number.isInteger(x.slot) && Number.isFinite(x.value) && x.value > 0);
-    // Numbers seen on high-score screens are the high score, wherever else they show up.
     // On 7-segment machines the HIGH SCORE label is printed on the glass, so trust only "glowing", not the screen guess.
     const hsFrame = (a: Answer) => a.label_glowing === true || (a.screen === 'high_score' && machine.display_type !== '7-segment');
-    const highScores = new Set(ok.filter(hsFrame).flatMap(a => good(a).map(x => x.value)));
-    const votes = new Map<number, Map<number, { n: number; high: number }>>();
-    let scoreFrames = 0;
-    for (const a of ok) {
-      if (a.screen === 'other' || hsFrame(a)) continue;
-      const vals = good(a).filter(x => !highScores.has(x.value));
-      if (!vals.length) continue;
-      // a "high_score" frame only counts if it also shows numbers that aren't the high score (misjudged frame)
-      scoreFrames++;
-      for (const x of vals) {
-        if (!votes.has(x.slot)) votes.set(x.slot, new Map());
-        const m = votes.get(x.slot)!;
-        const v = m.get(x.value) ?? { n: 0, high: 0 };
-        v.n++; if (a.confidence === 'high') v.high++;
-        m.set(x.value, v);
+    const ok: Answer[] = [];
+    function decide() {
+      // Numbers seen on high-score screens are the high score, wherever else they show up.
+      const highScores = new Set(ok.filter(hsFrame).flatMap(a => good(a).map(x => x.value)));
+      const votes = new Map<number, Map<number, { n: number; high: number }>>();
+      let scoreFrames = 0;
+      for (const a of ok) {
+        if (a.screen === 'other' || hsFrame(a)) continue;
+        const vals = good(a).filter(x => !highScores.has(x.value));
+        if (!vals.length) continue;
+        scoreFrames++;
+        for (const x of vals) {
+          if (!votes.has(x.slot)) votes.set(x.slot, new Map());
+          const m = votes.get(x.slot)!;
+          const v = m.get(x.value) ?? { n: 0, high: 0 };
+          v.n++; if (a.confidence === 'high') v.high++;
+          m.set(x.value, v);
+        }
       }
+      let allSure = true, settled = true;
+      const scores: { slot: number; value: number }[] = [];
+      for (const [slot, m] of [...votes].sort((a, b) => a[0] - b[0])) {
+        const ranked = [...m].sort((a, b) => b[1].n - a[1].n || b[1].high - a[1].high);
+        const [value, top] = ranked[0];
+        const total = ranked.reduce((t, [, v]) => t + v.n, 0);
+        if (ok.length >= 3 && total === 1 && scoreFrames >= 3) continue; // one-off reading among many: noise
+        const sure = ok.length === 1 ? top.high > 0 : (top.n >= 2 && top.n / total >= 0.6);
+        if (!sure) allSure = false;
+        if (top.n < 3 || (ranked[1]?.[1].n ?? 0) >= 2) settled = false;
+        scores.push({ slot, value });
+      }
+      return { scores, allSure, scoreFrames, settled: settled && scores.length > 0 };
     }
-    let allSure = true;
-    const scores: { slot: number; value: number }[] = [];
-    for (const [slot, m] of [...votes].sort((a, b) => a[0] - b[0])) {
-      const ranked = [...m].sort((a, b) => b[1].n - a[1].n || b[1].high - a[1].high);
-      const [value, top] = ranked[0];
-      const total = ranked.reduce((t, [, v]) => t + v.n, 0);
-      if (ok.length >= 3 && total === 1 && scoreFrames >= 3) continue; // one-off reading among many: noise
-      const sure = ok.length === 1 ? top.high > 0 : (top.n >= 2 && top.n / total >= 0.6);
-      if (!sure) allSure = false;
-      scores.push({ slot, value });
-    }
-    const note = scores.length ? '' : (ok.map(a => a.note).find(t => t) || 'scores screen not visible');
-    const res = { scores, confidence: scores.length && allSure ? 'high' : 'low', note, photoPath: savedPath, mode: 'frames', frames: ok.length, scoreFrames, ms: Date.now() - t0 };
+    await new Promise<void>(resolve => {
+      let pending = frames.length;
+      frames.forEach((d, i) => {
+        ask([{ type: 'text', text: framePrompt }, { type: 'image', data: d, mime_type: 'image/jpeg' }], 'frame' + i).then(a => {
+          if (a) ok.push(a);
+          pending--;
+          if (pending === 0 || decide().settled) resolve(); // 3+ frames agree on every player: don't wait for stragglers
+        });
+      });
+    });
+    if (!ok.length) return json({ scores: [], confidence: 'low', note: "Couldn't read the photo. Type the score instead.", photoPath: await saved() });
+    const d = decide();
+    const note = d.scores.length ? '' : (ok.map(a => a.note).find(t => t) || 'scores screen not visible');
+    const res = { scores: d.scores, confidence: d.scores.length && d.allSure ? 'high' : 'low', note, photoPath: await saved(), mode: 'frames', frames: ok.length, scoreFrames: d.scoreFrames, ms: Date.now() - t0 };
     console.log('read-score', JSON.stringify({ ...res, machine: machine.name, perFrame: ok.map(a => ({ s: a.screen, g: a.label_glowing, v: good(a).map(x => x.slot + ':' + x.value), c: a.confidence })) }));
     return json(res);
   } catch (e) {

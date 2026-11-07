@@ -39,7 +39,7 @@ There's no CLI login or DB password; everything goes through the dashboard edito
 7. The service key in a function: `SUPABASE_SERVICE_ROLE_KEY`, falling back to the first value of the JSON in `SUPABASE_SECRET_KEYS`.
 
 ## Small edits to a deployed function (faster than retyping)
-In the function's Code tab: click the editor, press `cmd+alt+f` (find), type the exact old text, press Escape (the match stays selected), and type the new text. Then check with `getModels()[0].getValue()` that the old text is gone and the character count matches the file, and click **Deploy updates** by screen coordinate (clicking it via a find/read_page ref sometimes does nothing). Wait for the "Successfully updated edge function" toast; if it doesn't appear, the deploy didn't happen. It takes ~1 min to go live; poll until the response changes.
+In the function's Code tab: click the editor, press `cmd+alt+f` (find), type the exact old text, press Escape (the match stays selected), and type the new text. Then check with `getModels()[0].getValue()` that the old text is gone and the character count matches the file, and click **Deploy updates** by screen coordinate (clicking it via a find/read_page ref sometimes does nothing). A **"Confirm to deploy updates" dialog** appears: click its Deploy updates button (center of the dialog). Then wait for the "Successfully updated edge function" toast; if it doesn't appear, the deploy didn't happen. It takes ~1 min to go live; poll until the response changes.
 
 ## Gemini gotchas (read-score)
 - `gemini-3.8-flash` rejects `thinking_level: 'minimal'` (400). Use `'low'`.

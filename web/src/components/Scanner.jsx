@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { readCache, readScoreFromPhoto, scanFrames } from '../lib/photo.js';
 import { useParty } from '../lib/store.js';
+import { captureTips } from '../lib/captureTips.js';
 
 // Scan mode override for experiments: ?scan=video | video8 | video15 | frames (sticky), ?scan=auto clears it.
 // Otherwise each machine's calibrated setting (machines.scan_mode / scan_fps) is used.
@@ -15,13 +16,6 @@ function flagMode() {
 const FLAG = flagMode();
 const VIDEO_MS = 5000;
 
-// How to frame each kind of machine.
-function guideFor(machine) {
-  const t = machine?.display_type || '';
-  if (t === '7-segment') return { shape: 'tall', text: <>Frame the <strong>whole backglass</strong> so all four score displays are inside. Get as close as you can.</> };
-  if (t === 'alphanumeric') return { shape: 'wide', text: <>Fill the box with the <strong>score display panel</strong> under the backglass.</> };
-  return { shape: 'wide', text: <>Fill the box with just the <strong>score screen</strong>.</> };
-}
 
 // Point-and-wait score scanner. Opens the live camera and starts scanning by itself:
 // grabs frames for ~4 s (cropped to the on-screen box), keeps the sharpest from each moment, asks the AI to combine them. If the display
@@ -31,11 +25,12 @@ function guideFor(machine) {
 // onDone(frame) — best frame (data URL); its AI result is cached in photo.js so the caller's
 //                 normal read returns instantly. Called with the read result even if empty.
 // onFallback(fromTap) — use the phone's regular camera instead.
-const SCAN_MS = 4000;   // long enough to catch displays that alternate (scores <-> high score)
+const SCAN_MS = 3500;   // long enough to catch displays that alternate (scores <-> high score)
 const EVERY_MS = 250;
 const KEEP = 6;         // frames sent per round, spread evenly over the scan
-const ROUNDS = 4;
-const MAX_SIDE = 1600;  // cropped frame size sent to the AI
+const ROUNDS = 3;
+const AIM_MS = 1800; // countdown before the first capture, so people can aim
+const MAX_SIDE = 1280;  // cropped frame size sent to the AI
 
 function sharpness(ctx, w, h) {
   const { data } = ctx.getImageData(0, 0, w, h);
@@ -64,7 +59,7 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
     : FLAG ? FLAG.startsWith('video') : machine?.scan_mode === 'video';
   const vfps = testMode ? (testMode.fps || 4)
     : FLAG?.startsWith('video') ? (Number(FLAG.replace('video', '')) || 4) : (machine?.scan_fps || 4);
-  const guide = guideFor(machine);
+  const guide = captureTips(machine);
   const video = useRef(null);
   const box = useRef(null);
   const stream = useRef(null);
@@ -73,6 +68,7 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
   const [progress, setProgress] = useState(0);
   const [round, setRound] = useState(0);
   const [msg, setMsg] = useState('');
+  const [count, setCount] = useState(3);
 
   useEffect(() => {
     alive.current = true;
@@ -86,7 +82,8 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
         stream.current = s;
         video.current.srcObject = s;
         await video.current.play().catch(() => {});
-        await sleep(700); // let auto-focus / exposure settle
+        setPhase('aiming');
+        for (let n = Math.ceil(AIM_MS / 600); n > 0 && alive.current; n--) { setCount(n); await sleep(600); }
         if (alive.current) run();
       } catch {
         if (alive.current) onFallback(false);
@@ -123,7 +120,7 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
     while (alive.current && performance.now() - t0 < SCAN_MS) {
       bctx.drawImage(v, c.x, c.y, c.w, c.h, 0, 0, W, H);
       sctx.drawImage(big, 0, 0, small.width, small.height);
-      frames.push({ score: sharpness(sctx, small.width, small.height), url: big.toDataURL('image/jpeg', 0.82) });
+      frames.push({ score: sharpness(sctx, small.width, small.height), url: big.toDataURL('image/jpeg', 0.8) });
       setProgress(Math.min(1, (performance.now() - t0) / SCAN_MS));
       await sleep(EVERY_MS);
     }
@@ -193,6 +190,7 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
         frames = await grab();
       }
       if (!alive.current || !frames.length) return;
+      const captureMs = Math.round(performance.now() - tStart);
       scanFrames.set(frames[0], frames.slice(1));
       if (!machineId) { finish(frames[0]); return; } // not on a machine page: let the caller read it
       setPhase('reading');
@@ -201,7 +199,7 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
       if (testMode) {
         alive.current = false;
         stream.current?.getTracks().forEach(t => t.stop());
-        onResult?.({ frame: frames[0], result, ms: Math.round(performance.now() - tStart), mode: isVideo ? 'video' : 'frames', fps: isVideo ? vfps : null, clipSent: !!opts.video });
+        onResult?.({ frame: frames[0], result, ms: Math.round(performance.now() - tStart), captureMs, uploadKB: Math.round(frames.reduce((t, f) => t + f.length, 0) * 0.75 / 1024) + (opts.video ? Math.round(opts.video.length * 0.75 / 1024) : 0), mode: isVideo ? 'video' : 'frames', fps: isVideo ? vfps : null, clipSent: !!opts.video });
         return;
       }
       if (result?.scores?.some(s => s.value > 0)) { readCache.set(frames[0], result); finish(frames[0]); return; }
@@ -227,6 +225,7 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
 
   const label =
     phase === 'starting' ? 'Starting camera…'
+    : phase === 'aiming' ? `Aim at the scores… ${count}`
     : phase === 'scanning' ? (round > 1 ? 'Watching for the scores…' : 'Hold on the scores… tilt the phone slightly')
     : phase === 'reading' ? 'Reading the scores…'
     : phase === 'waiting' ? 'Waiting for the scores screen…'
@@ -238,8 +237,8 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
       <div ref={box} className={`scanner-frame ${guide.shape}${phase === 'reading' ? ' reading' : ''}`} />
       <div className="scanner-top">
         <div className="scanner-hint">
-          {guide.text}
-          <div className="scanner-hint-sub">Start right after the game ends. Tilting the phone a little dodges glare.</div>
+          {guide.aim}
+          <div className="scanner-hint-sub">{guide.note || 'Tilt the phone a little while it scans to dodge glare.'}</div>
           {(testMode || FLAG) && <span className="scanner-badge">{isVideo ? `VIDEO · ${vfps} fps` : 'FRAMES'}{testMode ? ' · TEST' : ''}</span>}
         </div>
         <button type="button" className="scanner-x" onClick={() => { alive.current = false; onCancel(); }} aria-label="Cancel">✕</button>
