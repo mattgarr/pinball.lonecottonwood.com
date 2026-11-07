@@ -124,7 +124,7 @@ Deno.serve(async req => {
       });
       try {
         let r = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
-          method: 'POST', signal: AbortSignal.timeout(label === 'video' ? 30000 : 12000),
+          method: 'POST', signal: AbortSignal.timeout(label === 'video' ? 30000 : 9000),
           headers: { 'x-goog-api-key': key!, 'Content-Type': 'application/json', 'Api-Revision': '2026-05-20' },
           body: body({}),
         });
