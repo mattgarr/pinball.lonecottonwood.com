@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
-import { useParty } from './lib/store.js';
+import { getHostPass, useParty } from './lib/store.js';
 import { captureFakeFlag } from './lib/scoreReader.js';
 import Avatar from './components/Avatar.jsx';
 
@@ -8,7 +8,7 @@ captureFakeFlag(); // read ?fakephoto=… before the join redirect drops the que
 
 // Pages anyone can see without joining.
 function isPublicPath(p) {
-  return p === '/join' || p === '/rejoin' || p === '/host' || p === '/about' || /^\/machine\/\d+\/guide$/.test(p);
+  return p === '/join' || p === '/rejoin' || p === '/host' || p === '/host/test' || p === '/about' || /^\/machine\/\d+\/guide$/.test(p);
 }
 
 function useOnline() {
@@ -58,7 +58,7 @@ export default function App() {
           <span className="brand-word">Pinball Wizard</span>
         </Link>
         <div className="topbar-right">
-          <Link to="/about" className="topbar-link">How to play</Link>
+          {getHostPass() ? <Link to="/host" className="topbar-link host-chip">Host</Link> : <Link to="/about" className="topbar-link">How to play</Link>}
           {me ? (
             <Link to="/me" className="me" style={{ borderColor: me.color }} aria-label="My progress">
               <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={28} />

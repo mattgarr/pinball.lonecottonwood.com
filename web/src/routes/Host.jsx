@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getHostPass, host, photoUrl, setHostPass, useParty } from '../lib/store.js';
 import { fmt } from '../lib/scoring.js';
 import Avatar from '../components/Avatar.jsx';
@@ -92,6 +93,7 @@ function HostPanel({ onLogout }) {
         <div className="row gap">
           <a className="ghost" href="/tv" target="_blank" rel="noreferrer">Open TV board ↗</a>
           <a className="ghost" href="/host/qr" target="_blank" rel="noreferrer">Printable QR sheet ↗</a>
+          <Link className="ghost" to="/host/test">🧪 Test &amp; calibrate scanner</Link>
         </div>
       </section>
 

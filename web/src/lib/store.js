@@ -217,6 +217,12 @@ export const host = {
   reveal: (active, matchDigits = null) => hostCall('host_reveal', { p_active: active, p_match_digits: matchDigits }),
   voidScore: (id, voided) => hostCall('host_void', { p_score_id: id, p_voided: voided }),
   markReviewed: id => hostCall('host_review', { p_score_id: id }),
+  logScanTest: t => hostCall('host_log_scan_test', {
+    p_machine_id: t.machineId, p_method: t.method, p_fps: t.fps ?? null, p_conditions: t.conditions || null,
+    p_truth: t.truth, p_result: t.result, p_correct: t.correct, p_ms: t.ms, p_photo_path: t.photoPath || null,
+  }),
+  scanTests: () => hostCall('host_scan_tests'),
+  setScanMode: (machineId, mode, fps) => hostCall('host_set_scan_mode', { p_machine_id: machineId, p_mode: mode, p_fps: fps }),
   addScore: (playerId, machineId, value) => hostCall('host_add_score', { p_player_id: playerId, p_machine_id: machineId, p_value: value }),
   resetPin: (playerId, pin) => hostCall('host_reset_pin', { p_player_id: playerId, p_new_pin: pin }),
   removePlayer: playerId => hostCall('host_remove_player', { p_player_id: playerId }),

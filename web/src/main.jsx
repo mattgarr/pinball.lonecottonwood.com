@@ -12,6 +12,7 @@ import About from './routes/About.jsx';
 import TV from './routes/TV.jsx';
 import Host from './routes/Host.jsx';
 import HostQR from './routes/HostQR.jsx';
+import HostTest from './routes/HostTest.jsx';
 import './styles.css';
 
 createRoot(document.getElementById('root')).render(
@@ -30,6 +31,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/machine/:id" element={<Machine />} />
           <Route path="/machine/:id/guide" element={<Guide />} />
           <Route path="/host" element={<Host />} />
+          <Route path="/host/test" element={<HostTest />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

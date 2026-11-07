@@ -2,17 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import { readCache, readScoreFromPhoto, scanFrames } from '../lib/photo.js';
 import { useParty } from '../lib/store.js';
 
-// Scan mode: 'frames' (default) or 'video' (experimental). Set with ?scan=video, ?scan=video8, ?scan=frames.
-function scanMode() {
+// Scan mode override for experiments: ?scan=video | video8 | video15 | frames (sticky), ?scan=auto clears it.
+// Otherwise each machine's calibrated setting (machines.scan_mode / scan_fps) is used.
+function flagMode() {
   try {
     const q = new URLSearchParams(location.search).get('scan');
-    if (q) localStorage.setItem('pw.scan', q);
-    return localStorage.getItem('pw.scan') || 'frames';
-  } catch { return 'frames'; }
+    if (q === 'auto') localStorage.removeItem('pw.scan');
+    else if (q) localStorage.setItem('pw.scan', q);
+    return localStorage.getItem('pw.scan');
+  } catch { return null; }
 }
-const MODE = scanMode();
-const VIDEO = MODE.startsWith('video');
-const VIDEO_FPS = Number(MODE.replace('video', '')) || 4;
+const FLAG = flagMode();
 const VIDEO_MS = 5000;
 
 // How to frame each kind of machine.
@@ -55,9 +55,15 @@ function sharpness(ctx, w, h) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const machineIdFromUrl = () => Number((location.pathname.match(/\/machine\/(\d+)/) || [])[1]) || null;
 
-export default function Scanner({ onDone, onFallback, onCancel }) {
+// testMode = { mode: 'frames'|'video', fps, machineId } for host calibration; then onResult gets the raw read.
+export default function Scanner({ onDone, onFallback, onCancel, testMode, onResult }) {
   const { machines } = useParty();
-  const machine = machines.find(m => m.id === machineIdFromUrl());
+  const machineId = testMode?.machineId ?? machineIdFromUrl();
+  const machine = machines.find(m => m.id === machineId);
+  const isVideo = testMode ? testMode.mode === 'video'
+    : FLAG ? FLAG.startsWith('video') : machine?.scan_mode === 'video';
+  const vfps = testMode ? (testMode.fps || 4)
+    : FLAG?.startsWith('video') ? (Number(FLAG.replace('video', '')) || 4) : (machine?.scan_fps || 4);
   const guide = guideFor(machine);
   const video = useRef(null);
   const box = useRef(null);
@@ -173,15 +179,16 @@ export default function Scanner({ onDone, onFallback, onCancel }) {
   }
 
   async function run() {
-    const machineId = machineIdFromUrl();
-    for (let r = 1; r <= ROUNDS && alive.current; r++) {
+    const rounds = testMode ? 1 : ROUNDS;
+    for (let r = 1; r <= rounds && alive.current; r++) {
+      const tStart = performance.now();
       setRound(r);
       setPhase('scanning');
       let frames, opts = {};
-      if (VIDEO) {
+      if (isVideo) {
         const { still, clip } = await recordClip();
         frames = still ? [still] : [];
-        if (clip) opts = { video: clip, fps: VIDEO_FPS };
+        if (clip) opts = { video: clip, fps: vfps };
       } else {
         frames = await grab();
       }
@@ -191,6 +198,12 @@ export default function Scanner({ onDone, onFallback, onCancel }) {
       setPhase('reading');
       const result = await readScoreFromPhoto(frames[0], { id: machineId }, opts);
       if (!alive.current) return;
+      if (testMode) {
+        alive.current = false;
+        stream.current?.getTracks().forEach(t => t.stop());
+        onResult?.({ frame: frames[0], result, ms: Math.round(performance.now() - tStart), mode: isVideo ? 'video' : 'frames', fps: isVideo ? vfps : null, clipSent: !!opts.video });
+        return;
+      }
       if (result?.scores?.some(s => s.value > 0)) { readCache.set(frames[0], result); finish(frames[0]); return; }
       if (!result || result.error) { finish(frames[0]); return; } // service trouble: fall through to keypad
       setMsg(result.note || '');
@@ -227,7 +240,7 @@ export default function Scanner({ onDone, onFallback, onCancel }) {
         <div className="scanner-hint">
           {guide.text}
           <div className="scanner-hint-sub">Start right after the game ends. Tilting the phone a little dodges glare.</div>
-          {VIDEO && <span className="scanner-badge">VIDEO TEST · {VIDEO_FPS} fps</span>}
+          {(testMode || FLAG) && <span className="scanner-badge">{isVideo ? `VIDEO · ${vfps} fps` : 'FRAMES'}{testMode ? ' · TEST' : ''}</span>}
         </div>
         <button type="button" className="scanner-x" onClick={() => { alive.current = false; onCancel(); }} aria-label="Cancel">✕</button>
       </div>

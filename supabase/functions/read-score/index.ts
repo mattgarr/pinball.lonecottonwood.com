@@ -118,7 +118,7 @@ Deno.serve(async req => {
       const body = (extra: Record<string, unknown>) => JSON.stringify({
         model: MODEL, store: false, input: parts,
         response_format: { type: 'text', mime_type: 'application/json', schema: SCHEMA },
-        generation_config: { thinking_level: 'minimal' }, ...extra,
+        generation_config: { thinking_level: 'low' }, ...extra,
       });
       try {
         let r = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
