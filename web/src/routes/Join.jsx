@@ -58,7 +58,7 @@ export default function Join() {
           <div className="reveal-label">You're in,</div>
           <div className="reveal-team">{welcome.display_name}</div>
           <p className="welcome-pin">Your PIN <strong>{pin}</strong> gets you back in on any phone. Screenshot this if you'll forget it!</p>
-          <button className="cta" onClick={() => nav(next, { replace: true })}>Let's play →</button>
+          <button className="cta" onClick={() => nav(next, { replace: true })}>Press start</button>
         </div>
       </div>
     );
@@ -143,7 +143,7 @@ export default function Join() {
       {err && <div className="err" role="alert">{err}</div>}
       <div className="actionbar">
         <button className="cta" disabled={busy || closed} type="submit">
-          {busy ? 'Joining…' : 'Join the party →'}
+          {busy ? 'Joining…' : 'Insert coin · Join'}
         </button>
       </div>
     </form>

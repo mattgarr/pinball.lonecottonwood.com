@@ -669,6 +669,7 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
       <div className={`done-card${tookCrown ? ' crowned' : ''}`}>
         {tookCrown && <Confetti count={110} />}
         {tookCrown && <div className="done-crown" aria-hidden="true">👑</div>}
+        {mine && !mine.duplicate && <div className="done-kicker" aria-hidden="true">{tookCrown ? 'NEW HIGH SCORE!' : 'STAGE CLEAR!'}</div>}
         <div className="done-machine">{machine.name}</div>
         <h1 className="done-title">{title}</h1>
         {mine && <LedNumber value={mine.value} size="xl" />}
@@ -767,7 +768,7 @@ function TopScores({ board, me, mineHere }) {
   return (
     <section className="panel top-scores">
       <div className="panel-head">
-        <h3>Tonight's top scores</h3>
+        <h3>Tonight's high scores</h3>
         {mineHere && <span className="muted small">You: {ordinal(mineHere.rank)} of {mineHere.N}</span>}
       </div>
       {(!board || board.top.length === 0) && <div className="muted small">No scores yet. Be the first! 👑</div>}
