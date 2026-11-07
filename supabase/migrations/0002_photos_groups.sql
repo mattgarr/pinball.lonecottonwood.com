@@ -24,7 +24,7 @@ returns bigint language plpgsql security definer set search_path = public, exten
 declare v_pid bigint := public._player_for_token(p_token);
 begin
   if v_pid is null then raise exception 'Please join (or rejoin) first.'; end if;
-  if (select count(*) from public.photo_reads where player_id = v_pid and created_at > now() - interval '1 hour') >= 40 then
+  if (select count(*) from public.photo_reads where player_id = v_pid and created_at > now() - interval '1 hour') >= 150 then
     raise exception 'Too many photos this hour. Type the score instead.';
   end if;
   insert into public.photo_reads (player_id) values (v_pid);

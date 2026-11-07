@@ -1,18 +1,41 @@
 import { useEffect, useRef, useState } from 'react';
 import { readCache, readScoreFromPhoto, scanFrames } from '../lib/photo.js';
+import { useParty } from '../lib/store.js';
+
+// Scan mode: 'frames' (default) or 'video' (experimental). Set with ?scan=video, ?scan=video8, ?scan=frames.
+function scanMode() {
+  try {
+    const q = new URLSearchParams(location.search).get('scan');
+    if (q) localStorage.setItem('pw.scan', q);
+    return localStorage.getItem('pw.scan') || 'frames';
+  } catch { return 'frames'; }
+}
+const MODE = scanMode();
+const VIDEO = MODE.startsWith('video');
+const VIDEO_FPS = Number(MODE.replace('video', '')) || 4;
+const VIDEO_MS = 5000;
+
+// How to frame each kind of machine.
+function guideFor(machine) {
+  const t = machine?.display_type || '';
+  if (t === '7-segment') return { shape: 'tall', text: <>Frame the <strong>whole backglass</strong> so all four score displays are inside. Get as close as you can.</> };
+  if (t === 'alphanumeric') return { shape: 'wide', text: <>Fill the box with the <strong>score display panel</strong> under the backglass.</> };
+  return { shape: 'wide', text: <>Fill the box with just the <strong>score screen</strong>.</> };
+}
 
 // Point-and-wait score scanner. Opens the live camera and starts scanning by itself:
-// grabs frames for ~3 s, keeps the sharpest few, asks the AI to combine them. If the display
+// grabs frames for ~4 s (cropped to the on-screen box), keeps the sharpest from each moment, asks the AI to combine them. If the display
 // is showing a logo / high-score table instead of player scores, it keeps watching and retries
 // (up to ROUNDS times). Dot-matrix screens cycle and flicker, which is why one photo isn't enough.
 //
 // onDone(frame) — best frame (data URL); its AI result is cached in photo.js so the caller's
 //                 normal read returns instantly. Called with the read result even if empty.
 // onFallback(fromTap) — use the phone's regular camera instead.
-const SCAN_MS = 3000;
-const EVERY_MS = 300;
-const KEEP = 4;
+const SCAN_MS = 4000;   // long enough to catch displays that alternate (scores <-> high score)
+const EVERY_MS = 250;
+const KEEP = 6;         // frames sent per round, spread evenly over the scan
 const ROUNDS = 4;
+const MAX_SIDE = 1600;  // cropped frame size sent to the AI
 
 function sharpness(ctx, w, h) {
   const { data } = ctx.getImageData(0, 0, w, h);
@@ -33,7 +56,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const machineIdFromUrl = () => Number((location.pathname.match(/\/machine\/(\d+)/) || [])[1]) || null;
 
 export default function Scanner({ onDone, onFallback, onCancel }) {
+  const { machines } = useParty();
+  const machine = machines.find(m => m.id === machineIdFromUrl());
+  const guide = guideFor(machine);
   const video = useRef(null);
+  const box = useRef(null);
   const stream = useRef(null);
   const alive = useRef(true);
   const [phase, setPhase] = useState('starting'); // starting | scanning | reading | waiting | gaveup
@@ -46,7 +73,7 @@ export default function Scanner({ onDone, onFallback, onCancel }) {
     (async () => {
       try {
         const s = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } },
           audio: false,
         });
         if (!alive.current) { s.getTracks().forEach(t => t.stop()); return; }
@@ -62,28 +89,87 @@ export default function Scanner({ onDone, onFallback, onCancel }) {
     return () => { alive.current = false; stream.current?.getTracks().forEach(t => t.stop()); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The part of the camera image that sits under the on-screen box (plus a margin), in video pixels.
+  function cropRect() {
+    const v = video.current, b = box.current;
+    const vw = v.videoWidth, vh = v.videoHeight;
+    if (!b) return { x: 0, y: 0, w: vw, h: vh };
+    const er = v.getBoundingClientRect(), br = b.getBoundingClientRect();
+    const scale = Math.max(er.width / vw, er.height / vh); // object-fit: cover
+    const offX = (er.width - vw * scale) / 2, offY = (er.height - vh * scale) / 2;
+    const mx = br.width * 0.08, my = br.height * 0.12;
+    let x = (br.left - mx - er.left - offX) / scale, y = (br.top - my - er.top - offY) / scale;
+    let w = (br.width + 2 * mx) / scale, h = (br.height + 2 * my) / scale;
+    x = Math.max(0, x); y = Math.max(0, y); w = Math.min(vw - x, w); h = Math.min(vh - y, h);
+    return { x, y, w, h };
+  }
+
   async function grab() {
     const v = video.current;
-    const scale = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight));
-    const W = Math.round(v.videoWidth * scale), H = Math.round(v.videoHeight * scale);
+    const c = cropRect();
+    const k = Math.min(1, MAX_SIDE / Math.max(c.w, c.h));
+    const W = Math.round(c.w * k), H = Math.round(c.h * k);
     const big = Object.assign(document.createElement('canvas'), { width: W, height: H });
-    const small = Object.assign(document.createElement('canvas'), { width: 160, height: Math.round(160 * H / W) });
+    const small = Object.assign(document.createElement('canvas'), { width: 200, height: Math.max(1, Math.round(200 * H / W)) });
     const bctx = big.getContext('2d'), sctx = small.getContext('2d', { willReadFrequently: true });
     const frames = [];
     const t0 = performance.now();
     while (alive.current && performance.now() - t0 < SCAN_MS) {
-      bctx.drawImage(v, 0, 0, W, H);
+      bctx.drawImage(v, c.x, c.y, c.w, c.h, 0, 0, W, H);
       sctx.drawImage(big, 0, 0, small.width, small.height);
-      frames.push({ score: sharpness(sctx, small.width, small.height), url: big.toDataURL('image/jpeg', 0.78) });
+      frames.push({ score: sharpness(sctx, small.width, small.height), url: big.toDataURL('image/jpeg', 0.82) });
       setProgress(Math.min(1, (performance.now() - t0) / SCAN_MS));
       await sleep(EVERY_MS);
     }
-    // Sharpest frames, spread across the scan (the screen may change mid-scan).
-    const third = Math.ceil(frames.length / 3);
-    const groups = [frames.slice(0, third), frames.slice(third, 2 * third), frames.slice(2 * third)];
-    const picked = groups.map(g => [...g].sort((a, b) => b.score - a.score)[0]).filter(Boolean);
-    const rest = frames.filter(f => !picked.includes(f)).sort((a, b) => b.score - a.score);
-    return [...picked, ...rest].slice(0, KEEP).sort((a, b) => b.score - a.score).map(f => f.url);
+    // One sharp frame from each slice of time, so alternating screens are all represented.
+    const per = Math.ceil(frames.length / KEEP);
+    const picked = [];
+    for (let i = 0; i < frames.length; i += per) {
+      const best = frames.slice(i, i + per).sort((a, b) => b.score - a.score)[0];
+      if (best) picked.push(best);
+    }
+    return picked.sort((a, b) => b.score - a.score).map(f => f.url);
+  }
+
+  // Experimental: record a short clip of the boxed area (cropped via a canvas stream when the browser
+  // allows it), plus the sharpest still as proof. Returns { still, clip } (clip may be null).
+  async function recordClip() {
+    const v = video.current;
+    const c = cropRect();
+    const k = Math.min(1, 1280 / Math.max(c.w, c.h));
+    const W = Math.round(c.w * k / 2) * 2, H = Math.round(c.h * k / 2) * 2;
+    const canvas = Object.assign(document.createElement('canvas'), { width: W, height: H });
+    const ctx = canvas.getContext('2d');
+    const small = Object.assign(document.createElement('canvas'), { width: 200, height: Math.max(1, Math.round(200 * H / W)) });
+    const sctx = small.getContext('2d', { willReadFrequently: true });
+    const src = canvas.captureStream ? canvas.captureStream(30) : stream.current;
+    const types = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+    const type = types.find(t => window.MediaRecorder?.isTypeSupported?.(t));
+    let rec = null; const chunks = [];
+    try {
+      rec = new MediaRecorder(src, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: 5_000_000 });
+      rec.ondataavailable = e => { if (e.data?.size) chunks.push(e.data); };
+      rec.start(250);
+    } catch { rec = null; }
+    let best = { score: -1, url: null };
+    const t0 = performance.now(); let n = 0;
+    while (alive.current && performance.now() - t0 < VIDEO_MS) {
+      ctx.drawImage(v, c.x, c.y, c.w, c.h, 0, 0, W, H);
+      if (n++ % 6 === 0) {
+        sctx.drawImage(canvas, 0, 0, small.width, small.height);
+        const sc = sharpness(sctx, small.width, small.height);
+        if (sc > best.score) best = { score: sc, url: canvas.toDataURL('image/jpeg', 0.85) };
+      }
+      setProgress(Math.min(1, (performance.now() - t0) / VIDEO_MS));
+      await sleep(33); // ~30 fps into the recording, so high Gemini sampling rates see distinct frames
+    }
+    let clip = null;
+    if (rec) {
+      await new Promise(r => { rec.onstop = r; rec.stop(); });
+      const blob = new Blob(chunks, { type: (rec.mimeType || type || 'video/mp4').split(';')[0] });
+      if (blob.size) clip = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+    }
+    return { still: best.url, clip };
   }
 
   async function run() {
@@ -91,12 +177,19 @@ export default function Scanner({ onDone, onFallback, onCancel }) {
     for (let r = 1; r <= ROUNDS && alive.current; r++) {
       setRound(r);
       setPhase('scanning');
-      const frames = await grab();
+      let frames, opts = {};
+      if (VIDEO) {
+        const { still, clip } = await recordClip();
+        frames = still ? [still] : [];
+        if (clip) opts = { video: clip, fps: VIDEO_FPS };
+      } else {
+        frames = await grab();
+      }
       if (!alive.current || !frames.length) return;
       scanFrames.set(frames[0], frames.slice(1));
       if (!machineId) { finish(frames[0]); return; } // not on a machine page: let the caller read it
       setPhase('reading');
-      const result = await readScoreFromPhoto(frames[0], { id: machineId });
+      const result = await readScoreFromPhoto(frames[0], { id: machineId }, opts);
       if (!alive.current) return;
       if (result?.scores?.some(s => s.value > 0)) { readCache.set(frames[0], result); finish(frames[0]); return; }
       if (!result || result.error) { finish(frames[0]); return; } // service trouble: fall through to keypad
@@ -121,7 +214,7 @@ export default function Scanner({ onDone, onFallback, onCancel }) {
 
   const label =
     phase === 'starting' ? 'Starting camera…'
-    : phase === 'scanning' ? (round > 1 ? 'Watching for the scores…' : 'Hold steady…')
+    : phase === 'scanning' ? (round > 1 ? 'Watching for the scores…' : 'Hold on the scores… tilt the phone slightly')
     : phase === 'reading' ? 'Reading the scores…'
     : phase === 'waiting' ? 'Waiting for the scores screen…'
     : "Couldn't spot the scores";
@@ -129,9 +222,13 @@ export default function Scanner({ onDone, onFallback, onCancel }) {
   return (
     <div className="scanner" role="dialog" aria-label="Scan the score display">
       <video ref={video} className="scanner-video" playsInline muted />
-      <div className={`scanner-frame${phase === 'reading' ? ' reading' : ''}`} />
+      <div ref={box} className={`scanner-frame ${guide.shape}${phase === 'reading' ? ' reading' : ''}`} />
       <div className="scanner-top">
-        <div className="scanner-hint">Fit the <strong>score display</strong> in the box</div>
+        <div className="scanner-hint">
+          {guide.text}
+          <div className="scanner-hint-sub">Start right after the game ends. Tilting the phone a little dodges glare.</div>
+          {VIDEO && <span className="scanner-badge">VIDEO TEST · {VIDEO_FPS} fps</span>}
+        </div>
         <button type="button" className="scanner-x" onClick={() => { alive.current = false; onCancel(); }} aria-label="Cancel">✕</button>
       </div>
       <div className="scanner-bottom">

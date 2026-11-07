@@ -33,13 +33,16 @@ export const readCache = new Map();
 // Sends the photo to the read-score function. Resolves to
 //   { scores: [{ slot, value }], confidence: 'high'|'low', note, photoPath }
 // or null if the service is unreachable (the UI then falls back to the keypad).
-export async function readScoreFromPhoto(jpegDataUrl, machine) {
+export async function readScoreFromPhoto(jpegDataUrl, machine, opts = {}) {
   if (readCache.has(jpegDataUrl)) return readCache.get(jpegDataUrl);
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 40000); // never leave "Reading…" hanging
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/read-score`, {
       method: 'POST',
+      signal: ctl.signal,
       headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
-      body: JSON.stringify({ token: getToken(), machine_id: machine.id, image: jpegDataUrl, extra: scanFrames.get(jpegDataUrl) ?? [] }),
+      body: JSON.stringify({ token: getToken(), machine_id: machine.id, image: jpegDataUrl, extra: scanFrames.get(jpegDataUrl) ?? [], video: opts.video, fps: opts.fps }),
     });
     const data = await res.json().catch(() => null);
     if (!data) return null;
@@ -48,5 +51,7 @@ export async function readScoreFromPhoto(jpegDataUrl, machine) {
     return data;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }

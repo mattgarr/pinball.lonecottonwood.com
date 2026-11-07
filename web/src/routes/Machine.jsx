@@ -111,6 +111,7 @@ export default function Machine() {
   async function onSnap(dataUrl) {
     setPhoto(dataUrl); setErr(''); setNotice(''); setReadInfo(null);
     goStep('reading');
+    stepRef.current = 'reading'; // the read can resolve instantly (scanner cache) before the re-render
     const r = await readScores(dataUrl, machine);
     if (stepRef.current !== 'reading') return; // they backed out while it was reading
     if (!r) {
