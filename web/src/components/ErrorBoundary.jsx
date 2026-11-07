@@ -10,10 +10,10 @@ export default class ErrorBoundary extends Component {
     return (
       <div className="crash">
         <div className="crash-emoji">🕹️💥</div>
-        <h1>Tilt! Something went wrong.</h1>
-        <p className="muted">Your scores are safe. Reload to keep going.</p>
+        <h1>Tilt!</h1>
+        <p className="muted">Something broke. Your scores are safe.</p>
         <button className="cta" onClick={() => location.reload()}>↻ Reload</button>
-        <button className="linkbtn small" onClick={() => { location.href = '/'; }}>Go to the home screen</button>
+        <button className="linkbtn small" onClick={() => { location.href = '/'; }}>Home</button>
         <pre className="crash-detail">{String(this.state.error?.message || this.state.error)}</pre>
       </div>
     );

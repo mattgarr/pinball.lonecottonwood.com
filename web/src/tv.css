@@ -729,7 +729,19 @@
 
 /* ALL-PIXEL TYPE on the TV too: the condensed/mono families become pixel fonts. */
 .tv2-frame, .tv-frame, .tv, .tv2, .reveal-tv, .rv-wrap {
-  --cond: 'VT323 Body', 'VT323', ui-monospace, monospace;
+  --cond: 'NES Body', 'VT323 Body', ui-monospace, monospace;
   --mono: 'Press Start 2P', ui-monospace, monospace;
 }
-.tv-frame { font-family: 'VT323 Body', 'VT323', ui-monospace, monospace; }
+.tv-frame { font-family: 'NES Body', 'VT323 Body', ui-monospace, monospace; }
+.tv2-frame, .tv-frame, .tv, .tv2, .reveal-tv, .rv-wrap { --vt: 'NES Body', 'VT323', ui-monospace, monospace; }
+
+/* ===== NES copy fit: player names in the wide pixel font ===== */
+.tv2-stats { font-size: 16px; white-space: nowrap; }
+/* cabinets: drop the tiny avatar so names get the room */
+.cab2-scores li .avatar { display: none; }
+.cab2-pname, .cab2-scores li.r1 .cab2-pname { font-size: 16px; line-height: 1.2; }
+.tk-name { font-size: 19px; max-width: 170px; }
+.pr-name { font-size: 22px; }
+.qr-url { font-family: 'NES Body', ui-monospace, monospace; font-size: 13px; word-break: normal; overflow-wrap: anywhere; text-align: center; line-height: 1.4; }
+.cab2-scores li:not(.slot):not(.cab2-empty) { grid-template-columns: 22px minmax(0, 1fr) auto; }
+.pnl-legend { font-size: 14px; line-height: 1.4; }

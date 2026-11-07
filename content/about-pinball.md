@@ -1,18 +1,18 @@
-# About Pinball
+# How to play
 
-*New to this? Here's everything you need in 30 seconds.*
+*Pinball in 30 seconds.*
 
-You launch a steel ball with the plunger, then use the two flipper buttons (one on each side of the machine) to keep it alive and aim it at targets. That's it — there's no joystick, just timing. You get **three balls per game**; when all three drain, your game's over and your score is locked in.
+Pull the plunger. Two buttons work the flippers. Keep the ball alive. **3 balls per game.** When all 3 drain, your score is final.
 
-The whole goal is to **hit lit shots**. Lights on the playfield tell you what's "live" right now — a flashing ramp, a lit target, an arrow pointing at a hole. Hit those and your score climbs. Most games build toward **multiball** (two or more balls in play at once — chaotic, high-scoring, the most fun you'll have) and toward **modes** (mini-missions tied to the theme).
+**Hit what's lit.** Flashing ramps, lit targets and arrows score big. Most games build to **multiball** (2+ balls at once: chaos, huge points) and **modes** (mini-missions).
 
-## Three things that make you instantly better
+## 3 quick tips
 
-- **Don't flip wildly.** Let the ball settle on a flipper, then aim. A still ball is an aimed ball.
-- **Nudge, don't slam.** A gentle bump can save a draining ball — but hit it too hard and the machine **tilts**, killing your ball as a penalty. Tap, don't shove.
-- **Aim for the flashing stuff.** When in doubt, shoot whatever's blinking.
+- **Don't flail.** Catch the ball on a flipper, then aim.
+- **Nudge, don't shove.** Too hard and it **tilts**: you lose the ball.
+- **Lost? Shoot whatever's blinking.**
 
-Your scores across our six machines feed the team leaderboard, so every ball counts. Play loose, have fun, and don't worry about the big numbers — there are prizes that have nothing to do with being good.
+Every ball counts toward the leaderboard. Play loose. Some prizes have nothing to do with being good.
 
 ---
-*Sources: facts drawn from IPDB, Pinside, Wikipedia, Kineticist tutorials, and the manufacturers' own materials, rewritten here in original summary form.*
+*Sources: IPDB, Pinside, Wikipedia, Kineticist and the makers, summarized in our own words.*

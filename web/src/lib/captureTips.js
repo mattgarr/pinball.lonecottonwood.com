@@ -3,33 +3,33 @@
 const BY_SLUG = {
   centaur: {
     shape: 'tall',
-    aim: 'Frame the whole backglass so all four score displays are inside the box, about an arm\'s length away.',
-    note: 'After a game the displays flip to HIGH SCORE TO DATE every few seconds. Keep holding: the scan catches both and ignores the high score.',
+    aim: 'Fit all 4 scores in the box.',
+    note: 'Displays flip to HIGH SCORE TO DATE. Keep holding: the scan ignores it.',
   },
   fathom: {
     shape: 'tall',
-    aim: 'Frame the whole backglass so all four score displays are inside the box, about an arm\'s length away.',
-    note: 'After a game the displays flash between your scores and the high score. Keep holding until the scan finishes.',
+    aim: 'Fit all 4 scores in the box.',
+    note: 'Displays flash to the high score. Hold till the scan ends.',
   },
   whirlwind: {
     shape: 'wide',
-    aim: 'Fill the box with the score display panel just below the backglass.',
-    note: 'The display cycles messages after a game. Scan right away while the scores are still up.',
+    aim: 'Fill the box with the score panel.',
+    note: 'Display cycles after a game. Scan right away.',
   },
   'white-water': {
     shape: 'wide',
-    aim: 'Fill the box with just the orange dot-matrix screen.',
-    note: 'Final scores show for a few seconds after the game, then the attract show starts. Scan right away.',
+    aim: 'Fill the box with the orange screen.',
+    note: 'Scores show a few seconds, then the attract show. Scan right away.',
   },
   'cactus-canyon': {
     shape: 'wide',
-    aim: 'Fill the box with just the orange dot-matrix screen.',
-    note: 'Final scores show for a few seconds after the game, then the attract show starts. Scan right away.',
+    aim: 'Fill the box with the orange screen.',
+    note: 'Scores show a few seconds, then the attract show. Scan right away.',
   },
   'dungeons-dragons': {
     shape: 'wide',
-    aim: 'Fill the box with just the score screen (the LCD in the backbox).',
-    note: 'The bright screen reflects lights: tilt the phone a little if you see glare.',
+    aim: 'Fill the box with the score screen.',
+    note: 'Glare? Tilt the phone a little.',
   },
 };
 
@@ -43,12 +43,12 @@ const BY_TYPE = {
 const slugOf = name => String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 export function captureTips(machine) {
-  return BY_SLUG[slugOf(machine?.name)] || BY_TYPE[machine?.display_type] || { shape: 'wide', aim: 'Fill the box with the score display.', note: '' };
+  return BY_SLUG[slugOf(machine?.name)] || BY_TYPE[machine?.display_type] || { shape: 'wide', aim: 'Fill the box with the scores.', note: '' };
 }
 
 export const GENERAL_TIPS = [
-  'Scan right after the game ends, while the final scores are up.',
-  'Hold about an arm\'s length away. Closer is better as long as the scores fit in the box.',
-  'Tilt the phone slightly while it scans: it moves glare off the digits.',
-  'No flash needed. The displays light themselves; room lights off is best.',
+  'Scan right after the game, while scores show.',
+  'Get close, but keep all scores in the box.',
+  'Tilt slightly while scanning to dodge glare.',
+  'No flash. Room lights off is best.',
 ];

@@ -58,7 +58,7 @@ export default function Join() {
           </div>
           <div className="reveal-label">You're in,</div>
           <div className="reveal-team">{welcome.display_name}</div>
-          <p className="welcome-pin">Your PIN <strong>{pin}</strong> gets you back in on any phone. Screenshot this if you'll forget it!</p>
+          <p className="welcome-pin">PIN <strong>{pin}</strong> gets you back in. Screenshot it!</p>
           <button className="cta" onClick={() => nav(next, { replace: true })}>Press start</button>
         </div>
       </div>
@@ -71,17 +71,17 @@ export default function Join() {
     <form className="screen form" onSubmit={submit}>
       <h1>Join the party</h1>
       <Link to={`/rejoin${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`} className="rejoin-banner">
-        Already joined on another phone? <strong>Get back in →</strong>
+        Joined before? <strong>Get back in →</strong>
       </Link>
 
       {me && !welcome && (
         <div className="note-ok">
-          This phone is signed in as <strong>{me.display_name}</strong>. Joining makes a new player.{' '}
-          <Link to="/" className="link">Back to machines</Link>
+          Signed in as <strong>{me.display_name}</strong>. This makes a new player.{' '}
+          <Link to="/" className="link">Go back</Link>
         </div>
       )}
 
-      {closed && <div className="err">Scoring is closed for the night, so new players can't join.</div>}
+      {closed && <div className="err">Scoring's closed. No new players.</div>}
 
       <div className="reg-photo">
         <button type="button" className="reg-photo-btn" onClick={() => fileRef.current?.click()}>
@@ -95,14 +95,14 @@ export default function Join() {
           <div className="muted small">
             {avatar
               ? <button type="button" className="linkbtn" onClick={() => setAvatar(null)}>remove photo</button>
-              : 'Optional. Or pick an emoji below.'}
+              : 'Optional'}
           </div>
         </div>
         <input ref={fileRef} type="file" accept="image/*" capture="user" onChange={onPhoto} hidden />
       </div>
 
       <label className="field">
-        <span>Nickname (shows on the TV)</span>
+        <span>Nickname (on the TV)</span>
         <input
           value={name}
           onChange={e => setName(e.target.value)}
@@ -115,7 +115,7 @@ export default function Join() {
       </label>
 
       <label className="field">
-        <span>Pick a 4-digit PIN, so you can get back in later</span>
+        <span>4-digit PIN (to get back in)</span>
         <input
           className="pin-input"
           value={pin}
@@ -138,7 +138,7 @@ export default function Join() {
 
       <label className="field row">
         <input type="checkbox" checked={firstTimer} onChange={e => setFirstTimer(e.target.checked)} />
-        <span>First time playing pinball? (There's a prize for that.)</span>
+        <span>First time playing? (Prize!)</span>
       </label>
 
       {err && <div className="err" role="alert">{err}</div>}

@@ -16,13 +16,13 @@ export default function Home() {
         <Link to="/me" className="rating-strip" aria-label="My progress">
           <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={38} ring />
           <div className="rs-main">
-            <div className="rs-label">{mine.rating != null ? 'Your rating' : 'Get ranked'}</div>
+            <div className="rs-label">{mine.rating != null ? 'Rating' : 'Get ranked'}</div>
             <div className="rs-line">
               {mine.rating != null ? (
                 <><span className="rs-num">{mine.rating}</span><span className="rs-rank">{ordinal(mine.rank)} of {ranked}</span></>
               ) : (
                 <span className="rs-todo">
-                  {mine.machinesPlayed === 0 ? 'Play any machine to start' : `Play ${MIN_TABLES - mine.machinesPlayed} more machine`}
+                  {mine.machinesPlayed === 0 ? 'PLAY ANY TABLE' : `${MIN_TABLES - mine.machinesPlayed} MORE TO RANK`}
                 </span>
               )}
             </div>
@@ -37,11 +37,11 @@ export default function Home() {
         </Link>
       )}
 
-      {closed && <div className="err">Scoring is closed. Final standings are on the TV.</div>}
+      {closed && <div className="err">Scoring's closed. Finals on the TV.</div>}
 
       <div className="home-head">
-        <h1>Pick a machine</h1>
-        <div className="muted small">Tap the one you just played, or scan its QR. New to pinball? <Link to="/about" className="link">Start here</Link></div>
+        <h1>Pick your machine</h1>
+        <div className="muted small">New? <Link to="/about" className="link">How to play</Link></div>
       </div>
 
       <div className="mgrid">

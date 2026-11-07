@@ -71,9 +71,9 @@ export default function App() {
         </div>
       </header>
       {!online ? (
-        <div className="offline" role="status">📡 You're offline. Scores won't send until Wi-Fi is back.</div>
+        <div className="offline" role="status">📡 Offline. Scores can't send till Wi-Fi's back.</div>
       ) : error && !ready ? (
-        <div className="offline" role="status">Can't reach the scoreboard. Retrying…</div>
+        <div className="offline" role="status">Can't reach scoreboard. Retrying…</div>
       ) : null}
       <main className="main">
         <Outlet />

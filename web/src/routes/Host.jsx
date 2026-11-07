@@ -28,7 +28,7 @@ function HostLogin({ onAuth }) {
   return (
     <form className="screen form" onSubmit={submit}>
       <h1>Host</h1>
-      <p className="muted">Enter the host passcode.</p>
+      <p className="muted">Enter passcode.</p>
       <input autoFocus type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="passcode" autoComplete="current-password" />
       {err && <div className="err">{err}</div>}
       <button className="primary big" disabled={busy} type="submit">Unlock</button>
@@ -83,26 +83,26 @@ function HostPanel({ onLogout }) {
       <section className="card">
         <div className="row spread">
           <div>
-            <h2>Scoring is {open ? 'OPEN' : 'CLOSED'}</h2>
+            <h2>Scoring {open ? 'OPEN' : 'CLOSED'}</h2>
             <div className="muted small">{players.length} players · {scores.filter(s => !s.voided).length} scores</div>
           </div>
           <button className={open ? 'secondary' : 'primary'} disabled={busy || !party}
             onClick={() => run(() => host.setStatus(open ? 'closed' : 'open'), open ? 'Scoring closed.' : 'Scoring reopened.')}>
-            {open ? 'Close scoring' : 'Reopen scoring'}
+            {open ? 'Close it' : 'Reopen'}
           </button>
         </div>
         <div className="row gap">
-          <a className="ghost" href="/tv" target="_blank" rel="noreferrer">Open TV board ↗</a>
-          <a className="ghost" href="/host/qr" target="_blank" rel="noreferrer">Printable QR sheet ↗</a>
-          <Link className="ghost" to="/host/test">🧪 Test &amp; calibrate scanner</Link>
+          <a className="ghost" href="/tv" target="_blank" rel="noreferrer">TV board ↗</a>
+          <a className="ghost" href="/host/qr" target="_blank" rel="noreferrer">QR sheet ↗</a>
+          <Link className="ghost" to="/host/test">🧪 Calibrate scanner</Link>
         </div>
       </section>
 
       <section className="card">
         <h2>Winner reveal</h2>
-        <p className="muted small">Takes over the TV: champion, machine champions, then the fun prizes. Close scoring first.</p>
+        <p className="muted small">Takes over the TV. Close scoring first.</p>
         <label className="field">
-          <span>The Match: draw a number 00–99 (optional)</span>
+          <span>The Match draw, 00–99 (optional)</span>
           <input type="number" min="0" max="99" value={matchDigits} onChange={e => setMatchDigits(e.target.value)} placeholder="e.g. 42" />
         </label>
         <div className="row gap">
@@ -122,7 +122,7 @@ function HostPanel({ onLogout }) {
       <section className="card">
         <div className="row spread">
           <h2>Scores</h2>
-          <input className="host-filter" value={filter} onChange={e => setFilter(e.target.value)} placeholder="filter by player or machine" />
+          <input className="host-filter" value={filter} onChange={e => setFilter(e.target.value)} placeholder="filter" />
         </div>
         <div className="table-wrap">
           <table className="host-table">
@@ -134,7 +134,7 @@ function HostPanel({ onLogout }) {
                 return (
                   <tr key={s.id} className={s.voided ? 'voided' : ''}>
                     <td className="muted small">{new Date(s.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</td>
-                    <td>{p?.emoji} {p?.display_name ?? '?'}{s.logged_by ? <span className="muted small"> (by {playerById.get(s.logged_by)?.display_name ?? '?'})</span> : null}</td>
+                    <td>{p?.emoji} {p?.display_name ?? '?'}{s.logged_by ? <span className="muted small"> by {playerById.get(s.logged_by)?.display_name ?? '?'}</span> : null}</td>
                     <td>{machineById.get(s.machine_id)?.name}{s.photo_path ? <> <a href={photoUrl(s.photo_path)} target="_blank" rel="noreferrer" title="proof photo"><PixelEmoji e="📸" size={22} /></a></> : null}</td>
                     <td className="ralign mono">{fmt(s.value)}</td>
                     <td>
@@ -157,19 +157,19 @@ function HostPanel({ onLogout }) {
             <div key={p.id} className="host-player">
               <Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={28} />
               <span className="grow">{p.display_name}{p.first_timer && <span className="player-ft">NEW</span>}</span>
-              <span className="muted small">{plays.get(p.id) || 0} games</span>
+              <span className="muted small">{plays.get(p.id) || 0} game{plays.get(p.id) === 1 ? '' : 's'}</span>
               <button className="ghost" disabled={busy} onClick={() => {
                 const pin = prompt(`New 4-digit PIN for ${p.display_name}:`);
                 if (pin == null) return;
                 run(() => host.resetPin(p.id, pin.trim()), `PIN reset for ${p.display_name}. Tell them it's ${pin.trim()}.`);
-              }}>Reset PIN</button>
+              }}>PIN</button>
               <button className="ghost danger" disabled={busy} onClick={() => {
                 if (!confirm(`Remove ${p.display_name} and all their scores? This can't be undone.`)) return;
                 run(() => host.removePlayer(p.id), `${p.display_name} removed.`);
               }}>Remove</button>
             </div>
           ))}
-          {players.length === 0 && <div className="muted small">No one has joined yet.</div>}
+          {players.length === 0 && <div className="muted small">No one yet.</div>}
         </div>
       </section>
 
@@ -185,7 +185,7 @@ function ReviewQueue({ scores, playerById, machineById, busy, run }) {
   return (
     <section className="card review-card">
       <h2>Check these ({queue.length})</h2>
-      <p className="muted small">New high scores without a photo, or scores someone logged for a friend. Glance at the machine or ask the player, then keep or void.</p>
+      <p className="muted small">New #1s with no photo, or logged by a friend.</p>
       {queue.map(s => {
         const p = playerById.get(s.player_id);
         return (
@@ -195,7 +195,7 @@ function ReviewQueue({ scores, playerById, machineById, busy, run }) {
               {s.logged_by ? <span className="muted small"> · logged by {playerById.get(s.logged_by)?.display_name ?? '?'}</span> : null}
               {s.photo_path ? <> · <a className="link" href={photoUrl(s.photo_path)} target="_blank" rel="noreferrer">photo</a></> : null}
             </span>
-            <button className="ghost" disabled={busy} onClick={() => run(() => host.markReviewed(s.id), 'Marked OK.')}>Looks right</button>
+            <button className="ghost" disabled={busy} onClick={() => run(() => host.markReviewed(s.id), 'Marked OK.')}>OK</button>
             <button className="ghost danger" disabled={busy} onClick={() => run(() => host.voidScore(s.id, true), 'Score voided.')}>Void</button>
           </div>
         );
@@ -211,8 +211,8 @@ function AddScore({ players, machines, busy, run }) {
   const ok = pid && mid && /^\d+$/.test(val);
   return (
     <section className="card">
-      <h2>Add a score for someone</h2>
-      <p className="muted small">For anyone whose phone died.</p>
+      <h2>Add a score</h2>
+      <p className="muted small">For a dead phone.</p>
       <div className="host-add">
         <select value={pid} onChange={e => setPid(e.target.value)}>
           <option value="">Player…</option>
@@ -235,11 +235,11 @@ function WipeCard({ busy, run }) {
   return (
     <section className="card danger-card">
       <h2>Start fresh</h2>
-      <p className="muted small">Deletes every player and score (use this to clear out test data before the party). Type WIPE to confirm.</p>
+      <p className="muted small">Deletes ALL players and scores. Type WIPE.</p>
       <div className="row gap">
         <input value={txt} onChange={e => setTxt(e.target.value)} placeholder="WIPE" />
         <button className="ghost danger" disabled={busy || txt !== 'WIPE'}
-          onClick={() => run(async () => { await host.wipe(txt); setTxt(''); }, 'Everything cleared.')}>Wipe everything</button>
+          onClick={() => run(async () => { await host.wipe(txt); setTxt(''); }, 'Everything cleared.')}>Wipe all</button>
       </div>
     </section>
   );

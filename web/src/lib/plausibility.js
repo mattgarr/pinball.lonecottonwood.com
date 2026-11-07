@@ -58,35 +58,35 @@ export function checkScore(value, machine, machineScores = []) {
     out.push({
       kind: 'record',
       title: `That's ${x}× the record!`,
-      detail: `Tonight's best on ${name} is ${fmt(record)}. Double-check the zeros?`,
+      detail: `Record: ${fmt(record)}. Check zeros.`,
     });
   } else if (v > max) {
     out.push({
       kind: 'high',
-      title: 'That would be a monster game',
-      detail: `Over ${fmtShort(max)} on ${name} is rare. Extra zero?`,
+      title: 'Monster game?',
+      detail: `Over ${fmtShort(max)} is rare. Extra zero?`,
     });
   }
 
   if (v < min) {
     out.push({
       kind: 'low',
-      title: `Low for ${name}`,
-      detail: `Most games here are over ${fmtShort(min)}. Missing a zero?`,
+      title: 'Pretty low',
+      detail: `Most top ${fmtShort(min)}. Missing a zero?`,
     });
   } else if (values.length >= 5 && v < median(values) / 30) {
     out.push({
       kind: 'low',
-      title: 'Way below everyone else',
-      detail: `Typical tonight is ~${fmtShort(median(values))}. Missing a zero?`,
+      title: 'Way below the rest',
+      detail: `Typical tonight: ~${fmtShort(median(values))}. Missing a zero?`,
     });
   }
 
   if (v % 10 !== 0) {
     out.push({
       kind: 'digit',
-      title: 'Ends in a non-zero digit',
-      detail: 'Pinball scores almost always end in 0. Stray extra digit?',
+      title: "Doesn't end in 0",
+      detail: 'Extra digit?',
     });
   }
   return out;

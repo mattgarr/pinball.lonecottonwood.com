@@ -108,9 +108,9 @@ export default function TV() {
                     <Dmd className="pr-val" tone={st.rank === 1 ? 'hot' : undefined}><CountUp value={st.rating} /></Dmd>
                   </div>
                 ))}
-                {standings.topPlayers.length === 0 && <div className="pnl-empty">Play 2 machines to get on the board</div>}
+                {standings.topPlayers.length === 0 && <div className="pnl-empty">Play 2 machines to rank</div>}
               </div>
-              <div className="pnl-legend">RATING = your average finish across the machines you played (100 = 1st on every one). Best score per machine counts; 2+ machines to be ranked.</div>
+              <div className="pnl-legend">RATING = avg finish. 100 = 1st on all. Play 2+ to rank.</div>
             </div>
 
             <div className="pnl pnl-shame">
@@ -126,22 +126,22 @@ export default function TV() {
                   </div>
                 )) : <div className="pnl-empty">Nobody… yet</div>}
               </div>
-              <div className="pnl-legend">Lowest ratings (2+ machines), never anyone on Top Players. Ranked with love. 💀</div>
+              <div className="pnl-legend">Ranked with love. 💀</div>
             </div>
 
             <section className="pnl pnl-prizes">
               <PanelHead icon="medal" title="Prizes" />
               <div className="pz-list">
                 <Prize icon="trophy" name="Overall Champion" crit="highest rating" who={champ?.player} stat={champ ? `${champ.rating}/100` : ''} gold />
-                <Prize icon="star" name="Beginner's Luck" crit="best first-timer game" who={awards.beginnersLuck?.player}
+                <Prize icon="star" name="Beginner's Luck" crit="best first-timer" who={awards.beginnersLuck?.player}
                   stat={awards.beginnersLuck ? `${awards.beginnersLuck.pct}% of top` : ''} />
-                <Prize icon="grind" name="The Grinder" crit="most games played" who={awards.grinder?.player}
+                <Prize icon="grind" name="The Grinder" crit="most games" who={awards.grinder?.player}
                   stat={awards.grinder ? `${awards.grinder.plays} games` : ''} />
-                <Prize icon="globe" name="Globetrotter" crit={`played all ${machines.length || 6} machines`} who={awards.globetrotters?.[0]}
+                <Prize icon="globe" name="Globetrotter" crit={`played all ${machines.length || 6}`} who={awards.globetrotters?.[0]}
                   stat={awards.globetrotters?.length ? `${awards.globetrotters.length} so far` : ''} />
                 <Prize icon="burst" name="The Big Whiff" crit="lowest rating" who={awards.bigWhiff?.player}
                   stat={awards.bigWhiff ? `${awards.bigWhiff.rating}/100` : ''} dim />
-                <Prize icon="ticket" name="The Match" crit="last 2 digits match the draw" stat="at the end" pending />
+                <Prize icon="ticket" name="The Match" crit="last 2 digits" stat="at the end" pending />
               </div>
             </section>
 

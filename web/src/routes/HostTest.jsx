@@ -47,8 +47,8 @@ export default function HostTest() {
     return s;
   }, [tests]);
 
-  if (!getHostPass()) return <div className="screen"><div className="err">Unlock Host first.</div><Link className="link" to="/host">Go to Host →</Link></div>;
-  if (!me) return <div className="screen"><div className="err">Join as a player on this phone first (the scanner needs one), then come back.</div><Link className="link" to="/join">Join →</Link></div>;
+  if (!getHostPass()) return <div className="screen"><div className="err">Unlock Host first.</div><Link className="link" to="/host">Host →</Link></div>;
+  if (!me) return <div className="screen"><div className="err">Join as a player on this phone first.</div><Link className="link" to="/join">Join →</Link></div>;
 
   function bestFor(m) {
     let best = null;
@@ -124,16 +124,16 @@ export default function HostTest() {
         <button className="back linkbtn" onClick={() => setMachine(null)}>← all machines</button>
         <div className="test-head">
           <img src={machineArt(m.name)} alt="" />
-          <div><div className="test-machine">{m.name}</div><div className="muted small">one capture tests all 3 methods</div></div>
+          <div><div className="test-machine">{m.name}</div><div className="muted small">1 capture, 3 methods</div></div>
         </div>
 
         {!review && (
           <>
             <ol className="test-steps">
-              <li>Finish a game on <strong>{m.name}</strong> and note the real scores (2+ players is a great test).</li>
+              <li>Finish a game. Note the real scores (2+ players is best).</li>
               <li><strong>Aim:</strong> {tips.aim}</li>
               {tips.note && <li>{tips.note}</li>}
-              <li>Tap capture. After 3-2-1 it records 5 seconds: hold steady and tilt slightly. Then it tests each method (about 30 s).</li>
+              <li>Capture: hold still 5 s. Testing takes ~30 s.</li>
             </ol>
             <div className="test-conds">
               {CONDITIONS.map(c => (
@@ -161,12 +161,12 @@ export default function HostTest() {
                   </div>
                 );
               })}
-              <div className="muted small">Time = capture + send + AI. Tap a time to see the split.</div>
+              <div className="muted small">Time = capture + send + AI.</div>
             </div>
 
             {!saved ? (
               <div className="card-lite">
-                <div className="small"><strong>Real scores</strong> (filled in from the best guess; fix anything wrong):</div>
+                <div className="small"><strong>Real scores</strong> (best guess; fix it):</div>
                 <div className="truth-grid">
                   {[1, 2, 3, 4].map(slot => (
                     <label key={slot}>Player {slot}
@@ -175,17 +175,17 @@ export default function HostTest() {
                     </label>
                   ))}
                 </div>
-                <button className="cta" disabled={busy} onClick={save}>{busy ? 'Saving…' : '✅ These are the real scores. Save'}</button>
-                <button className="linkbtn small" onClick={() => setReview(null)}>Discard and capture again</button>
+                <button className="cta" disabled={busy} onClick={save}>{busy ? 'Saving…' : '✅ Save real scores'}</button>
+                <button className="linkbtn small" onClick={() => setReview(null)}>Discard · recapture</button>
               </div>
             ) : (
               <div className="card-lite">
-                {best && <div>Best for {m.name} so far: <strong>{best.meth.label}</strong> ({best.st.ok}/{best.st.n} right, sure {best.st.hi}/{best.st.n}, {sec(best.st.ms / best.st.n)} s)</div>}
-                <div className="muted small">Now using: {m.scan_mode}</div>
-                {best && <button className="secondary" onClick={() => useBest(m)}>Use {best.meth.label} for {m.name}</button>}
-                {best && sameType.length > 1 && <button className="secondary" onClick={() => useBest(m, true)}>Use for all {TYPE_LABEL[m.display_type]} ({sameType.map(x => x.name).join(', ')})</button>}
-                <button className="secondary" onClick={() => { setReview(null); setSaved(null); }}>↻ Capture {m.name} again</button>
-                {nextMachine() && <button className="cta" onClick={() => start(nextMachine())}>▶ Next machine: {nextMachine().name}</button>}
+                {best && <div>Best: <strong>{best.meth.label}</strong> ({best.st.ok}/{best.st.n} right, sure {best.st.hi}/{best.st.n}, {sec(best.st.ms / best.st.n)}s)</div>}
+                <div className="muted small">Using: {m.scan_mode}</div>
+                {best && <button className="secondary" onClick={() => useBest(m)}>Use {best.meth.label}</button>}
+                {best && sameType.length > 1 && <button className="secondary" onClick={() => useBest(m, true)}>Use for all {TYPE_LABEL[m.display_type]}</button>}
+                <button className="secondary" onClick={() => { setReview(null); setSaved(null); }}>↻ Capture again</button>
+                {nextMachine() && <button className="cta" onClick={() => start(nextMachine())}>Next: {nextMachine().name}</button>}
               </div>
             )}
           </>
@@ -197,7 +197,7 @@ export default function HostTest() {
             testMode={{ all: true, machineId: m.id }}
             onResult={onResult}
             onCancel={() => setScanning(false)}
-            onFallback={() => { setScanning(false); setErr('Camera unavailable on this device/browser.'); }}
+            onFallback={() => { setScanning(false); setErr('No camera here.'); }}
             onDone={() => setScanning(false)}
           />,
           document.body,
@@ -210,11 +210,11 @@ export default function HostTest() {
   return (
     <div className="screen test-page">
       <Link className="back" to="/host">← Host</Link>
-      <h1>🧪 Test &amp; calibrate</h1>
-      <p className="muted small">One capture per machine tests all three methods on the same footage. Do each machine once (twice if results disagree), then apply the best.</p>
+      <h1>Calibrate</h1>
+      <p className="muted small">1 capture per machine tests 3 methods. Then apply the best.</p>
       {err && <div className={err.startsWith('✓') ? 'ok' : 'err'}>{err}</div>}
-      {nextMachine() && <button className="cta" onClick={() => start(nextMachine())}>▶ Calibrate {nextMachine().name}</button>}
-      <details className="card-lite tips-card"><summary><strong>How to capture (read once)</strong></summary><ul>{GENERAL_TIPS.map(t => <li key={t}>{t}</li>)}</ul></details>
+      {nextMachine() && <button className="cta" onClick={() => start(nextMachine())}>Calibrate {nextMachine().name}</button>}
+      <details className="card-lite tips-card"><summary><strong>Capture tips</strong></summary><ul>{GENERAL_TIPS.map(t => <li key={t}>{t}</li>)}</ul></details>
 
       <div className="cal-list">
         {machines.map(m => {

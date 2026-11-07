@@ -19,7 +19,7 @@ export default function Toast({ item, onDone, paused }) {
       <span className="toast2-icon"><Icon name={item.kind === 'enter' ? 'star' : 'flame'} size={20} stroke={2.2} /></span>
       <Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={40} ring />
       <div className="toast2-text">
-        <div className="toast2-head">{item.kind === 'enter' ? 'Enters the Top Players' : `Climbs ${item.by} spot${item.by > 1 ? 's' : ''}`}</div>
+        <div className="toast2-head">{item.kind === 'enter' ? 'Enters Top Players' : `Climbs ${item.by} spot${item.by > 1 ? 's' : ''}`}</div>
         <div className="toast2-name">{p.display_name} <span>is now #{item.rank}</span></div>
       </div>
       <div className="toast2-bar" style={{ animationDuration: `${TOAST_MS}ms` }} />

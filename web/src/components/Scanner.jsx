@@ -340,12 +340,12 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
 
   const label =
     phase === 'starting' ? 'Starting camera…'
-    : phase === 'aiming' ? `Aim at the scores… ${count}`
-    : phase === 'scanning' ? (testMode?.all ? 'Recording 5 s · hold steady, tilt slightly' : round > 1 ? 'Watching for the scores…' : 'Hold steady · tilt slightly')
-    : phase === 'sending' ? (job ? `Testing ${job.i + 1} of ${job.n} (${job.label}): sending…` : 'Sending…')
-    : phase === 'reading' ? (job ? `Testing ${job.i + 1} of ${job.n} (${job.label}): reading… ${elapsed}s` : `Reading the scores… ${elapsed}s`)
-    : phase === 'waiting' ? 'Waiting for the scores screen…'
-    : "Couldn't spot the scores";
+    : phase === 'aiming' ? `Aim… ${count}`
+    : phase === 'scanning' ? (testMode?.all ? 'Recording 5s · hold still' : round > 1 ? 'Watching…' : 'Hold still · tilt a bit')
+    : phase === 'sending' ? (job ? `Test ${job.i + 1}/${job.n} ${job.label}: sending` : 'Sending…')
+    : phase === 'reading' ? (job ? `Test ${job.i + 1}/${job.n} ${job.label}: ${elapsed}s` : `Reading… ${elapsed}s`)
+    : phase === 'waiting' ? 'Waiting for scores…'
+    : 'No scores found';
 
   return (
     <div className="scanner" role="dialog" aria-label="Scan the score display">
@@ -363,18 +363,18 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
         {phase === 'reading' && <div className="scanner-spinner" aria-hidden="true" />}
         {phase === 'waiting' && (
           <div className="scanner-sub">
-            {msg && /high|attract|not visible|champion/i.test(msg) ? 'The display is showing something else right now. ' : ''}
-            Keep pointing at it. Many machines cycle back to the scores.
+            {msg && /high|attract|not visible|champion/i.test(msg) ? 'Showing something else. ' : ''}
+            Keep aiming. It cycles back.
           </div>
         )}
         {phase === 'gaveup' ? (
           <>
-            <div className="scanner-sub">Tip: scan right after the game ends, while the final scores are up.</div>
+            <div className="scanner-sub">Scan right after the game, while scores show.</div>
             <button type="button" className="scanner-go" onClick={retry}>↻ Scan again</button>
             <button type="button" className="linkbtn small scanner-alt" onClick={() => { alive.current = false; onCancel(); }}>Type it instead</button>
           </>
         ) : (
-          <button type="button" className="linkbtn small scanner-alt" onClick={() => { alive.current = false; onFallback(true); }}>Use a regular photo instead</button>
+          <button type="button" className="linkbtn small scanner-alt" onClick={() => { alive.current = false; onFallback(true); }}>Use a regular photo</button>
         )}
       </div>
     </div>

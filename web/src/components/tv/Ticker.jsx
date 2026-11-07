@@ -30,7 +30,7 @@ export default function Ticker({ scores, players, machines, n = 8 }) {
             </span>
             <Dmd className="tk-score">{fmtShort(s.value)}</Dmd>
           </li>
-        )) : <li className="tk-empty">Scores will roll in here — scan the code to play</li>}
+        )) : <li className="tk-empty">Scores roll in here. Scan to play!</li>}
       </ul>
     </div>
   );

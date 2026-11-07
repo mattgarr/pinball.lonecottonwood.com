@@ -1,17 +1,17 @@
 # White Water
 
-*Williams, 1993 · dot-matrix display*
+*Williams, 1993 · dot-matrix*
 
-## What it is
-A white-water rafting adventure down a roaring river — dodging boulders, plunging over falls, and sneaking past Bigfoot, who lives in the top-right corner and swats your ball around. Fast, loud, packed with ramps, and genuinely one of the most beloved '90s machines.
+## The story
+White-water rafting. Dodge boulders, go over falls, and get past **Bigfoot**, who swats your ball.
 
 ## How to play
-There are seven main shots, all with goofy names, but you only need two: **No Way Out** (the lock shot up the middle — light it and lock balls to start multiball) and **Insanity Falls** (which lights the Whirlpool / Bigfoot Bluff award up top). The grand goal is to survive enough hazards to reach **Wet Willie's River Ranch** and collect the legendary **Vacation Jackpot**.
+Two shots matter. **No Way Out** (up the middle) locks balls for multiball. **Insanity Falls** lights the award up top. The goal: reach **Wet Willie's** for the **Vacation Jackpot**.
 
-## Scoring tips
-- **If you only do one thing:** keep shooting **No Way Out** to start multiball — that's the big points.
-- Hit **Insanity Falls** to light the upper award, then go for **5X Playfield** when it's offered — everything scores five times as much for 25 seconds.
-- Stack that 5X with multiball if you can. That combo is how monster scores happen.
+## Tips
+- **#1:** keep shooting **No Way Out** for multiball.
+- Take **5X Playfield** when offered: 5x points for 25 s.
+- 5X + multiball = monster score.
 
-## Good to know
-Designed by Dennis Nordman, who modeled Bigfoot's face after himself. The **Vacation Jackpot** starts at 200 million and grows every game it isn't won — and the machine pretends to crash right before you collect it, just to mess with you.
+## Fun fact
+The designer modeled Bigfoot's face on his own.

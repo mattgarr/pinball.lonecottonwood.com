@@ -1,17 +1,17 @@
 # Fathom
 
-*Bally, 1981 · solid-state, segmented LED scoring*
+*Bally, 1981 · LED scoring*
 
-## What it is
-A moody underwater world of mermaids and sea monsters, washed in deep blues. A sister machine to Centaur from the same year — fast, clean, and considered one of the best of the early-'80s era.
+## The story
+Mermaids and sea monsters in deep blue. Centaur's sister. Fast and a fan favorite.
 
 ## How to play
-**Lock balls** in the two saucers (the holes that swallow the ball), then knock down the drop targets in front of them to release everything into multiball. The center spinner racks up points when the ball rips through it. Watch out: the return lanes by the flippers are reversed from what you'd expect, so the ball comes back from surprising angles.
+**Lock balls** in the 2 saucers (holes that grab the ball). Then drop the targets in front of them for multiball. Rip the center **spinner** for points. Heads up: the return lanes are reversed.
 
-## Scoring tips
-- **If you only do one thing:** get a ball locked in a saucer, then drop the targets in front of it to start multiball.
-- During multiball, cradle a ball on one flipper and keep firing the spinner with the other.
-- Stacking the inline drop targets builds your **bonus multiplier** — the higher it climbs, the bigger your end-of-ball payout.
+## Tips
+- **#1:** lock a ball, then drop the targets in front of it.
+- In multiball, hold one ball and keep hitting the spinner.
+- Drop targets build your **bonus multiplier**.
 
-## Good to know
-Designed by Ward Pemberton with art by Greg Freres and Kevin O'Connor. Originals are rare and prized — those soothing blues and the eerie mermaid theme have made it a collector favorite for 40 years.
+## Fun fact
+Originals are rare. Collectors love those blues.

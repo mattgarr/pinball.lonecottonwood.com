@@ -56,22 +56,22 @@ export default function PlayerPicker({ players, scores, me, machineId, exclude, 
       )}
       {matches ? (
         <>
-          {matches.length === 0 && <div className="muted small picker-empty">No one called “{q}”. They need to join first (scan the QR).</div>}
+          {matches.length === 0 && <div className="muted small picker-empty">No “{q}” yet. They must join first.</div>}
           {matches.map(p => <Row key={p.id} p={p} />)}
         </>
       ) : (
         <>
-          {recent.length > 0 && <div className="picker-label">Recently playing</div>}
+          {recent.length > 0 && <div className="picker-label">Recent</div>}
           {recent.map(p => <Row key={`r${p.id}`} p={p} />)}
           <div className="picker-label">Everyone</div>
-          {everyone.length === 0 && <div className="muted small picker-empty">No one else has joined yet.</div>}
+          {everyone.length === 0 && <div className="muted small picker-empty">No one else yet.</div>}
           {everyone.map(p => <Row key={p.id} p={p} />)}
         </>
       )}
       {allowSkip && (
         <button type="button" className="pick-row pick-skip" onClick={() => onPick(null)}>
           <span className="pick-skip-icon">⤼</span>
-          <span className="pick-name">Skip this score</span>
+          <span className="pick-name">Skip this one</span>
         </button>
       )}
     </div>

@@ -88,7 +88,7 @@ function buildSlides({ standings, awards }) {
     const b = awards.beginnersLuck;
     slides.push({
       label: "BEGINNER'S LUCK", confetti: true, hero: hero(b.player), title: b.player.display_name,
-      subtitle: `${b.machine.name} · ${b.pct}% of the top score`, score: b.value, scoreCount: true,
+      subtitle: `${b.machine.name} · ${b.pct}% of top`, score: b.value, scoreCount: true,
       accent: '#ffcc33', footer: 'first-timer with the goods ✨',
     });
   }
@@ -110,7 +110,7 @@ function buildSlides({ standings, awards }) {
     slides.push({
       label: 'HEARTBREAKERS', confetti: false,
       list: awards.heartbreakers.map(h => ({ player: h.player, note: h.machine.name })),
-      subtitle: 'So close: 2nd place on a machine', accent: '#ff4fa0', footer: '💔',
+      subtitle: 'So close: 2nd place', accent: '#ff4fa0', footer: '💔',
     });
   }
   if (awards?.bigWhiff) {
@@ -118,7 +118,7 @@ function buildSlides({ standings, awards }) {
     slides.push({
       label: 'THE BIG WHIFF', confetti: false, hero: hero(w.player), title: w.player.display_name,
       subtitle: w.worst
-        ? `${w.machinesPlayed} machines played · lowlight: ${ordinal(w.worst.rank)} of ${w.worst.N} on ${w.worst.machineName}`
+        ? `Lowlight: ${ordinal(w.worst.rank)} of ${w.worst.N} on ${w.worst.machineName}`
         : `${w.machinesPlayed} machines played`,
       score: `${w.rating}/100`, accent: '#ff5b5b', footer: 'a humble effort, bravely made 🤝',
     });
@@ -147,7 +147,7 @@ function buildSlides({ standings, awards }) {
     slides.push({
       label: 'PINBALL WIZARD 2026', trophy: true, confetti: true, rays: true, hero: hero(champ.player),
       title: champ.player.display_name,
-      subtitle: `Overall champion · ${champ.machinesPlayed} machines · ${champ.crowns} crown${champ.crowns === 1 ? '' : 's'}`,
+      subtitle: `Champion · ${champ.crowns} crown${champ.crowns === 1 ? '' : 's'}`,
       score: `${champ.rating}/100`, accent: '#ffcc33', footer: '🎉 the wizard 🎉',
     });
   }

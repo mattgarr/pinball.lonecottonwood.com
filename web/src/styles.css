@@ -1834,19 +1834,67 @@ h1 { font-size: 18px; text-shadow: 3px 3px 0 var(--nes-red); }
 /* the bar updates ~30x/s while recording: any width transition never catches up, so none */
 .scanner-bar span { transition: none !important; }
 
-/* ===== ALL-PIXEL TYPE: every bit of text in a pixel font =====
-   Press Start 2P stays on headings/buttons/scores (var(--px)). Everything else uses VT323, self-hosted
-   with size-adjust so it renders about as large as the old system font at the same CSS sizes. */
+/* ===== ALL-PIXEL TYPE: everything in the real NES font (Press Start 2P) =====
+   Headings/buttons/scores use var(--px) at their own sizes. Body text uses a size-adjusted copy so a
+   CSS size of 16px renders ~11px of NES font (it is very wide), keeping sentences readable on a phone. */
+@font-face {
+  font-family: 'NES Body';
+  src: url('/fonts/press-start-2p.woff2') format('woff2');
+  font-display: swap;
+  size-adjust: 70%;
+}
 @font-face {
   font-family: 'VT323 Body';
   src: url('/fonts/vt323.woff2') format('woff2');
   font-display: swap;
   size-adjust: 132%;
 }
-:root { --pxbody: 'VT323 Body', 'VT323', ui-monospace, monospace; }
+:root { --pxbody: 'NES Body', 'VT323 Body', ui-monospace, monospace; }
 html, body, input, textarea, select, button, .crash { font-family: var(--pxbody); }
-body { letter-spacing: 0.02em; }
+body { letter-spacing: 0; line-height: 1.75; word-spacing: -0.12em; }
+input, textarea { line-height: 1.4; }
 /* pixel sprites never get smoothed */
 img.px-emoji { image-rendering: pixelated; image-rendering: crisp-edges; }
 .avatar-emoji { background: transparent; }
 .emoji-btn img { pointer-events: none; }
+
+/* ===== NES copy fit (terse copy pass): stop truncation in the wide pixel font ===== */
+/* top bar: room for "Test Tina" next to the Host chip */
+.topbar { padding-left: 10px; padding-right: 10px; }
+.topbar-right { gap: 8px; min-width: 0; }
+.me .name { font-size: 12px; max-width: 132px; }
+/* rating strip: short arcade line in the pixel face */
+.rs-todo { font-family: var(--px); font-weight: 400; font-size: 10px; line-height: 1.5; }
+/* machine name in the compact strip may wrap instead of "…" */
+.mstrip-name { white-space: normal; overflow: visible; font-size: 12px; }
+/* champion line on machine cards */
+.mcard-champ { font-size: 11px; }
+/* host on a phone: review rows put the buttons under the text; score table becomes stacked rows */
+.review-card .host-player > .grow { flex: 1 1 100%; line-height: 1.6; }
+.host-player { gap: 8px; }
+.host-player .ghost, .host-table .ghost { font-family: var(--px); font-size: 9px; text-transform: uppercase; font-weight: 400; }
+.host h1 + .ghost, .host .row.spread > .ghost { font-family: var(--px); font-size: 10px; text-transform: uppercase; font-weight: 400; }
+.host .card .row.gap .ghost { font-family: var(--px); font-size: 10px; text-transform: uppercase; font-weight: 400; min-height: 44px; }
+.host .card .row.spread { flex-wrap: wrap; gap: 10px; }
+.host-filter { min-width: 0; flex: 1 1 120px; }
+@media (max-width: 600px) {
+  .host-add { grid-template-columns: 1fr 1fr; }
+  .host .card:has(.host-table) { overflow-x: visible; }
+  .host-table { min-width: 0; }
+  .host-table thead { display: none; }
+  .host-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 8px 0; border-bottom: 2px dotted #2c2c44; align-items: center; }
+  .host-table td { border: 0; padding: 0; white-space: normal; }
+  .host-table td:nth-child(1) { grid-column: 1 / -1; }
+  .host-table td:nth-child(2) { grid-column: 1; }
+  .host-table td:nth-child(3) { grid-column: 1; }
+  .host-table td:nth-child(4) { grid-column: 2; grid-row: 2; font-family: var(--px); font-size: 10px; color: var(--amber); }
+  .host-table td:nth-child(4), .host-table td:nth-child(5) { justify-self: end; }
+  .host-table td:nth-child(5) { grid-column: 2; grid-row: 3; }
+}
+.host-players .host-player { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto auto; gap: 0 8px; align-items: center; }
+.host-players .host-player > .avatar, .host-players .host-player > :first-child { grid-row: 1 / span 2; }
+.host-players .host-player > .grow { grid-column: 2; grid-row: 1; overflow-wrap: anywhere; }
+.host-players .host-player > .muted.small { grid-column: 2; grid-row: 2; }
+.host-players .host-player > button { grid-row: 1 / span 2; }
+.test-steps { padding-left: 30px; }
+.chip { font-family: var(--px); font-size: 9px; text-transform: uppercase; }

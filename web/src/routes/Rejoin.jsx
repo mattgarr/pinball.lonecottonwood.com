@@ -46,7 +46,7 @@ export default function Rejoin() {
           <h1>Hi, {picked.display_name}</h1>
         </div>
         <label className="field">
-          <span>Your 4-digit PIN</span>
+          <span>Your PIN</span>
           <input
             className="pin-input"
             autoFocus
@@ -62,7 +62,7 @@ export default function Rejoin() {
         <div className="actionbar">
           <button className="cta" disabled={busy || pin.length !== 4} type="submit">{busy ? 'Checking…' : 'Get back in'}</button>
         </div>
-        <p className="muted small">Forgot it? Find the host. They can reset your PIN.</p>
+        <p className="muted small">Forgot it? The host can reset it.</p>
       </form>
     );
   }
@@ -70,13 +70,13 @@ export default function Rejoin() {
   return (
     <div className="screen form">
       <h1>Get back in</h1>
-      <p className="muted">Tap your name, then enter your PIN.</p>
+      <p className="muted">Tap your name.</p>
       <label className="field">
         <input className="picker-search" value={q} onChange={e => setQ(e.target.value)} placeholder="🔍  Search names" autoComplete="off" autoCorrect="off" spellCheck={false} />
       </label>
       <div className="pick-list">
         {!ready && <div className="muted">Loading…</div>}
-        {ready && list.length === 0 && <div className="muted">No one by that name yet.</div>}
+        {ready && list.length === 0 && <div className="muted">No one by that name.</div>}
         {list.map(p => (
           <button key={p.id} className="pick-row" onClick={() => setPicked(p)}>
             <Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={34} />

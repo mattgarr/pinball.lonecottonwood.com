@@ -21,7 +21,7 @@ export default function PhotoButton({ onPhoto, onError, className = 'snap-btn', 
     if (!file) return;
     setBusy(true);
     try { onPhoto(await photoToJpeg(file)); }
-    catch { onError?.("Couldn't open that photo. Try again, or type the score."); }
+    catch { onError?.("Can't open that photo. Retry or type it."); }
     finally { setBusy(false); }
   }
 
@@ -43,7 +43,7 @@ export default function PhotoButton({ onPhoto, onError, className = 'snap-btn', 
           onFallback={fromTap => {
             setScanning(false); setNoLive(true);
             if (fromTap) input.current?.click(); // must run inside the tap for iOS
-            else onError?.('Camera access was blocked. Tap again to use a regular photo.');
+            else onError?.('Camera blocked. Tap again for a regular photo.');
           }}
           onDone={frame => { setScanning(false); onPhoto(frame); }}
         />,

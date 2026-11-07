@@ -66,7 +66,7 @@ export default function Machine() {
     return (
       <div className="screen">
         <Link className="back-link" to="/">‹ All machines</Link>
-        <div className="err">That machine isn't in tonight's lineup.</div>
+        <div className="err">Not in tonight's lineup.</div>
       </div>
     );
   }
@@ -100,7 +100,7 @@ export default function Machine() {
   function lock() {
     if (busyRef.current) return false;
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      setErr("You're offline, so nothing was sent. Your number is still here — tap again once you're back on Wi-Fi.");
+      setErr("Offline: not sent. Your number is kept. Tap again once Wi-Fi's back.");
       return false;
     }
     busyRef.current = true; setBusy(true); setErr('');
@@ -174,7 +174,7 @@ export default function Machine() {
     unlock();
     setRows(rs => rs.map(r => (rowPatch[r.key] ? { ...r, ...rowPatch[r.key] } : r)));
     const anyOk = out.some(x => !x.error);
-    if (!anyOk) { setErr(out[0]?.error || 'Nothing was logged. Try again.'); return; }
+    if (!anyOk) { setErr(out[0]?.error || 'Nothing logged. Try again.'); return; }
     setResults(prev => [...prev.filter(p => !out.some(o => o.playerId === p.playerId && p.error)), ...out]);
     goStep('done', { replace: true });
   }
@@ -196,7 +196,7 @@ export default function Machine() {
       await actions.undoScore(res.scoreId);
       setResults(list => list.filter(x => x.key !== res.key));
       setPad(String(res.value));
-      setNotice(`Removed ${fmt(res.value)}. Fix the number and submit again.`);
+      setNotice(`Removed ${fmt(res.value)}. Fix it and resubmit.`);
       goStep('pad', { replace: true });
     } catch (e) {
       setErr(friendlyError(e, false));
@@ -242,13 +242,13 @@ export default function Machine() {
           {photo && (
             <button type="button" className="photo-strip" onClick={() => setViewPhoto(true)}>
               <img src={photo} alt="your photo of the score" />
-              <span className="photo-strip-label">{readInfo?.failed ? "Couldn't read it automatically. Type what you see 👀" : 'Your photo · tap to zoom'}</span>
+              <span className="photo-strip-label">{readInfo?.failed ? "Can't read it. Type what you see" : 'Your photo · tap to zoom'}</span>
             </button>
           )}
           <ScorePad value={pad} onChange={setPad} />
           <div className="actionbar">
             {!photo && (
-              <PhotoButton className="ghost-btn" onPhoto={onSnap} onError={setErr}>📸 Snap it instead</PhotoButton>
+              <PhotoButton className="ghost-btn" onPhoto={onSnap} onError={setErr}>📸 Snap it</PhotoButton>
             )}
             <button type="button" className="cta" disabled={!pad} onClick={() => goStep('confirm')}>
               Next
@@ -295,13 +295,13 @@ export default function Machine() {
 
       {(step === 'start' || step === 'done') && <TopScores board={board} me={me} mineHere={mineHere} mid={mid} />}
 
-      <Sheet open={switcher} onClose={() => setSwitcher(false)} title="Which machine are you on?">
+      <Sheet open={switcher} onClose={() => setSwitcher(false)} title="Which machine?">
         <div className="switch-list">
           {machines.map(m => (
             <button key={m.id} type="button" className={`switch-row${m.id === mid ? ' on' : ''}`} onClick={() => switchTo(m)}>
               <img src={machineArt(m.name)} alt="" />
               <span className="switch-name">{m.name}<span className="switch-meta">{m.manufacturer} · {m.year}</span></span>
-              {m.id === mid && <span className="switch-here">this one</span>}
+              {m.id === mid && <span className="switch-here">HERE</span>}
             </button>
           ))}
         </div>
@@ -318,11 +318,11 @@ function friendlyError(e, forFriend) {
   const m = String(e?.message || e || '');
   if (/does not exist|could not find the function|schema cache/i.test(m)) {
     return forFriend
-      ? "Logging scores for friends isn't switched on yet. They can log it on their own phone, or the host can add it."
-      : 'The scoreboard is being updated. Try again in a minute.';
+      ? "Friend logging is off. They can log it on their phone, or ask the host."
+      : 'Scoreboard is updating. Try again in a minute.';
   }
-  if (/failed to fetch|network|load failed|timeout/i.test(m)) return "Couldn't reach the scoreboard, so it wasn't saved. Check Wi-Fi and tap again.";
-  if (/join|rejoin/i.test(m)) return 'This phone got signed out. Tap your name (top right) or Rejoin, then try again.';
+  if (/failed to fetch|network|load failed|timeout/i.test(m)) return "No connection, not saved. Check Wi-Fi, tap again.";
+  if (/join|rejoin/i.test(m)) return 'Signed out. Rejoin, then try again.';
   return m || 'Something went wrong. Try again.';
 }
 
@@ -338,34 +338,34 @@ function StartStep({ machine, mineHere, closed, onSwitch, onSnap, onType, onPhot
         <img className="mhero-img" src={machineArt(machine.name)} alt={`${machine.name} backglass`} />
         <div className="mhero-shade" />
         <Link to="/" className="mhero-back" aria-label="All machines">‹</Link>
-        <button type="button" className="mhero-switch" onClick={onSwitch}>Wrong machine?</button>
+        <button type="button" className="mhero-switch" onClick={onSwitch}>Wrong one?</button>
         <div className="mhero-text">
           <div className="mhero-name">{machine.name}</div>
           <div className="mhero-meta">
             {machine.manufacturer} · {machine.year}
             {mineHere
               ? <span className={`rank-pill${mineHere.rank === 1 ? ' gold' : ''}`}>{mineHere.rank === 1 ? '👑 ' : ''}{ordinal(mineHere.rank)} of {mineHere.N}</span>
-              : <span className="rank-pill new">not played yet</span>}
+              : <span className="rank-pill new">NEW</span>}
           </div>
         </div>
       </div>
 
       {closed ? (
-        <div className="err">Scoring is closed for the night. Final standings are on the TV.</div>
+        <div className="err">Scoring's closed. Finals are on the TV.</div>
       ) : (
         <div className="start-actions">
           <PhotoButton className="snap-btn" onPhoto={onSnap} onError={onPhotoError}>
             <span className="snap-icon" aria-hidden="true"><PixelEmoji e="📸" size={40} /></span>
             <span className="snap-text">
               <span className="snap-title">Snap the score</span>
-              <span className="snap-sub">Point at the display. It reads everyone's scores</span>
+              <span className="snap-sub">Aim at the scores</span>
             </span>
           </PhotoButton>
-          <button type="button" className="type-btn" onClick={onType}>or type it in ⌨️</button>
-          {mineHere && <div className="muted small center-text">Your best here: <span className="mono amber">{fmt(mineHere.best)}</span></div>}
+          <button type="button" className="type-btn" onClick={onType}>or type it in</button>
+          {mineHere && <div className="muted small center-text">Your best: <span className="mono amber">{fmt(mineHere.best)}</span></div>}
         </div>
       )}
-      <Link to={`/machine/${machine.id}/guide`} className="guide-chip">📖 How to play {machine.name}</Link>
+      <Link to={`/machine/${machine.id}/guide`} className="guide-chip">📖 How to play this one</Link>
     </>
   );
 }
@@ -378,8 +378,8 @@ function ReadingStep({ machine, photo, onCancel }) {
         <div className="reading-scan" aria-hidden="true" />
       </div>
       <LedNumber value="" placeholder="READING…" size="md" className="led-reading" label="Reading the photo" />
-      <div className="muted small center-text">Reading the {machine.name} display…</div>
-      <button type="button" className="type-btn" onClick={onCancel}>Skip, I'll type it</button>
+      <div className="muted small center-text">Reading the display…</div>
+      <button type="button" className="type-btn" onClick={onCancel}>Skip · type it</button>
     </div>
   );
 }
@@ -393,7 +393,7 @@ function MachineStrip({ machine, onSwitch }) {
         <div className="mstrip-label">Logging on</div>
         <div className="mstrip-name">{machine.name}</div>
       </div>
-      <button type="button" className="mstrip-switch" onClick={onSwitch}>Wrong machine?</button>
+      <button type="button" className="mstrip-switch" onClick={onSwitch}>Wrong one?</button>
     </div>
   );
 }
@@ -415,13 +415,13 @@ function ConfirmStep({ machine, value, photo, readInfo, me, machineScores, busy,
           <img src={machineArt(machine.name)} alt="" />
           <div className="confirm-art-shade" />
           <div className="confirm-machine">{machine.name}</div>
-          <button type="button" className="mstrip-switch" onClick={onSwitch}>Wrong machine?</button>
+          <button type="button" className="mstrip-switch" onClick={onSwitch}>Wrong one?</button>
         </div>
         <div className="confirm-body">
           <div className="confirm-label">{fromPhoto ? 'We read' : 'You typed'}</div>
           <LedNumber value={value} size="xl" />
           <div className="confirm-say">≈ {sayNumber(value)}</div>
-          {fromPhoto && readInfo.confidence !== 'high' && <div className="hint">Blurry photo. Check it against the machine.</div>}
+          {fromPhoto && readInfo.confidence !== 'high' && <div className="hint">Blurry. Check it matches the machine.</div>}
           {fromPhoto && readInfo.note && <div className="muted small center-text">{readInfo.note}</div>}
         </div>
       </div>
@@ -435,17 +435,17 @@ function ConfirmStep({ machine, value, photo, readInfo, me, machineScores, busy,
 
       {crown.claimedTop && (
         <div className={`crown-card${needsPhoto ? ' needs' : ''}`}>
-          <div className="crown-title">👑 {crown.contested ? `That beats tonight's best (${fmt(crown.othersBest)})` : 'First score on this machine!'}</div>
+          <div className="crown-title">👑 {crown.contested ? `Beats tonight's best (${fmt(crown.othersBest)})` : 'First score here!'}</div>
           {needsPhoto ? (
             <>
-              <div className="crown-detail">Crown claims need a photo 📸 so the host can confirm it.</div>
+              <div className="crown-detail">New #1 needs a photo for the host.</div>
               <PhotoButton className="snap-btn small" onPhoto={onAttach} onError={onPhotoError}>
                 <span className="snap-icon" aria-hidden="true"><PixelEmoji e="📸" size={40} /></span>
-                <span className="snap-title">Add a photo of the display</span>
+                <span className="snap-title">Add a photo</span>
               </PhotoButton>
             </>
           ) : photo ? (
-            <div className="crown-detail">📸 Photo attached. Nice.</div>
+            <div className="crown-detail">📸 Photo attached.</div>
           ) : null}
         </div>
       )}
@@ -453,7 +453,7 @@ function ConfirmStep({ machine, value, photo, readInfo, me, machineScores, busy,
       <div className="actionbar two">
         <button type="button" className="ghost-btn" onClick={onFix} disabled={busy}>✏️ Fix it</button>
         <button type="button" className={`cta${needsPhoto ? ' cta-soft' : ''}`} onClick={onSubmit} disabled={busy}>
-          {busy ? 'Saving…' : needsPhoto ? 'Submit without photo' : warnings.length ? "Yes, it's right" : 'Submit ✓'}
+          {busy ? 'Saving…' : needsPhoto ? 'Submit anyway' : warnings.length ? "It's right" : 'Submit'}
         </button>
       </div>
     </>
@@ -511,14 +511,14 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
     setReading(true);
     const r = await onReadMore(dataUrl);
     setReading(false);
-    if (!r) { onPhotoError("Couldn't read that photo. Add friends' scores by hand below."); return; }
+    if (!r) { onPhotoError("Can't read that photo. Add scores by hand."); return; }
     const fresh = r.scores.filter(s => s.value !== myLoggedValue);
     setRows(rs => [...rs.filter(x => x.ok || x.who != null || x.value), ...fresh.map((s, i) => ({ key: `p${Date.now()}-${i}`, slot: s.slot, value: s.value, who: undefined }))]);
   }
 
   const editRow = rows.find(r => r.key === editFor);
   const editWho = editRow?.who === 'me' ? me : editRow?.who != null ? playerById.get(editRow.who) : null;
-  const editTitle = editRow?.value ? 'Fix the score' : editWho ? `${editWho.display_name}'s score` : 'Enter the score';
+  const editTitle = editRow?.value ? 'Fix score' : editWho ? `${editWho.display_name}'s score` : 'Enter score';
 
   const submitClick = () => (flagged.length ? setCheckOpen(true) : onSubmit());
 
@@ -526,11 +526,11 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
     <>
       <MachineStrip machine={machine} onSwitch={onSwitch} />
       <div className="assign-head">
-        <h1>{mode === 'photo' ? 'Who was who?' : "Log your friends' scores"}</h1>
+        <h1>{mode === 'photo' ? 'Who was who?' : "Friends' scores"}</h1>
         <div className="muted small">
           {mode === 'photo'
-            ? `We read ${rows.length} score${rows.length === 1 ? '' : 's'}. Tap a name to assign it, tap a number to fix it.`
-            : 'Pick who played with you, then their score. It shows up on their phone too.'}
+            ? `Read ${rows.length} score${rows.length === 1 ? '' : 's'}. Tap a name to assign, a number to fix.`
+            : 'Pick a friend, then their score.'}
         </div>
       </div>
 
@@ -538,7 +538,7 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
         <button type="button" className="photo-strip" onClick={onViewPhoto}>
           <img src={photo} alt="your photo of the score" />
           <span className="photo-strip-label">
-            {readInfo?.confidence === 'low' ? '⚠️ Blurry in places. Check each number · tap to zoom' : 'Your photo · tap to zoom'}
+            {readInfo?.confidence === 'low' ? '⚠️ Blurry. Check each · tap to zoom' : 'Your photo · tap to zoom'}
           </span>
         </button>
       )}
@@ -564,7 +564,7 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
               />
               <button type="button" className={`assignee${p ? '' : ' empty'}`} disabled={r.ok} onClick={() => setPickFor(r.key)}>
                 {r.who === null ? (
-                  <><span className="assignee-skip">⤼</span><span>Skipped · tap to assign</span></>
+                  <><span className="assignee-skip">⤼</span><span>Skipped · tap to add</span></>
                 ) : p ? (
                   <><Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={30} />
                     <span className="assignee-name">{r.who === 'me' ? `${p.display_name} (me)` : p.display_name}</span>
@@ -574,7 +574,7 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
                 )}
               </button>
               {c?.warnings.map(w => <div key={w.kind} className="row-warn"><PixelEmoji e="🤔" size={22} /> <strong>{w.title}</strong> {w.detail}</div>)}
-              {c?.crown.claimedTop && <div className="row-crown">👑 {c.crown.contested ? 'New record!' : 'First on the board'}{c.needsPhoto ? ' A photo makes it official.' : ''}</div>}
+              {c?.crown.claimedTop && <div className="row-crown">👑 {c.crown.contested ? 'New record!' : 'First on the board'}{c.needsPhoto ? ' Add a photo.' : ''}</div>}
               {r.error && <div className="row-err">{r.error}</div>}
             </div>
           );
@@ -582,24 +582,24 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
       </div>
 
       <div className="assign-tools">
-        <button type="button" className="ghost-btn" onClick={addRow}>＋ Add a player</button>
+        <button type="button" className="ghost-btn" onClick={addRow}>＋ Add player</button>
         {mode === 'friends' && !photo && (
           <PhotoButton className="ghost-btn" onPhoto={snapMore} onError={onPhotoError} disabled={reading}>
-            {reading ? 'Reading…' : '📸 Snap the display'}
+            {reading ? 'Reading…' : '📸 Snap display'}
           </PhotoButton>
         )}
       </div>
 
       <div className="actionbar">
         {unresolved.length > 0 && readyRows.length > 0 && (
-          <div className="actionbar-hint">{unresolved.length} score{unresolved.length === 1 ? '' : 's'} not assigned yet. They'll be skipped.</div>
+          <div className="actionbar-hint">{unresolved.length} unassigned · will be skipped</div>
         )}
         <button type="button" className="cta" disabled={busy || readyRows.length === 0} onClick={submitClick}>
           {busy ? 'Saving…' : readyRows.length ? `Log ${readyRows.length} score${readyRows.length === 1 ? '' : 's'}` : 'Pick who scored'}
         </button>
       </div>
 
-      <Sheet open={pickFor != null} onClose={() => setPickFor(null)} title="Who got this score?" tall>
+      <Sheet open={pickFor != null} onClose={() => setPickFor(null)} title="Whose score?" tall>
         <PlayerPicker
           players={players} scores={scores} me={me} machineId={machine.id}
           exclude={new Set([...assignedIds].filter(x => x !== rows.find(r => r.key === pickFor)?.who))}
@@ -616,7 +616,7 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
         </div>
       </Sheet>
 
-      <Sheet open={checkOpen} onClose={() => setCheckOpen(false)} title="Quick double-check">
+      <Sheet open={checkOpen} onClose={() => setCheckOpen(false)} title="Double-check">
         <div className="check-list">
           {flagged.map(({ r, warnings, needsPhoto }) => {
             const p = r.who === 'me' ? me : playerById.get(r.who);
@@ -624,19 +624,19 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
               <div key={r.key} className="check-item">
                 <div className="check-who">{p?.display_name}: <span className="mono amber">{fmt(r.value)}</span></div>
                 {warnings.map(w => <div key={w.kind} className="warn-detail"><PixelEmoji e="🤔" size={22} /> <strong>{w.title}</strong> {w.detail}</div>)}
-                {needsPhoto && <div className="warn-detail">👑 Crown claims need a photo 📸</div>}
+                {needsPhoto && <div className="warn-detail">👑 New #1 needs a photo</div>}
               </div>
             );
           })}
           {flagged.some(f => f.needsPhoto) && (
             <PhotoButton className="snap-btn small" onPhoto={d => onAttach(d)} onError={onPhotoError}>
-              <span className="snap-icon" aria-hidden="true"><PixelEmoji e="📸" size={40} /></span><span className="snap-title">Add a photo of the display</span>
+              <span className="snap-icon" aria-hidden="true"><PixelEmoji e="📸" size={40} /></span><span className="snap-title">Add a photo</span>
             </PhotoButton>
           )}
         </div>
         <div className="sheet-actions two">
           <button type="button" className="ghost-btn" onClick={() => setCheckOpen(false)}>✏️ Fix it</button>
-          <button type="button" className="cta" disabled={busy} onClick={() => { setCheckOpen(false); afterSheetClose(onSubmit); }}>Yes, log them</button>
+          <button type="button" className="cta" disabled={busy} onClick={() => { setCheckOpen(false); afterSheetClose(onSubmit); }}>Log them</button>
         </div>
       </Sheet>
     </>
@@ -657,8 +657,8 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
   const climbed = mine && mine.prevRank != null && now && now.rank < mine.prevRank;
   const undoLeft = mine ? Math.max(0, UNDO_MS - (Date.now() - mine.at)) : 0;
 
-  const title = !mine ? `Logged ${friends.filter(f => !f.error).length} for your friends 🎉`
-    : mine.duplicate ? 'Already got that one 👍'
+  const title = !mine ? `Logged ${friends.filter(f => !f.error).length} for friends`
+    : mine.duplicate ? 'Already logged'
     : tookCrown ? 'You took the crown!'
     : isPB && mine.prevBest != null ? 'New personal best!'
     : 'Score logged!';
@@ -682,19 +682,19 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
             </div>
             <div className="done-lines">
               {mine.prevRank == null
-                ? <span className="move new">NEW on the board</span>
+                ? <span className="move new">NEW ENTRY</span>
                 : climbed ? <span className="move up">▲ up from {ordinal(mine.prevRank)}</span>
                 : <span className="move flat">held {ordinal(now.rank)}</span>}
-              {isPB && mine.prevBest != null && <span className="move pb">★ personal best</span>}
+              {isPB && mine.prevBest != null && <span className="move pb">★ NEW BEST</span>}
               {!isPB && <span className="done-sub">Your best ({fmt(now.best)}) still counts.</span>}
-              {mine.dethroned && <span className="done-sub">You knocked <strong>{mine.dethroned.display_name}</strong> off the top.</span>}
+              {mine.dethroned && <span className="done-sub">Knocked <strong>{mine.dethroned.display_name}</strong> off #1.</span>}
               {!mine.dethroned && mine.passed > 0 && mine.prevRank != null && <span className="done-sub">Passed {mine.passed} player{mine.passed === 1 ? '' : 's'}.</span>}
             </div>
           </div>
         )}
         {mine && !mine.duplicate && undoLeft > 0 && (
           <button type="button" className="undo-btn" disabled={busy} onClick={() => onUndo(mine)}>
-            ↶ Typo? Undo <span className="undo-time">({Math.ceil(undoLeft / 60000)} min left)</span>
+            ↶ Typo? Undo <span className="undo-time">({Math.ceil(undoLeft / 60000)}m left)</span>
           </button>
         )}
       </div>
@@ -715,19 +715,19 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
                   {f.error && (
                     <div className="fr-err">
                       {f.error}
-                      {f.who !== 'me' && <button type="button" className="ghost-btn tiny" disabled={busy} onClick={() => onRetry(f)}>Try again</button>}
+                      {f.who !== 'me' && <button type="button" className="ghost-btn tiny" disabled={busy} onClick={() => onRetry(f)}>Retry</button>}
                     </div>
                   )}
                 </li>
               );
             })}
           </ul>
-          <div className="muted small">Wrong number for a friend? They can undo it on their phone, or ask the host.</div>
+          <div className="muted small">Wrong for a friend? They can undo it, or ask the host.</div>
         </section>
       )}
 
       <button type="button" className="friends-btn" onClick={onFriends}>
-        <span aria-hidden="true"><PixelEmoji e="👯" size={22} /></span> {friends.length ? 'Log more friends' : 'Played with friends? Log theirs too'}
+        <span aria-hidden="true"><PixelEmoji e="👯" size={22} /></span> {friends.length ? 'Log more friends' : "Log friends' scores"}
       </button>
 
       {next && (
@@ -743,7 +743,7 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
 
       <div className="actionbar two">
         <Link to="/" className="ghost-btn">All machines</Link>
-        <button type="button" className="cta" onClick={onAnother}>Log another game</button>
+        <button type="button" className="cta" onClick={onAnother}>Log another</button>
       </div>
     </>
   );
@@ -755,13 +755,13 @@ function nextSuggestion(machines, st, currentId) {
   const unplayed = others.find(m => !st.perMachine[m.id]);
   if (unplayed) {
     const left = machines.filter(m => !st.perMachine[m.id]).length;
-    return { machine: unplayed, line: `You haven't played ${unplayed.name} yet${left > 1 ? ` (${left} to go)` : ''}` };
+    return { machine: unplayed, line: `Try ${unplayed.name}${left > 1 ? ` · ${left} left` : ''}` };
   }
   const worst = others
     .map(m => ({ m, pm: st.perMachine[m.id] }))
     .filter(x => x.pm && x.pm.rank > 1)
     .sort((a, b) => a.pm.standing - b.pm.standing)[0];
-  if (worst) return { machine: worst.m, line: `You're ${ordinal(worst.pm.rank)} on ${worst.m.name}. Go climb.` };
+  if (worst) return { machine: worst.m, line: `${ordinal(worst.pm.rank)} on ${worst.m.name}. Climb!` };
   return null;
 }
 
@@ -769,10 +769,10 @@ function TopScores({ board, me, mineHere }) {
   return (
     <section className="panel top-scores">
       <div className="panel-head">
-        <h3>Tonight's high scores</h3>
+        <h3>High scores</h3>
         {mineHere && <span className="muted small">You: {ordinal(mineHere.rank)} of {mineHere.N}</span>}
       </div>
-      {(!board || board.top.length === 0) && <div className="muted small">No scores yet. Be the first! 👑</div>}
+      {(!board || board.top.length === 0) && <div className="muted small">No scores yet. Be first! 👑</div>}
       <ol className="ts-list">
         {board?.top.map(s => (
           <li key={s.player.id} className={s.player.id === me?.id ? 'mine' : ''}>
@@ -784,7 +784,7 @@ function TopScores({ board, me, mineHere }) {
         ))}
       </ol>
       {mineHere && mineHere.rank > 10 && (
-        <div className="muted small">Your best: <span className="mono">{fmt(mineHere.best)}</span> ({ordinal(mineHere.rank)})</div>
+        <div className="muted small">You: <span className="mono">{fmt(mineHere.best)}</span> ({ordinal(mineHere.rank)})</div>
       )}
     </section>
   );

@@ -29,7 +29,7 @@ export default function ScorePad({ value, onChange, hint }) {
     <div className="pad-wrap">
       <LedNumber value={value} size="lg" blink placeholder="0" />
       <div className="pad-say" aria-live="polite">
-        {value ? <>≈ {sayNumber(n)} <span className="pad-digits">· {value.length} digit{value.length === 1 ? '' : 's'}</span></> : (hint || 'Type the score exactly as the machine shows it')}
+        {value ? <>≈ {sayNumber(n)} <span className="pad-digits">· {value.length} digit{value.length === 1 ? '' : 's'}</span></> : (hint || 'Type it exactly as shown')}
       </div>
       <div className="pad" role="group" aria-label="Number pad">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (

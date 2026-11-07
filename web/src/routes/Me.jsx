@@ -60,15 +60,15 @@ export default function Me() {
         <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={64} ring />
         <div className="grow">
           <h1>{me.display_name}</h1>
-          <div className="muted small">{st.plays} game{st.plays === 1 ? '' : 's'} · {st.machinesPlayed}/{machines.length} machines</div>
+          <div className="muted small">{st.plays} game{st.plays === 1 ? '' : 's'} · {st.machinesPlayed}/{machines.length}</div>
         </div>
-        <button type="button" className="ghost-btn small" onClick={() => setSwitchOpen(true)}>Switch player</button>
+        <button type="button" className="ghost-btn small" onClick={() => setSwitchOpen(true)}>Switch</button>
       </div>
 
       {undoable.length > 0 && (
         <section className="panel undo-panel">
           <h3>Just logged</h3>
-          <div className="muted small">Typo? You can undo your own scores for 15 minutes.</div>
+          <div className="muted small">Typo? Undo within 15 min.</div>
           <ul className="undo-list">
             {undoable.map(s => (
               <li key={s.id}>
@@ -93,13 +93,13 @@ export default function Me() {
             <LedNumber value={st.rating} size="md" />
             <div>
               <div className="me-rating-rank">{ordinal(st.rank)} of {ranked}</div>
-              <div className="muted small">Rating = your average finish across the machines you played. 100 = 1st everywhere.</div>
+              <div className="muted small">Avg finish on your tables. 100 = 1st on all.</div>
             </div>
           </>
         ) : (
           <div>
-            <div className="me-rating-rank">{st.machinesPlayed === 0 ? 'No scores yet' : `Play ${MIN_TABLES - st.machinesPlayed} more machine to get ranked`}</div>
-            <div className="muted small">You need scores on {MIN_TABLES} different machines for an overall rating.</div>
+            <div className="me-rating-rank">{st.machinesPlayed === 0 ? 'No scores yet' : `${MIN_TABLES - st.machinesPlayed} MORE TABLE TO RANK`}</div>
+            <div className="muted small">Score on {MIN_TABLES} tables to get a rating.</div>
           </div>
         )}
       </section>
@@ -108,7 +108,7 @@ export default function Me() {
         <section className="panel">
           <h3>You're leading</h3>
           <ul className="held">{held.map(h => <li key={h}>{h}</li>)}</ul>
-          <div className="muted small">Prizes are decided when the host closes scoring.</div>
+          <div className="muted small">Final when scoring closes.</div>
         </section>
       )}
 
@@ -124,7 +124,7 @@ export default function Me() {
                   <div className="me-machine-name">{m.name}</div>
                   {pm
                     ? <div className="small"><strong>{pm.rank === 1 ? '👑 ' : ''}{ordinal(pm.rank)} of {pm.N}</strong> · best <span className="mono amber">{fmt(pm.best)}</span></div>
-                    : <div className="small muted">Not played yet. Tap to log.</div>}
+                    : <div className="small muted">Not played</div>}
                 </div>
                 {pm ? <div className="me-standing" title="standing (100 = 1st)">{pm.standing}</div> : <span className="me-go">›</span>}
               </Link>
@@ -134,7 +134,7 @@ export default function Me() {
       </section>
 
       <section className="panel">
-        <h3>All your scores</h3>
+        <h3>Your scores</h3>
         {recent.length === 0 && <div className="muted small">Nothing yet. Go play!</div>}
         <ul className="recent">
           {recent.map(s => (
@@ -145,7 +145,7 @@ export default function Me() {
             </li>
           ))}
         </ul>
-        <div className="muted small">Older typo? Find the host — they can fix any score.</div>
+        <div className="muted small">Older typo? Ask the host.</div>
       </section>
 
       <Sheet open={!!confirmUndo} onClose={() => setConfirmUndo(null)} title="Undo this score?">
@@ -153,7 +153,7 @@ export default function Me() {
           <>
             <div className="center-text">{machineById.get(confirmUndo.machine_id)?.name}</div>
             <LedNumber value={confirmUndo.value} size="lg" />
-            <div className="muted small center-text">It comes off the board. You can log the right number afterwards.</div>
+            <div className="muted small center-text">It comes off the board. Then log the right one.</div>
             <div className="sheet-actions two">
               <button type="button" className="ghost-btn" onClick={() => setConfirmUndo(null)}>Keep it</button>
               <button type="button" className="cta danger" disabled={busyId === confirmUndo.id} onClick={() => undo(confirmUndo)}>
@@ -167,10 +167,10 @@ export default function Me() {
       <Link to="/host" className="host-link">🔧 Host tools</Link>
 
       <Sheet open={switchOpen} onClose={() => setSwitchOpen(false)} title="Switch player">
-        <div className="muted small">Sharing a phone? Your scores stay saved. Get back in any time with your name + PIN.</div>
-        <button type="button" className="cta" onClick={() => signOutTo('/rejoin')}>Someone who already joined</button>
-        <button type="button" className="ghost-btn" onClick={() => signOutTo('/join')}>A new player</button>
-        <div className="muted small center-text">Your PIN: the 4 digits you picked when you joined. Forgot it? The host can reset it.</div>
+        <div className="muted small">Your scores stay saved. Get back in with name + PIN.</div>
+        <button type="button" className="cta" onClick={() => signOutTo('/rejoin')}>Already joined</button>
+        <button type="button" className="ghost-btn" onClick={() => signOutTo('/join')}>New player</button>
+        <div className="muted small center-text">Forgot your PIN? The host can reset it.</div>
       </Sheet>
     </div>
   );
