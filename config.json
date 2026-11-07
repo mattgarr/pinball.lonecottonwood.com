@@ -1,0 +1,36 @@
+{
+  "party": {
+    "name": "Pinball Wizard",
+    "hostToken": "let-me-in"
+  },
+  "ai": {
+    "endpoint": "http://localhost:1234/v1/chat/completions",
+    "model": "gemma-3-27b-it",
+    "fallbackModel": "gemma-3-12b-it",
+    "stub": true,
+    "stubScore": 1234567
+  },
+  "teams": [
+    { "id": 1, "name": "Replay",      "color": "#ef4444" },
+    { "id": 2, "name": "Multiball",   "color": "#f97316" },
+    { "id": 3, "name": "Jackpot",     "color": "#eab308" },
+    { "id": 4, "name": "Skill Shot",  "color": "#22c55e" },
+    { "id": 5, "name": "Tilt",        "color": "#06b6d4" },
+    { "id": 6, "name": "Bonus",       "color": "#3b82f6" },
+    { "id": 7, "name": "Drain",       "color": "#a855f7" },
+    { "id": 8, "name": "Plunger",     "color": "#ec4899" }
+  ],
+  "machines": [
+    { "id": 1, "name": "Centaur",            "year": 1981, "manufacturer": "Bally",    "displayType": "7-segment" },
+    { "id": 2, "name": "Fathom",             "year": 1981, "manufacturer": "Bally",    "displayType": "7-segment" },
+    { "id": 3, "name": "Whirlwind",          "year": 1990, "manufacturer": "Williams", "displayType": "alphanumeric" },
+    { "id": 4, "name": "White Water",        "year": 1993, "manufacturer": "Williams", "displayType": "dot-matrix" },
+    { "id": 5, "name": "Cactus Canyon",      "year": 1998, "manufacturer": "Bally",    "displayType": "dot-matrix" },
+    { "id": 6, "name": "Dungeons & Dragons", "year": 2025, "manufacturer": "Stern",    "displayType": "modern-lcd" }
+  ],
+  "pointsTable": {
+    "1": 100, "2": 85, "3": 73, "4": 63, "5": 55, "6": 48, "7": 42, "8": 37
+  },
+  "participationPointsPerPlay": 3,
+  "participationCap": 10
+}

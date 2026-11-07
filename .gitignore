@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.DS_Store
+HOST_PASSCODE.txt
+server/data.db*
+.env.local
+files.zip

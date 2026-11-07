@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" preserveAspectRatio="xMidYMid slice" font-family="'Arial Black','Helvetica Neue',Helvetica,sans-serif">
+  <defs>
+    <linearGradient id="fBg" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#012b3a"/>
+      <stop offset="0.6" stop-color="#024d63"/>
+      <stop offset="1" stop-color="#0a7d8c"/>
+    </linearGradient>
+    <radialGradient id="fLight" cx="0.7" cy="-0.1" r="0.9">
+      <stop offset="0" stop-color="#7df0ff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#7df0ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="640" height="300" fill="url(#fBg)"/>
+  <rect width="640" height="300" fill="url(#fLight)"/>
+  <!-- wave arcs -->
+  <g fill="none" stroke="#5fd6e6" stroke-opacity="0.45" stroke-width="6" stroke-linecap="round">
+    <path d="M360 250 Q420 210 480 250 T600 250"/>
+    <path d="M360 272 Q420 232 480 272 T600 272" stroke-opacity="0.3"/>
+    <path d="M380 224 Q440 184 500 224 T620 224" stroke-opacity="0.25"/>
+  </g>
+  <!-- bubbles -->
+  <g fill="#bdf3fb">
+    <circle cx="520" cy="96" r="14" fill-opacity="0.55"/>
+    <circle cx="556" cy="70" r="8" fill-opacity="0.4"/>
+    <circle cx="498" cy="58" r="6" fill-opacity="0.35"/>
+    <circle cx="582" cy="120" r="5" fill-opacity="0.3"/>
+  </g>
+  <text x="40" y="150" fill="#eafdff" font-size="78" font-weight="900" letter-spacing="3">FATHOM</text>
+  <text x="44" y="190" fill="#7fe3f0" font-size="22" letter-spacing="8">BALLY · 1981</text>
+  <text x="44" y="244" fill="#ffffff" fill-opacity="0.5" font-size="16" letter-spacing="3" font-family="'Courier New',monospace">7-SEGMENT · DEEP SEA</text>
+</svg>
