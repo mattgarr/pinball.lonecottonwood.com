@@ -356,7 +356,7 @@ function StartStep({ machine, mineHere, closed, onSwitch, onSnap, onType, onPhot
             <span className="snap-icon" aria-hidden="true">📸</span>
             <span className="snap-text">
               <span className="snap-title">Snap the score</span>
-              <span className="snap-sub">Photo of the display, everyone's scores at once</span>
+              <span className="snap-sub">Point at the display. It reads everyone's scores</span>
             </span>
           </PhotoButton>
           <button type="button" className="type-btn" onClick={onType}>or type it in ⌨️</button>

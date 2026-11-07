@@ -25,16 +25,21 @@ export async function photoToJpeg(file, maxSide = 1280, quality = 0.8) {
 
 // The photo's saved copy (proof), keyed by the data URL, so submitScore can attach it.
 export const photoPaths = new Map();
+// Extra frames from a live scan, keyed by the best frame's data URL.
+export const scanFrames = new Map();
+// Reads the live scanner already did, keyed by the frame it hands back (avoids a second AI call).
+export const readCache = new Map();
 
 // Sends the photo to the read-score function. Resolves to
 //   { scores: [{ slot, value }], confidence: 'high'|'low', note, photoPath }
 // or null if the service is unreachable (the UI then falls back to the keypad).
 export async function readScoreFromPhoto(jpegDataUrl, machine) {
+  if (readCache.has(jpegDataUrl)) return readCache.get(jpegDataUrl);
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/read-score`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
-      body: JSON.stringify({ token: getToken(), machine_id: machine.id, image: jpegDataUrl }),
+      body: JSON.stringify({ token: getToken(), machine_id: machine.id, image: jpegDataUrl, extra: scanFrames.get(jpegDataUrl) ?? [] }),
     });
     const data = await res.json().catch(() => null);
     if (!data) return null;

@@ -52,9 +52,13 @@ Deno.serve(async req => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 
   try {
-    const { token, machine_id, image } = await req.json();
+    const { token, machine_id, image, extra } = await req.json();
     if (typeof image !== 'string' || image.length > 4_000_000) return json({ error: 'Photo missing or too large.' }, 400);
     const b64 = image.replace(/^data:image\/\w+;base64,/, '');
+    // Extra frames from a live scan (same display, ~3 s): the screen may cycle or flicker between them.
+    const extras: string[] = Array.isArray(extra)
+      ? extra.filter((x: unknown) => typeof x === 'string' && x.length < 4_000_000).slice(0, 3).map((x: string) => x.replace(/^data:image\/\w+;base64,/, ''))
+      : [];
 
     // Newer projects expose secret keys as JSON in SUPABASE_SECRET_KEYS; older ones as SUPABASE_SERVICE_ROLE_KEY.
     let serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -91,7 +95,11 @@ Deno.serve(async req => {
       `Ignore credits, ball-in-play, match, high-score-table and timer numbers. ` +
       `value = the full score as an integer with no commas. Only include scores you can actually see; never guess digits. ` +
       `confidence = "high" only if every digit you report is clearly legible, otherwise "low". ` +
-      `If this isn't a pinball score display, return no scores and say why in note.`;
+      `If this isn't a pinball score display, return no scores and say why in note.` +
+      (extras.length
+        ? ` You are given ${extras.length + 1} frames of the SAME display taken over about 3 seconds. The display may flicker (rows missing) or cycle between screens (scores, high-score tables, animations). ` +
+          `Combine them: for each player, use the frame where that player's score is fully and clearly visible. Ignore frames that show attract mode or high-score tables. If no frame shows player scores, return none and say "scores screen not visible" in note.`
+        : '');
 
     const r = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
       method: 'POST',
@@ -102,6 +110,7 @@ Deno.serve(async req => {
         input: [
           { type: 'text', text: prompt },
           { type: 'image', data: b64, mime_type: 'image/jpeg' },
+          ...extras.map(d => ({ type: 'image', data: d, mime_type: 'image/jpeg' })),
         ],
         response_format: { type: 'text', mime_type: 'application/json', schema: SCHEMA },
         generation_config: { thinking_level: 'low' },
