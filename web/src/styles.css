@@ -2041,7 +2041,11 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--nes-sky); outlin
 .reg-photo-btn { box-sizing: border-box; padding: 0 !important; width: 84px; height: 84px; }
 .reg-photo-img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
 
-/* ===== Bottom tab bar (Play · Ranks · Me) ===== */
+/* ===== Bottom tab bar (Play · Ranks · Me) — phones only; desktop uses the top bar ===== */
+.topnav { display: none; align-items: center; gap: 6px; }
+.me.on-tab-screen { display: none; }
+.topbar-link.active { color: var(--nes-yellow); box-shadow: inset 0 -2px 0 var(--nes-yellow); }
+.me.active { box-shadow: 0 0 0 2px var(--nes-yellow); }
 .main.with-tabs { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
@@ -2059,17 +2063,22 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--nes-sky); outlin
 .tab.active .avatar { opacity: 1; box-shadow: 0 0 0 2px var(--nes-yellow); }
 .tab.active span::before { content: "▶"; margin-right: 4px; }
 .tab:not(.active) .px-emoji { filter: grayscale(0.6) brightness(0.8); }
-@media (min-width: 700px) { .tabbar { left: 50%; right: auto; width: 520px; transform: translateX(-50%); } }
+@media (min-width: 700px) {
+  .tabbar { display: none; }
+  .main.with-tabs { padding-bottom: var(--gutter); }
+  .topnav { display: inline-flex; }
+  .me.on-tab-screen { display: inline-flex; }
+}
 
 /* ===== Ranks page ===== */
 .ranks h1 { margin-bottom: 8px; }
-.rk-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-.rk-tabs::-webkit-scrollbar { display: none; }
+.rk-tabs { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px 0 10px; }
 .rk-tabs button {
-  flex-shrink: 0; min-height: 40px; padding: 0 10px; border: 0; border-radius: 0; cursor: pointer;
+  flex: 1 1 auto; min-height: 34px; padding: 0 7px; border: 0; border-radius: 0; cursor: pointer;
   background: #000; color: var(--nes-gray-hi); box-shadow: inset 0 0 0 2px #3c3c5c;
-  font-family: var(--px); font-size: var(--t10);
+  font-family: var(--px); font-size: 9px; text-align: center;
 }
+@media (min-width: 700px) { .rk-tabs button { font-size: var(--t10); min-height: 36px; padding: 0 9px; } }
 .rk-tabs button.on { background: var(--nes-yellow); color: #000; box-shadow: inset 0 0 0 2px #000; }
 .rk-you {
   position: sticky; top: 56px; z-index: 5; display: flex; align-items: center; gap: 10px;
@@ -2410,6 +2419,7 @@ input[type="email"]::placeholder { color: #6c6c80; text-transform: uppercase; }
 
 /* Ranks: wider "Machines" column, prize descriptions */
 .rk-head, .rk-list > li { grid-template-columns: 26px minmax(0, 1fr) 44px 56px; }
+@media (min-width: 700px) { .rk-head, .rk-list > li { grid-template-columns: 26px minmax(0, 1fr) 84px 64px; } }
 .rk-head span { white-space: nowrap; }
 .rk-head span:nth-child(n+3) { justify-self: end; }
 .rk-head-m, .ranks .rk-head-m ~ .rk-list > li { grid-template-columns: 26px minmax(0, 1fr) auto; }

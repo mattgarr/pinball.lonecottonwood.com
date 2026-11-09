@@ -132,13 +132,13 @@ export default function Me() {
             <LedNumber value={st.rating} size="md" />
             <div>
               <div className="me-rating-rank">{ordinal(st.rank)} of {ranked}</div>
-              <div className="muted small">Your rating = your average points across the machines you played (1st on a machine = 100). Higher is better.</div>
+              <div className="muted small">Average points across your machines (1st = 100 pts).</div>
             </div>
           </>
         ) : (
           <div>
             <div className="me-rating-rank">{st.machinesPlayed === 0 ? 'No scores yet' : `${MIN_TABLES - st.machinesPlayed} more machine${MIN_TABLES - st.machinesPlayed === 1 ? '' : 's'} to get ranked`}</div>
-            <div className="muted small">Log a score on {MIN_TABLES} different machines to get a rating and a spot on the leaderboard.</div>
+            <div className="muted small">Play {MIN_TABLES} machines to get ranked.</div>
           </div>
         )}
       </section>
@@ -155,7 +155,7 @@ export default function Me() {
 
       <section className="panel">
         <h3>Machines</h3>
-        <div className="muted small">Points per machine: 1st = 100, lower places get less. Your rating is the average.</div>
+        <div className="muted small">Your best score on each machine counts.</div>
         <div className="me-machines">
           {machines.map(m => {
             const pm = st.perMachine[m.id];
@@ -289,10 +289,10 @@ function TicketPanel({ me }) {
       {left.length ? (
         <>
           <h3>Still to sign up: {joinNames(left.map(p => p.first))}</h3>
-          <div className="muted small">Send {them} your ticket link. They sign up on their own phone.</div>
+          <div className="muted small">Send {them} your ticket link so they can sign up.</div>
           <ShareTicket invite={invite} big label={`Send ${them} the link`} />
           <div className="muted small">
-            With you? <a href={`/join?invite=${encodeURIComponent(invite)}&here=1`} className="link">Sign {them} up on this phone</a>
+            Right here? <a href={`/join?invite=${encodeURIComponent(invite)}&here=1`} className="link">Sign {them} up now</a>
           </div>
         </>
       ) : others.length ? (
@@ -305,13 +305,13 @@ function TicketPanel({ me }) {
       ) : (
         <>
           <h3>Bringing someone?</h3>
-          <div className="muted small">Send them your ticket link. They sign up on their own phone.</div>
+          <div className="muted small">Send them your ticket link so they can sign up.</div>
           <ShareTicket invite={invite} big label="Send my ticket link" />
         </>
       )}
       {!left.length && (
         <div className="muted small">
-          No phone? <a href={`/join?invite=${encodeURIComponent(invite)}&here=1`} className="link">Sign them up on this one</a>
+          Right here with you? <a href={`/join?invite=${encodeURIComponent(invite)}&here=1`} className="link">Sign them up now</a>
         </div>
       )}
     </section>

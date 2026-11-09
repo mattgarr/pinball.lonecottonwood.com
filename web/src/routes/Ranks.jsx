@@ -1,11 +1,10 @@
-import { useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAllTime, useAwards, useStandings } from '../lib/store.js';
 import { MIN_TABLES, fmt, ordinal } from '../lib/scoring.js';
 import Avatar from '../components/Avatar.jsx';
 import PixelEmoji from '../components/PixelEmoji.jsx';
 
-// The phone leaderboard: OVERALL (rating) or one machine (best scores). My row is always highlighted,
+// Leaderboard: OVERALL (rating) or one machine (best scores). My row is always highlighted,
 // and a "YOU" bar up top says where I stand without scrolling.
 export default function Ranks() {
   const { machines: eventMachines, allMachines, me, standings: eventStandings, party, players, events } = useStandings();
@@ -21,7 +20,6 @@ export default function Ranks() {
   const machines = ever ? allMachines : eventMachines;
   const mine = me ? standings.stats.get(me.id) : null;
   const machineEntry = standings.machines.find(x => String(x.machine.id) === view);
-  useEffect(() => { document.querySelector('.rk-tabs .on')?.scrollIntoView({ inline: 'center', block: 'nearest' }); }, [view]);
 
   return (
     <div className="screen ranks">
@@ -49,7 +47,14 @@ export default function Ranks() {
   );
 }
 
-const shortName = n => ({ 'Dungeons & Dragons': 'D&D', 'Cactus Canyon': 'Cactus', 'Whitewater': 'Whitewater' }[n] || n);
+const shortName = n => ({
+  'Dungeons & Dragons': 'D&D',
+  'Cactus Canyon': 'Cactus',
+  'Medieval Madness': 'Medieval',
+  'Monster Bash': 'Monster',
+  'The Addams Family': 'Addams',
+  'Whitewater': 'Whitewater',
+}[n] || n);
 
 function YouBar({ me, children }) {
   if (!me) return null;
@@ -94,9 +99,7 @@ function Overall({ standings, mine, me, machines, awards, closed }) {
           {ranked.length === 0 && <li className="rk-empty">Nobody's ranked yet. Play {MIN_TABLES} machines to get on the board!</li>}
         </ol>
         <div className="muted small rk-legend">
-          How rating works: on each machine you get points for where your best score places
-          (1st = 100, lower places get less). Your rating is the average of those points across
-          the machines you played. Play {MIN_TABLES}+ machines to get ranked.
+          Rating = your average points across machines (1st = 100 pts). Play {MIN_TABLES}+ machines to rank.
         </div>
       </section>
 
@@ -132,7 +135,7 @@ function MachineBoard({ entry, me, mine, players }) {
         {pm ? <><b>{ordinal(pm.rank)}</b> of {pm.N} · best <b>{fmt(pm.best)}</b></> : <>No score here yet</>}
       </YouBar>
       <section className="panel rk-board">
-        <div className="rk-head rk-head-m"><span>#</span><span>Player</span><span>Best</span></div>
+        <div className="rk-head rk-head-m"><span>#</span><span>{entry.machine.name}</span><span>Best</span></div>
         <ol className="rk-list">
           {entry.rows.map(r => {
             const p = byId.get(r.playerId) || { id: r.playerId, display_name: '?' };

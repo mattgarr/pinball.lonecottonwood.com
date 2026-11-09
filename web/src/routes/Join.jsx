@@ -47,6 +47,7 @@ export default function Join() {
   const [fixing, setFixing] = useState(false);
   const fileRef = useRef(null);
   const nav = useNavigate();
+  const isPhone = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 700px), (pointer: coarse)').matches;
 
   // Invite link: greet them and pre-fill their email (they still tick consent themselves).
   useEffect(() => {
@@ -155,10 +156,12 @@ export default function Join() {
           </div>
           <div className="reveal-label">You're in,</div>
           <div className="reveal-team">{welcome.display_name}</div>
-          <p className="welcome-pin">Your PIN is <strong>{pin}</strong> — you'll need it if you switch phones. Screenshot this!</p>
+          <p className="welcome-pin">
+            Your PIN is <strong>{pin}</strong> — {isPhone ? 'save it in case you switch phones. Screenshot this!' : 'use it to sign in on your phone at the party!'}
+          </p>
           {prevName && (
             <div className="note-warn">
-              This phone is now <strong>{welcome.display_name}</strong>.<br />
+              Signed in as <strong>{welcome.display_name}</strong> now.<br />
               {prevName}: to switch back, go to ME → Sign out / switch player → Sign in as someone else, and type your PIN.
             </div>
           )}
@@ -166,16 +169,16 @@ export default function Join() {
           {invite && !prevName && (nextUp.length ? (
             <div className="bring-box">
               <div className="bring-title">Now get {firstsOf(nextUp)} in</div>
-              <p>Send {them} the link. They sign up on their own phone.</p>
+              <p>Send {them} this link so they can sign up too.</p>
               <ShareTicket invite={invite} label={`Send ${them} the link`} />
               <p className="bring-here">
-                <a className="link" href={`/join?invite=${encodeURIComponent(invite)}&here=1`}>{nextUp.length === 1 ? `${them}'s` : "They're"} with you? Sign {them} up on this phone</a>
+                <a className="link" href={`/join?invite=${encodeURIComponent(invite)}&here=1`}>{nextUp.length === 1 ? `${them}'s` : "They're"} right here? Sign {them} up now</a>
               </p>
             </div>
           ) : (
             <div className="bring-box">
               <div className="bring-title">Bringing someone?</div>
-              <p>Send them this link. They sign up on their own phone.</p>
+              <p>Send them this link so they can sign up too.</p>
               <ShareTicket invite={invite} label="Send my ticket link" />
             </div>
           ))}
@@ -203,27 +206,26 @@ export default function Join() {
           {inv.players.length > 1 && <> Also on it: {inv.players.filter(n => n !== me.display_name).join(', ')}.</>}
         </div>
         <p>{left.length
-          ? <>Send {them} this link. They open it on <strong>their own phone</strong> and pick their own nickname.</>
-          : <>To add someone (like your partner), send them this link. They open it on <strong>their own phone</strong> and pick their own nickname.</>}</p>
+          ? <>Send {them} this link so they can pick their own nickname.</>
+          : <>To add someone (like your partner), send them this link so they can pick their own nickname.</>}</p>
         <ShareTicket invite={invite} big label={left.length ? `Send ${them} the link` : undefined} />
         <Link to="/" className="cta" style={{ marginTop: 18, display: 'block', textAlign: 'center' }}>Back to the game</Link>
         {!warnHere ? (
           <button type="button" className="link" style={{ marginTop: 14 }} onClick={() => setWarnHere(true)}>
-            {left.length ? `${left.length === 1 ? `${them}'s` : "They're"} with you? Sign ${them} up on this phone instead` : "They don't have a phone? Sign them up on this one instead"}
+            {left.length ? `${left.length === 1 ? `${them}'s` : "They're"} right here? Sign ${them} up here instead` : 'Or sign them up right here instead'}
           </button>
         ) : (
           <div className="note-warn" role="alert" style={{ marginTop: 18 }}>
-            <div className="note-warn-title">Heads up: this phone will switch players</div>
+            <div className="note-warn-title">Heads up: this switches who's signed in here</div>
             <p>
-              After you sign them up, this phone plays as <strong>the new player</strong>, and{' '}
-              <strong>{me.display_name}</strong> gets signed out here. Your scores stay saved.
+              After you sign them up, you'll be signed in here as <strong>the new player</strong> (<strong>{me.display_name}</strong>'s scores stay saved).
             </p>
             <p>
-              To get back in as {me.display_name}: ME → Sign out / switch player → Sign in as someone else,
-              pick {me.display_name} and type <strong>your PIN</strong>. Make sure you remember it first!
+              To switch back to {me.display_name}: ME → Sign out / switch player → Sign in as someone else,
+              pick {me.display_name} and type <strong>your PIN</strong>.
             </p>
             <button type="button" className="ghost-btn" onClick={() => { setPrevName(me.display_name); setAddHere(true); }}>
-              OK, sign them up on this phone
+              OK, sign them up here
             </button>
             <button type="button" className="link" style={{ marginTop: 12 }} onClick={() => setWarnHere(false)}>Cancel</button>
           </div>
@@ -269,8 +271,8 @@ export default function Join() {
 
       {me && !welcome && addHere && (
         <div className="note-warn">
-          Signing up someone new on this phone. Afterwards it plays as them.{' '}
-          <strong>{me.display_name}</strong>: get back in later with your PIN.{' '}
+          Signing up someone new. Afterwards you'll be signed in as them.{' '}
+          <strong>{me.display_name}</strong>: switch back later with your PIN.{' '}
           <button type="button" className="link" onClick={() => { setAddHere(false); setWarnHere(false); setPrevName(''); }}>Never mind</button>
         </div>
       )}
@@ -326,7 +328,7 @@ export default function Join() {
 
       <label className="field">
         <span>PIN: pick 4 digits you'll remember</span>
-        <span className="field-help">You'll need it if you switch phones.</span>
+        <span className="field-help">{isPhone ? 'Save it in case you switch phones.' : 'Use it to sign in on your phone at the party.'}</span>
         <input
           className="pin-input"
           value={pin}

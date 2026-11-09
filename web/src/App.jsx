@@ -63,14 +63,20 @@ export default function App() {
           <span className="brand-word">Woodside Pinball</span>
         </Link>
         <div className="topbar-right">
-          {getHostPass() ? <Link to="/host" className="topbar-link host-chip">Host</Link> : <Link to="/about" className="topbar-link">How to play</Link>}
-          {me && showTabs ? null : me ? (
-            <Link to="/me" className="me" style={{ borderColor: me.color }} aria-label="My progress">
+          {me && (
+            <nav className="topnav" aria-label="Main">
+              <NavLink to="/" end className="topbar-link">Play</NavLink>
+              <NavLink to="/ranks" className="topbar-link">Ranks</NavLink>
+            </nav>
+          )}
+          {getHostPass() ? <NavLink to="/host" className="topbar-link host-chip">Host</NavLink> : <NavLink to="/about" className="topbar-link">How to play</NavLink>}
+          {me ? (
+            <NavLink to="/me" className={`me${showTabs ? ' on-tab-screen' : ''}`} style={{ borderColor: me.color }} aria-label="My progress">
               <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={28} />
               <span className="name">{me.display_name}</span>
-            </Link>
+            </NavLink>
           ) : (
-            <Link to="/join" className="topbar-link primary-link">Join</Link>
+            <NavLink to="/join" className="topbar-link primary-link">Join</NavLink>
           )}
         </div>
       </header>

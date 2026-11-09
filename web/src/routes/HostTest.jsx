@@ -48,7 +48,7 @@ export default function HostTest() {
   }, [tests]);
 
   if (!getHostPass()) return <div className="screen"><div className="err">Unlock Host first.</div><Link className="link" to="/host">Host →</Link></div>;
-  if (!me) return <div className="screen"><div className="err">Join as a player on this phone first.</div><Link className="link" to="/join">Join →</Link></div>;
+  if (!me) return <div className="screen"><div className="err">Join as a player first.</div><Link className="link" to="/join">Join →</Link></div>;
 
   function bestFor(m) {
     let best = null;

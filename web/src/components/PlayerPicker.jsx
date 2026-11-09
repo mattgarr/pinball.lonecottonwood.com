@@ -59,7 +59,7 @@ export default function PlayerPicker({ players, scores, me, machineId, exclude, 
           {matches.length === 0 && (
             <div className="muted small picker-empty">
               <strong>{q.trim()}</strong> isn't signed up yet. They can scan any machine's QR code to join,
-              or join on your phone: Me → Sign out / switch player → Add a new player.
+              or you can add them under Me → Sign out / switch player → Add a new player.
             </div>
           )}
           {matches.map(p => <Row key={p.id} p={p} />)}
