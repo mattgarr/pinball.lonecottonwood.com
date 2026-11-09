@@ -38,7 +38,7 @@ export function buildSpotlights({ standings, scores, players }, machineCursor = 
 
   // 2. CROWN BOUNTY (longest-standing #1 record tonight) or OPEN TABLE (fewest plays)
   const openEntry = [...ms].sort((a, b) => a.N - b.N)[0];
-  if (openEntry && openEntry.N < 3 && players.length >= 3) {
+  if (openEntry && openEntry.N < 3) {
     const needCount = Math.max(1, players.length - openEntry.N);
     cards.push({
       kind: 'spotlight',
@@ -285,25 +285,53 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
     addNews(headlines);
   }, [standings, scores, players, ready, demo, addHit, addNews, pushToasts]);
 
-  // URL preview support (?spotlight=0, 1, 2 or ?takeover=ranked / milestone) + Periodic Quiet-Room Attract Spotlights
+  // URL preview support (?spotlight=0, 1, 2 or ?takeover=ranked / milestone / record / leader) + Periodic Quiet-Room Attract Spotlights
   useEffect(() => {
     if (!ready || demo) return;
     const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
+    const p1 = players[0] || { id: 1, display_name: 'WizardWalt', emoji: '🧙', color: '#3cbcfc' };
+    const p2 = players[1] || { id: 2, display_name: 'Flipper Fran', emoji: '🦖', color: '#f8b800' };
+    const m0 = standings.machines[0]?.machine || { id: 1, name: 'Centaur', manufacturer: 'Bally', year: 1981 };
+
     if (params?.has('spotlight')) {
-      const idx = Number(params.get('spotlight')) || 0;
-      const cards = buildSpotlights({ standings, scores, players }, idx);
-      if (cards.length) {
-        setTakeovers([cards[idx % cards.length]]);
+      const raw = params.get('spotlight');
+      const cards = buildSpotlights({ standings, scores, players }, Number(raw) || 0);
+      const bySub = sub => cards.find(c => c.subkind === sub);
+      let chosen = null;
+      if (raw === '0' || raw === 'rivalry') {
+        chosen = bySub('rivalry') || {
+          kind: 'spotlight', subkind: 'rivalry', id: 'preview-riv',
+          machine: m0,
+          leader: { player: p1, score: 4200000 },
+          challenger: { player: p2, score: 4080000 },
+          gap: 120000, ratio: 0.028, N: 4,
+        };
+      } else if (raw === '1' || raw === 'bounty') {
+        chosen = bySub('bounty') || {
+          kind: 'spotlight', subkind: 'bounty', bountyType: 'open', id: 'preview-bounty',
+          machine: m0, champion: null, N: 0, needCount: Math.max(4, players.length),
+        };
+      } else {
+        chosen = bySub('tip') || cards[0];
       }
+      if (chosen) setTakeovers([{ ...chosen, pinned: true }]);
       return;
     }
-    if (params?.get('takeover') === 'ranked' && players.length) {
-      const st = standings.ranked[1] || standings.ranked[0] || { player: players[0], rank: 2, rating: 78 };
-      setTakeovers([{ kind: 'ranked', id: 'preview-ranked', player: st.player, rank: st.rank, rating: st.rating, totalRanked: standings.ranked.length || 5 }]);
+    if (params?.get('takeover') === 'ranked') {
+      const st = standings.ranked[1] || standings.ranked[0] || { player: p1, rank: 2, rating: 78 };
+      setTakeovers([{ kind: 'ranked', id: 'preview-ranked', player: st.player, rank: st.rank, rating: st.rating, totalRanked: standings.ranked.length || 5, pinned: true }]);
       return;
     }
-    if (params?.get('takeover') === 'milestone' && players.length) {
-      setTakeovers([{ kind: 'milestone', id: 'preview-mile', count: 50, player: players[0], machine: standings.machines[0]?.machine, totalPlayers: players.length }]);
+    if (params?.get('takeover') === 'milestone') {
+      setTakeovers([{ kind: 'milestone', id: 'preview-mile', count: 50, player: p1, machine: m0, totalPlayers: players.length || 6, pinned: true }]);
+      return;
+    }
+    if (params?.get('takeover') === 'record') {
+      setTakeovers([{ kind: 'record', id: 'preview-rec', machine: m0, player: p1, score: 4200000, prevScore: 3100000, prevPlayer: p2, N: 5, pinned: true }]);
+      return;
+    }
+    if (params?.get('takeover') === 'leader') {
+      setTakeovers([{ kind: 'leader', id: 'preview-lead', player: p1, rating: 92, prevPlayer: p2, pinned: true }]);
       return;
     }
 

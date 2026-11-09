@@ -43,10 +43,11 @@ function LeaderTakeover({ item, onDone, queued = 0 }) {
   const shown = useRamp(0, item.rating, 1800, 900);
   const p = item.player;
   useEffect(() => {
+    if (item.pinned) return;
     const a = setTimeout(() => setLeaving(true), TAKEOVER_MS - 550);
     const b = setTimeout(onDone, TAKEOVER_MS);
     return () => { clearTimeout(a); clearTimeout(b); };
-  }, [onDone]);
+  }, [onDone, item.pinned]);
   return (
     <div className={`to to-leader${leaving ? ' out' : ''}`} style={{ '--glow': '#f8b800' }}>
       <div className="to-shade" />
@@ -76,10 +77,11 @@ function RankedTakeover({ item, onDone, queued = 0 }) {
   const shown = useRamp(0, item.rating, 1600, 700);
   const p = item.player;
   useEffect(() => {
+    if (item.pinned) return;
     const a = setTimeout(() => setLeaving(true), TAKEOVER_MS - 550);
     const b = setTimeout(onDone, TAKEOVER_MS);
     return () => { clearTimeout(a); clearTimeout(b); };
-  }, [onDone]);
+  }, [onDone, item.pinned]);
   return (
     <div className={`to to-leader to-ranked${leaving ? ' out' : ''}`} style={{ '--glow': '#3cbcfc' }}>
       <div className="to-shade" />
@@ -110,10 +112,11 @@ function MilestoneTakeover({ item, onDone, queued = 0 }) {
   const shown = useRamp(0, item.count, 1600, 500);
   const p = item.player;
   useEffect(() => {
+    if (item.pinned) return;
     const a = setTimeout(() => setLeaving(true), TAKEOVER_MS - 550);
     const b = setTimeout(onDone, TAKEOVER_MS);
     return () => { clearTimeout(a); clearTimeout(b); };
-  }, [onDone]);
+  }, [onDone, item.pinned]);
   return (
     <div className={`to to-leader to-milestone${leaving ? ' out' : ''}`} style={{ '--glow': '#f878f8' }}>
       <div className="to-shade" />
@@ -150,10 +153,11 @@ function RecordTakeover({ item, onDone, queued = 0 }) {
   const p = item.player, m = item.machine;
 
   useEffect(() => {
+    if (item.pinned) return;
     const a = setTimeout(() => setLeaving(true), TAKEOVER_MS - 550);
     const b = setTimeout(onDone, TAKEOVER_MS);
     return () => { clearTimeout(a); clearTimeout(b); };
-  }, [onDone]);
+  }, [onDone, item.pinned]);
 
   const sub = item.prevPlayer
     ? <>dethroned <b>{item.prevPlayer.display_name}</b> · {fmt(item.prevScore)}</>
@@ -198,10 +202,11 @@ function SpotlightTakeover({ item, onDone }) {
   const m = item.machine;
 
   useEffect(() => {
+    if (item.pinned) return;
     const a = setTimeout(() => setLeaving(true), SPOTLIGHT_MS - 550);
     const b = setTimeout(onDone, SPOTLIGHT_MS);
     return () => { clearTimeout(a); clearTimeout(b); };
-  }, [onDone]);
+  }, [onDone, item.pinned]);
 
   const title = item.subkind === 'rivalry'
     ? 'CLOSEST BATTLE'
