@@ -94,6 +94,12 @@ Matt's direction: **anyone with a ticket link can sign up; no attendance trackin
 - **Migration `0016_link_walkins.sql`** (`link_by_email`, `host_link_player`, `event_invites.who`, `set_ticket_who` with ticket-name spelling fix, updated `invite_info` and `host_invites`):
   - Tested end-to-end on a throwaway local Postgres with all 16 migrations applied, plus a rolled-back production rehearsal.
   - **Run in Supabase on Nov 8, ~9:53 PM**, along with setting `who = 'Cina Boitnott'` on row 7 and `who = 'Chris Boitnott'` on row 91.
+- **Migration `0017_multi_event.sql`** (`enter_event`, `host_set_entry`, `claim_invite` entering `v_inv.event_id`, and `host_clear_scores` scoped strictly to the active event):
+  - **Run in Supabase on Nov 8, ~10:12 PM.**
+  - **Events & permanent player accounts**:
+    - `HostEvents` is now at the top of `/host` with `+ New event`, `Make active`, `Guest list & emails`, and an expandable `Players (N)` roster per event (plus `+ Add existing player…`).
+    - `/host` `Players` card toggles between `In [Active Event]` and `All accounts`.
+    - `Ranks` and `Me` let guests switch between individual tournaments (`?event=<id>`) as well as `All-time`.
 - **Still to do:**
   - Test on two real phones.
   - Next reminder note: "Coming as a couple? Each of you can use the same sign-up link or QR on your own phone."
