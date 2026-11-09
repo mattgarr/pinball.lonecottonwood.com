@@ -301,6 +301,13 @@ export default function Machine() {
   const myLoggedHere = results.some(r => r.who === 'me' && !r.error);
   const forPlayer = forWho === 'me' ? me : playerById.get(forWho) || me;
   const forIsMe = forPlayer.id === me.id;
+  const forStats = standings.stats.get(forPlayer.id)?.perMachine[mid] ?? null;
+  const topBest = board?.champion?.score ?? null;
+  const padHint = forStats
+    ? `${forIsMe ? 'Your' : `${forPlayer.display_name}'s`} best: ${fmtShort(forStats.best)}${topBest ? ` · #1: ${fmtShort(topBest)}` : ''}`
+    : topBest
+    ? `#1 to beat: ${fmtShort(topBest)}`
+    : undefined;
   const whoChip = <ForWhoChip player={forPlayer} isMe={forIsMe} onChange={() => setWhoOpen(true)} />;
 
   return (
@@ -329,8 +336,8 @@ export default function Machine() {
               <span className="photo-strip-label">{readInfo?.failed ? "Can't read it. Type what you see" : 'Your photo · tap to zoom'}</span>
             </button>
           )}
-          <ScorePad value={pad} onChange={setPad} />
-          <div className="actionbar">
+          <ScorePad value={pad} onChange={setPad} hint={padHint} />
+          <div className={photo ? 'actionbar' : 'actionbar two'}>
             {!photo && (
               <PhotoButton className="ghost-btn" onPhoto={onSnap} onError={setErr}>📸 Snap it</PhotoButton>
             )}
@@ -343,7 +350,7 @@ export default function Machine() {
 
       {step === 'confirm' && (
         <ConfirmStep
-          machine={machine} value={Number(pad)} photo={photo} readInfo={readInfo} me={me}
+          machine={machine} board={board} value={Number(pad)} photo={photo} readInfo={readInfo} me={me}
           forPlayer={forPlayer} whoChip={whoChip} onCancel={cancelFlow}
           machineScores={machineScores} playerById={playerById} busy={busy}
           onAttach={setPhoto} onPhotoError={setErr}
@@ -521,7 +528,7 @@ function preflight(value, pid, machine, machineScores, photo) {
   return { warnings, crown, needsPhoto: crown.contested && !photo };
 }
 
-function ConfirmStep({ machine, value, photo, readInfo, me, forPlayer, whoChip, onCancel, machineScores, playerById, busy, onAttach, onPhotoError, onFix, onSubmit, onSwitch }) {
+function ConfirmStep({ machine, board, value, photo, readInfo, me, forPlayer, whoChip, onCancel, machineScores, playerById, busy, onAttach, onPhotoError, onFix, onSubmit, onSwitch }) {
   const pid = forPlayer.id;
   const isMe = pid === me.id;
   const { warnings, crown, needsPhoto } = preflight(value, pid, machine, machineScores, photo);
@@ -531,6 +538,12 @@ function ConfirmStep({ machine, value, photo, readInfo, me, forPlayer, whoChip, 
   const mineAlready = hit && hit.player_id === pid;
   const theirs = hit && !mineAlready ? playerById.get(hit.player_id) : null;
   const theirsIsMe = theirs && theirs.id === me.id;
+  const rowsHere = board?.rows ?? [];
+  const prevBest = rowsHere.find(r => r.playerId === pid)?.best ?? null;
+  const effBest = prevBest != null ? Math.max(prevBest, value) : value;
+  const otherBests = rowsHere.filter(r => r.playerId !== pid).map(r => r.best);
+  const projRank = 1 + otherBests.filter(b => b > effBest).length;
+  const projTotal = otherBests.length + 1;
   return (
     <>
       <CancelLink onCancel={onCancel} />
@@ -545,6 +558,17 @@ function ConfirmStep({ machine, value, photo, readInfo, me, forPlayer, whoChip, 
           <div className="confirm-label">{fromPhoto ? 'We read' : 'You typed'}</div>
           <LedNumber value={value} size="xl" />
           <div className="confirm-say">≈ {sayNumber(value)}</div>
+          {!mineAlready && (
+            <div className={`confirm-preview${prevBest != null && value <= prevBest ? ' below' : ''}`}>
+              {crown.claimedTop
+                ? `👑 #1 on ${machine.name}!`
+                : prevBest == null
+                ? `First score here · ${ordinal(projRank)} of ${projTotal}`
+                : value > prevBest
+                ? `★ New best! (was ${fmtShort(prevBest)}) · ${ordinal(projRank)} of ${projTotal}`
+                : `Below best (${fmtShort(prevBest)}) · ${ordinal(projRank)} of ${projTotal}`}
+            </div>
+          )}
           {fromPhoto && readInfo.confidence !== 'high' && <div className="hint">Blurry. Check it matches the machine.</div>}
           {fromPhoto && readInfo.note && <div className="muted small center-text">{readInfo.note}</div>}
         </div>
@@ -734,25 +758,48 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
                   <button type="button" className="row-x" aria-label="Remove" onClick={() => setRows(rs => rs.filter(x => x.key !== r.key))}>✕</button>
                 )}
               </div>
-              <LedNumber
-                value={r.value || ''} size="md" placeholder="TAP TO ENTER"
-                onClick={r.ok || r.who === null ? undefined : () => openEdit(r)}
-                label={r.value ? `Player ${r.slot ?? i + 1} score ${fmt(r.value)}, tap to fix` : 'Enter score'}
-              />
-              {needMe && r.who === undefined && !r.ok && (
-                <button type="button" className="cta cta-soft thats-me" onClick={() => pick(r.key, 'me')}>That's me</button>
+              {mode === 'friends' ? (
+                <>
+                  <button type="button" className={`assignee${p ? '' : ' empty'}`} disabled={r.ok} onClick={() => setPickFor(r.key)}>
+                    {r.who === null ? (
+                      <><span className="assignee-skip">⤼</span><span>Skipped · tap to add</span></>
+                    ) : p ? (
+                      <><Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={30} />
+                        <span className="assignee-name">{r.who === 'me' ? `${p.display_name} (me)` : p.display_name}</span>
+                        {!r.ok && <span className="assignee-change">change</span>}</>
+                    ) : (
+                      <><span className="assignee-plus">？</span><span>Who is this?</span></>
+                    )}
+                  </button>
+                  <LedNumber
+                    value={r.value || ''} size="md" placeholder="TAP TO ENTER SCORE"
+                    onClick={r.ok || r.who === null ? undefined : () => openEdit(r)}
+                    label={r.value ? `Player ${r.slot ?? i + 1} score ${fmt(r.value)}, tap to fix` : 'Enter score'}
+                  />
+                </>
+              ) : (
+                <>
+                  <LedNumber
+                    value={r.value || ''} size="md" placeholder="TAP TO ENTER"
+                    onClick={r.ok || r.who === null ? undefined : () => openEdit(r)}
+                    label={r.value ? `Player ${r.slot ?? i + 1} score ${fmt(r.value)}, tap to fix` : 'Enter score'}
+                  />
+                  {needMe && r.who === undefined && !r.ok && (
+                    <button type="button" className="cta cta-soft thats-me" onClick={() => pick(r.key, 'me')}>That's me</button>
+                  )}
+                  <button type="button" className={`assignee${p ? '' : ' empty'}`} disabled={r.ok} onClick={() => setPickFor(r.key)}>
+                    {r.who === null ? (
+                      <><span className="assignee-skip">⤼</span><span>Skipped · tap to add</span></>
+                    ) : p ? (
+                      <><Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={30} />
+                        <span className="assignee-name">{r.who === 'me' ? `${p.display_name} (me)` : p.display_name}</span>
+                        {!r.ok && <span className="assignee-change">change</span>}</>
+                    ) : (
+                      <><span className="assignee-plus">？</span><span>{needMe ? 'Someone else? Tap to pick' : 'Who is this?'}</span></>
+                    )}
+                  </button>
+                </>
               )}
-              <button type="button" className={`assignee${p ? '' : ' empty'}`} disabled={r.ok} onClick={() => setPickFor(r.key)}>
-                {r.who === null ? (
-                  <><span className="assignee-skip">⤼</span><span>Skipped · tap to add</span></>
-                ) : p ? (
-                  <><Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={30} />
-                    <span className="assignee-name">{r.who === 'me' ? `${p.display_name} (me)` : p.display_name}</span>
-                    {!r.ok && <span className="assignee-change">change</span>}</>
-                ) : (
-                  <><span className="assignee-plus">？</span><span>{needMe ? 'Someone else? Tap to pick' : 'Who is this?'}</span></>
-                )}
-              </button>
               {dup && dup.loggedBy != null && dup.loggedBy !== pid(r) && dup.loggedBy !== me.id && (
                 <AlreadyLogged by={dup.loggedBy} me={me} playerById={playerById} className="row-dup" />
               )}
@@ -768,7 +815,7 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
         <button type="button" className="ghost-btn" onClick={addRow}>＋ Add player</button>
         {mode === 'friends' && !photo && (
           <PhotoButton className="ghost-btn" onPhoto={snapMore} onError={onPhotoError} disabled={reading}>
-            {reading ? 'Reading…' : '📸 Snap display'}
+            {reading ? 'Reading…' : '📸 Snap scores'}
           </PhotoButton>
         )}
       </div>
@@ -894,7 +941,7 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
               {mine.duplicate ? <span className="done-sub">Counted once.</span>
                 : mine.prevRank == null
                 ? <span className="move new">NEW ENTRY</span>
-                : climbed ? <span className="move up">▲ up from {ordinal(mine.prevRank)}</span>
+                : climbed ? <span className="move up">↑ Up from {ordinal(mine.prevRank)}</span>
                 : <span className="move flat">Still {ordinal(now.rank)}</span>}
               {!mine.duplicate && isPB && mine.prevBest != null && <span className="move pb">★ NEW BEST</span>}
               {!mine.duplicate && !isPB && <span className="done-sub">Your best ({fmt(now.best)}) still counts.</span>}
@@ -914,7 +961,7 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
         )}
         {mine && !mine.duplicate && undoLeft > 0 && (
           <button type="button" className="undo-btn" disabled={busy} onClick={() => onUndo(mine)}>
-            ↶ Typo? Undo <span className="undo-time">({Math.ceil(undoLeft / 60000)}m left)</span>
+            Typo? Undo <span className="undo-time">({Math.ceil(undoLeft / 60000)}m left)</span>
           </button>
         )}
       </div>
@@ -941,7 +988,7 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
                         : <span className="fr-new">✓ Logged</span>}
                       {!f.duplicate && f.scoreId && Date.now() - f.at < UNDO_MS && (
                         <button type="button" className="undo-btn small" disabled={busy} onClick={() => onUndoFriend(f)}>
-                          ↶ Undo <span className="undo-time">{Math.ceil((UNDO_MS - (Date.now() - f.at)) / 60000)}m</span>
+                          Undo <span className="undo-time">{Math.ceil((UNDO_MS - (Date.now() - f.at)) / 60000)}m</span>
                         </button>
                       )}
                     </div>
@@ -977,7 +1024,7 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
 
       <div className="actionbar two">
         <Link to="/" className="ghost-btn">All machines</Link>
-        <button type="button" className="cta" onClick={onAnother}>Log another game here</button>
+        <button type="button" className="cta" onClick={onAnother}>Log another</button>
       </div>
     </>
   );

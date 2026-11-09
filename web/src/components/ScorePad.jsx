@@ -25,19 +25,27 @@ export default function ScorePad({ value, onChange, hint }) {
   }, [value, onChange]);
 
   const n = Number(value || 0);
+  const canTripleZero = value.length >= 1 && value.length <= MAX_DIGITS - 3;
   return (
     <div className="pad-wrap">
       <LedNumber value={value} size="lg" blink placeholder="0" />
       <div className="pad-say" aria-live="polite">
-        {value ? <>≈ {sayNumber(n)} <span className="pad-digits">· {value.length} digit{value.length === 1 ? '' : 's'}</span></> : (hint || 'Type it exactly as shown')}
+        {value ? (
+          <>
+            <span>≈ {sayNumber(n)} <span className="pad-digits">· {value.length} digit{value.length === 1 ? '' : 's'}</span></span>
+            {canTripleZero && (
+              <button type="button" className="pad-zeros" onClick={() => push('000')} aria-label="Add three zeros">+000</button>
+            )}
+          </>
+        ) : (hint || 'Type it exactly as shown')}
       </div>
       <div className="pad" role="group" aria-label="Number pad">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (
           <button key={d} type="button" className="pad-key" onClick={() => push(d)}>{d}</button>
         ))}
-        <button type="button" className="pad-key pad-fn" onClick={clear} aria-label="Clear">C</button>
+        <button type="button" className="pad-key pad-fn" onClick={clear} aria-label="Clear">CLR</button>
         <button type="button" className="pad-key" onClick={() => push('0')}>0</button>
-        <button type="button" className="pad-key pad-fn" onClick={back} aria-label="Delete last digit">⌫</button>
+        <button type="button" className="pad-key pad-fn" onClick={back} aria-label="Delete last digit">DEL</button>
       </div>
     </div>
   );

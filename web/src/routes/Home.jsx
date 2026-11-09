@@ -55,12 +55,14 @@ export default function Home() {
             <Link key={m.id} to={`/machine/${m.id}`} className={`mcard${pm?.rank === 1 ? ' crowned' : ''}`} style={{ animationDelay: `${i * 40}ms` }}>
               <img className="mcard-img" src={machineArt(m.name)} alt="" loading={i < 4 ? 'eager' : 'lazy'} decoding="async" />
               <div className="mcard-shade" />
-              {pm ? (
-                <span className={`mcard-badge${pm.rank === 1 ? ' gold' : ''}`}>{pm.rank === 1 ? '👑 1st' : `${ordinal(pm.rank)}/${pm.N}`}</span>
-              ) : (
-                <span className="mcard-badge new">PLAY ME!</span>
-              )}
               <div className="mcard-text">
+                <div className="mcard-top">
+                  {pm ? (
+                    <span className={`mcard-badge${pm.rank === 1 ? ' gold' : ''}`}>{pm.rank === 1 ? '👑 1st' : `${ordinal(pm.rank)}/${pm.N}`}</span>
+                  ) : (
+                    <span className="mcard-badge new">PLAY ME!</span>
+                  )}
+                </div>
                 <div className="mcard-name">{m.name}</div>
                 <div className="mcard-meta">
                   {pm ? <>best <span className="amber mono">{fmtShort(pm.best)}</span></> : `${m.manufacturer} · ${m.year}`}

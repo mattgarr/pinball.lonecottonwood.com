@@ -314,7 +314,10 @@ export default function Join() {
       </div>
 
       <label className="field">
-        <span>Nickname (on the TV, up to 12 letters)</span>
+        <span className="field-label-row">
+          <span>Nickname (on the TV)</span>
+          <small className={`field-cnt${name.length >= 12 ? ' max' : ''}`}>{name.length}/12</small>
+        </span>
         <input
           value={name}
           onChange={e => setName(e.target.value)}
@@ -340,14 +343,16 @@ export default function Join() {
         />
       </label>
 
-      <label className="field">
-        <span>{avatar ? 'Emoji (if no photo)' : 'Emoji'}</span>
-        <div className="emoji-grid">
-          {EMOJIS.map(e => (
-            <button key={e} type="button" className={`emoji-btn${emoji === e ? ' on' : ''}`} onClick={() => setEmoji(e)} aria-label={e}><PixelEmoji e={e} size={30} grid={14} /></button>
-          ))}
-        </div>
-      </label>
+      {!avatar && (
+        <label className="field">
+          <span>Or pick an 8-bit icon</span>
+          <div className="emoji-grid">
+            {EMOJIS.map(e => (
+              <button key={e} type="button" className={`emoji-btn${emoji === e ? ' on' : ''}`} onClick={() => setEmoji(e)} aria-label={e}><PixelEmoji e={e} size={30} grid={14} /></button>
+            ))}
+          </div>
+        </label>
+      )}
 
       <label className="field row">
         <input type="checkbox" checked={firstTimer} onChange={e => setFirstTimer(e.target.checked)} />

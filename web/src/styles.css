@@ -2615,3 +2615,126 @@ button.link { background: none; border: 0; border-bottom: 2px dotted currentColo
 .mstrip-switch { min-height: 36px !important; height: 36px !important; padding: 0 10px !important; }
 .guide-chip { width: 100%; justify-content: center; }
 .me-switch { width: 100%; }
+
+/* =====================================================================================
+   END-USER PHONE, SIGN-UP & SCORE-REPORTING USABILITY POLISH
+   ===================================================================================== */
+/* 1. Home machine cards: keep top of card clear so top-aligned backglass titles show in full */
+.mcard-top {
+  margin-bottom: 4px;
+}
+.mcard-badge {
+  position: static !important;
+  display: inline-block;
+  padding: 4px 6px !important;
+}
+.mcard-champ {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-spacing: -3px;
+}
+
+/* 2. Confirm step art: move "WRONG ONE?" to bottom-right beside machine name so top title is uncovered */
+.confirm-art .mstrip-switch {
+  top: auto !important;
+  bottom: 8px !important;
+  right: 10px !important;
+}
+.confirm-machine {
+  right: 132px !important;
+  bottom: 10px !important;
+}
+.confirm-preview {
+  font-family: var(--px) !important;
+  font-size: var(--t10) !important;
+  line-height: 1.5 !important;
+  word-spacing: -3px;
+  color: var(--nes-lime);
+  text-align: center;
+  margin-top: 2px;
+  padding: 5px 8px;
+  background: rgba(0, 168, 0, 0.14);
+  box-shadow: inset 0 0 0 2px var(--nes-green);
+}
+.confirm-preview.below {
+  color: var(--nes-gray-hi);
+  background: #0c0c1c;
+  box-shadow: inset 0 0 0 2px #3c3c5c;
+}
+
+/* 3. ScorePad: crisp pixel CLR / DEL labels + one-tap "+000" quick-zeros pill */
+.pad-fn,
+.pad-fn[aria-label="Delete last digit"] {
+  font-family: var(--px) !important;
+  font-size: var(--t12) !important;
+}
+.pad-say {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 28px;
+}
+.pad-zeros {
+  font-family: var(--px) !important;
+  font-size: var(--t10) !important;
+  line-height: 1 !important;
+  padding: 5px 8px;
+  background: #000;
+  color: var(--nes-yellow);
+  border: 2px solid var(--nes-yellow);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.pad-zeros:active {
+  background: var(--nes-yellow);
+  color: #000;
+}
+
+/* 4. Side-by-side action bars & tool rows: identical 52px button height & alignment */
+.actionbar.two > *,
+.sheet-actions.two > *,
+.assign-tools > * {
+  min-height: 52px !important;
+  height: 52px !important;
+  padding: 0 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+}
+.assign-tools {
+  display: flex;
+  gap: 10px;
+}
+.assign-tools > * {
+  flex: 1 1 0;
+}
+
+/* 5. Join form: live character counter on Nickname */
+.field-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.field-cnt {
+  font-family: var(--px) !important;
+  font-size: var(--t10) !important;
+  color: var(--nes-gray-hi);
+}
+.field-cnt.max {
+  color: var(--nes-yellow);
+}
+
+/* 6. Me screen: prevent 10-12 letter names from truncating in "BY [avatar] NAME" */
+.recent li {
+  gap: 6px !important;
+}
+.logged-by-name {
+  word-spacing: -3px;
+  max-width: none !important;
+}
+

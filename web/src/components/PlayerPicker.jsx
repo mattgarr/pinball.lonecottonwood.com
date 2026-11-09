@@ -8,7 +8,7 @@ import Avatar from './Avatar.jsx';
 export default function PlayerPicker({ players, scores, me, machineId, exclude, allowMe, allowSkip, onPick }) {
   const [q, setQ] = useState('');
 
-  const { recent, everyone } = useMemo(() => {
+  const { recent, others, everyone } = useMemo(() => {
     const last = new Map(); // pid -> [onThisMachine, latest ms]
     for (const s of scores) {
       const t = Date.parse(s.created_at) || 0;
@@ -16,14 +16,17 @@ export default function PlayerPicker({ players, scores, me, machineId, exclude, 
       last.set(s.player_id, [prev[0] || (s.machine_id === machineId && t > Date.now() - 45 * 60e3) ? 1 : 0, Math.max(prev[1], t)]);
     }
     const pool = players.filter(p => p.id !== me?.id && !exclude?.has(p.id));
-    const recent = pool
+    const recentPlayed = pool
       .filter(p => last.has(p.id))
       .sort((a, b) => (last.get(b.id)[0] - last.get(a.id)[0]) || (last.get(b.id)[1] - last.get(a.id)[1]))
       .slice(0, 8);
     // newcomers who just joined but haven't scored yet are "recent" too
     const fresh = pool.filter(p => !last.has(p.id) && Date.parse(p.created_at) > Date.now() - 30 * 60e3).slice(-4);
+    const recent = [...recentPlayed, ...fresh];
+    const recentIds = new Set(recent.map(p => p.id));
     const everyone = [...pool].sort((a, b) => a.display_name.localeCompare(b.display_name));
-    return { recent: [...recent, ...fresh], everyone };
+    const others = everyone.filter(p => !recentIds.has(p.id));
+    return { recent, others, everyone };
   }, [players, scores, me, machineId, exclude]);
 
   const needle = q.trim().toLowerCase();
@@ -51,7 +54,7 @@ export default function PlayerPicker({ players, scores, me, machineId, exclude, 
       {allowMe && !needle && (
         <button type="button" className="pick-row pick-me" onClick={() => onPick('me')}>
           <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={36} />
-          <span className="pick-name">That's me ({me.display_name})</span>
+          <span className="pick-name">{me.display_name} (you)</span>
         </button>
       )}
       {matches ? (
@@ -68,9 +71,13 @@ export default function PlayerPicker({ players, scores, me, machineId, exclude, 
         <>
           {recent.length > 0 && <div className="picker-label">Recent</div>}
           {recent.map(p => <Row key={`r${p.id}`} p={p} />)}
-          <div className="picker-label">Everyone</div>
-          {everyone.length === 0 && <div className="muted small picker-empty">No one else yet.</div>}
-          {everyone.map(p => <Row key={p.id} p={p} />)}
+          {(others.length > 0 || recent.length === 0) && (
+            <>
+              <div className="picker-label">{recent.length > 0 ? 'Other players' : 'Everyone'}</div>
+              {others.length === 0 && <div className="muted small picker-empty">No one else yet.</div>}
+              {others.map(p => <Row key={p.id} p={p} />)}
+            </>
+          )}
         </>
       )}
       {allowSkip && (
