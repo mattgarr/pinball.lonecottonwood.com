@@ -69,23 +69,31 @@ This file is for the next AI assistant (Antigravity) taking over from Claude Cod
 Matt's direction: **anyone with a ticket link can sign up; no attendance tracking.** So there are no spot counts or caps. Study: `brain/060e222e-…/signup-flow-study.md`.
 
 - **Done and deployed:**
+  - **Couples & multi-name tickets** (e.g. `"Chris and Cina Boitnott"`):
+    - Greets both by first name (`"Hi Chris and Cina!"`) and asks **"Which one are you?"** with one-tap buttons (`Chris` / `Cina` / `Someone else`).
+    - Lets guests fix any misspelling (**"Spelled wrong? Fix it"** on sign-up and **"Wrong or misspelled? Fix it"** on the ME tab), updating both `event_invites.who` and the root ticket's `name`.
+    - After the first person signs up, the welcome screen prompts **"Now get [Partner] in"** (and the ME tab shows **"Still to sign up: [Partner]"**) until both are signed up.
   - ME tab "Bringing someone? / Your ticket" box under the rating, listing who's on the ticket.
-  - "Bringing someone?" box on the welcome screen after signing up from a ticket link.
+  - "Bringing someone?" / "Now get [Partner] in" box on the welcome screen after signing up from a ticket link.
   - "This phone will switch players" warning before signing someone up on your phone.
+  - Prefilled ticket email has a **"Not yours? Clear it"** link, and leaving the email box unticked when prefilled skips saving email instead of blocking sign-up.
   - A partner's own email (typed at sign-up) is saved to their guest row. They're included in reminder emails (Matt OK'd the extra quota). They don't count as "not emailed".
+  - Walk-ins who enter an email matching an unclaimed guest row automatically link to that row (`link_by_email`).
   - "You" is recognized by player ID, not nickname.
-  - Guest manager:
-    - People on a ticket are listed under its owner.
+  - Guest manager (`/host/guests`):
+    - People on a ticket are listed directly under its owner (indented `↳` row) and summarized on the owner's row (`+ Partner`), with `(FirstName)` tags from `who` on coupled tickets.
     - Party size never shows fewer than the people signed up.
-    - An automatic "Joined at the party" section lists players with no guest row (e.g. joined from a machine QR).
+    - An automatic **"Joined at the party"** section lists players with no guest row (e.g. joined from a machine QR), each with a 1-tap **"Add to a ticket…"** dropdown (`host_link_player`).
     - "Playing" stat.
-- **Migration `0015_ticket_flow.sql`** (`my_ticket`, `invite_info` with ids, `claim_invite` no longer lowers party size, `set_ticket_email`, `host_walkins`):
-  - Tested on a throwaway local Postgres with all 15 migrations applied.
+- **Migration `0015_ticket_flow.sql`** (`my_ticket`, `invite_info` with ids, `claim_invite` no longer lowers party size and resolves child tokens to root, `set_ticket_email`, `host_walkins`):
+  - Tested on a throwaway local Postgres with all migrations applied.
   - **Run in Supabase on Nov 8, ~8:21 PM** (driven through Matt's Chrome via remote debugging + Playwright `connectOverCDP`).
   - Data fix the same night: Chris Boitnott (player "Bad B-nott", id 9) had joined without the ticket link. He was added as guest row 91 under Cina's row 7.
   - Hosts linked: FlyingGoat (player 6) → Matt Garr row 19; Megs (player 8) → Meghan Simkover row 21. Test player Goatay (7) deleted.
   - Tip: drive Supabase through ONE long-lived Playwright `connectOverCDP` session (Chrome asks "Allow remote debugging?" on every new connection).
-- **Dropped:** fix 2 ("Link to a guest"), replaced by the automatic walk-in list; the optional add-a-partner-by-email feature.
+- **Migration `0016_link_walkins.sql`** (`link_by_email`, `host_link_player`, `event_invites.who`, `set_ticket_who` with ticket-name spelling fix, updated `invite_info` and `host_invites`):
+  - Tested end-to-end on a throwaway local Postgres with all 16 migrations applied.
+  - Frontend falls back gracefully (`localStorage` ticket cache) if `0016` hasn't been run yet.
 - **Still to do:**
   - Test on two real phones.
   - Next reminder note: "Coming as a couple? Each of you can use the same sign-up link or QR on your own phone."
