@@ -5,3 +5,4 @@ HOST_PASSCODE.txt
 server/data.db*
 .env.local
 files.zip
+.vite/
