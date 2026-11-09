@@ -73,6 +73,8 @@ export default function HostGuests() {
     return m;
   }, [list]);
   const byId = useMemo(() => new Map(list.map(g => [g.id, g])), [list]);
+  // Someone on another guest's ticket shares that ticket's link.
+  const linkOf = g => `${SITE}/join?invite=${(g.parent_id && byId.get(g.parent_id)?.token) || g.token}`;
   // A ticket's party size never goes below the number of people who actually signed up on it.
   const partyOf = g => Math.max(g.party_size || 1, 1 + (kidsOf.get(g.id)?.length || 0));
   const stats = useMemo(() => ({
@@ -124,8 +126,7 @@ export default function HostGuests() {
   }, r => (r === 'sent' ? `Marked paid and emailed ${nameOf(g)} their QR.` : `${nameOf(g)}: ${g.paid ? 'not paid' : 'paid'}.`));
   const setRsvp = (g, rsvp) => act(() => host.saveGuest(eventId, { ...g, rsvp }), `RSVP updated.`);
   const copyLink = async g => {
-    // Someone on another guest's ticket shares that ticket's link.
-    const url = `${SITE}/join?invite=${(g.parent_id && byId.get(g.parent_id)?.token) || g.token}`;
+    const url = linkOf(g);
     try { await navigator.clipboard.writeText(url); flash(`Copied ${nameOf(g)}'s sign-up link. Paste it into a text to them.`); }
     catch { prompt(`Copy ${nameOf(g)}'s sign-up link:`, url); }
   };
@@ -151,7 +152,7 @@ export default function HostGuests() {
     const cols = ['Name', 'Email', 'Phone', 'Party size', 'Paid', 'RSVP', 'Emailed', 'Signed up as', 'Games', 'On ticket of', 'Notes', 'Join link'];
     const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const rows = list.map(g => [g.name, g.email, g.phone, g.parent_id ? '' : partyOf(g), g.paid ? 'yes' : 'no', g.rsvp || '', emailedAt(g) ? when(emailedAt(g)) : '',
-      g.player_name || '', g.games || 0, g.parent_name || '', g.notes || '', `${SITE}/join?invite=${(g.parent_id && byId.get(g.parent_id)?.token) || g.token}`].map(esc).join(','));
+      g.player_name || '', g.games || 0, g.parent_name || '', g.notes || '', linkOf(g)].map(esc).join(','));
     const walkRows = walk.map(p => [p.name, '', '', '', '', '', '', p.name, p.games || 0, '', 'Joined at the party (no ticket link)', ''].map(esc).join(','));
     const blob = new Blob([[cols.map(esc).join(','), ...rows, ...walkRows].join('\n')], { type: 'text/csv' });
     const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `${(event?.name || 'guests').replace(/\W+/g, '-')}-guests.csv` });
@@ -288,12 +289,10 @@ export default function HostGuests() {
               <QR value={linkOf(qrGuest)} size={220} />
             </div>
             <div className="gm-small gm-dim" style={{ wordBreak: 'break-all' }}>{linkOf(qrGuest)}</div>
-            <div className="gm-modal-foot" style={{ width: '100%' }}>
-              <span />
-              <div className="gm-row-btns">
-                <button type="button" className="gm-btn" onClick={() => copyLink(qrGuest)}>Copy sign-up link</button>
-                <button type="button" className="gm-btn gm-primary" onClick={() => setQrGuest(null)}>Done</button>
-              </div>
+            <div className="gm-form-actions" style={{ width: '100%' }}>
+              <span className="gm-grow" />
+              <button type="button" className="gm-btn" onClick={() => copyLink(qrGuest)}>Copy sign-up link</button>
+              <button type="button" className="gm-btn gm-primary" onClick={() => setQrGuest(null)}>Done</button>
             </div>
           </div>
         </Modal>

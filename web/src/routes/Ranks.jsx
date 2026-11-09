@@ -66,6 +66,7 @@ export default function Ranks() {
 const shortName = n => ({
   'Dungeons & Dragons': 'D&D',
   'Cactus Canyon': 'Cactus',
+  'Foo Fighters': 'Foo',
   'Medieval Madness': 'Medieval',
   'Monster Bash': 'Monster',
   'The Addams Family': 'Addams',

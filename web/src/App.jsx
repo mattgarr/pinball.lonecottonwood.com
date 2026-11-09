@@ -35,9 +35,10 @@ export default function App() {
     if (!meChecked) return;
     if (!me && !isPublicPath(loc.pathname)) {
       // Remember where they were headed (e.g. a machine QR) and come back after joining.
-      nav(`/join?next=${encodeURIComponent(loc.pathname)}`, { replace: true });
+      const dest = loc.pathname + (loc.search || '');
+      nav(`/join?next=${encodeURIComponent(dest)}`, { replace: true });
     }
-  }, [meChecked, me, loc.pathname, nav]);
+  }, [meChecked, me, loc.pathname, loc.search, nav]);
 
   // New screen → start at the top (steps within a machine flow keep their own scroll).
   useEffect(() => { window.scrollTo(0, 0); }, [loc.pathname, loc.state?.step]);
@@ -75,9 +76,9 @@ export default function App() {
               <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={28} />
               <span className="name">{me.display_name}</span>
             </NavLink>
-          ) : (
+          ) : loc.pathname !== '/join' ? (
             <NavLink to="/join" className="topbar-link primary-link">Join</NavLink>
-          )}
+          ) : null}
         </div>
       </header>
       {!online ? (

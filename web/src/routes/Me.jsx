@@ -44,8 +44,11 @@ export default function Me() {
   const nav = useNavigate();
   useEffect(() => { const t = setInterval(() => tick(x => x + 1), 15000); return () => clearInterval(t); }, []);
 
-  const st = me ? standings.stats.get(me.id) : null;
-  if (!st) return <div className="screen center"><div className="spinner" aria-label="Loading" /></div>;
+  if (!me) return <div className="screen center"><div className="spinner" aria-label="Loading" /></div>;
+  const st = standings.stats.get(me.id) || {
+    player: me, plays: 0, machinesPlayed: 0, standingSum: 0,
+    perMachine: {}, crowns: 0, worst: null, best: null, rating: null, avg: null, rank: null,
+  };
 
   const ranked = standings.meta.rankedPlayers;
   const machineById = new Map(machines.map(m => [m.id, m]));
@@ -184,7 +187,7 @@ export default function Me() {
         )}
       </section>
 
-      <TicketPanel me={me} />
+      <TicketPanel me={me} eventId={evId} eventName={event?.name} />
 
       {held.length > 0 && (
         <section className="panel">
@@ -272,7 +275,7 @@ function timeAgo(iso) {
 
 // Signed up from a ticket link? Share that same link so someone else on the ticket
 // (like a partner) can sign up on their own phone. Hidden for players without a ticket.
-function TicketPanel({ me }) {
+function TicketPanel({ me, eventId, eventName }) {
   const [ticket, setTicket] = useState(null); // { invite, others: [names of the rest of the ticket], left: [people still to sign up] }
   const [editWho, setEditWho] = useState(null); // fixing which person / spelling (string while editing)
   const [reload, setReload] = useState(0);
@@ -280,11 +283,11 @@ function TicketPanel({ me }) {
     let live = true;
     setTicket(null);
     (async () => {
-      const invite = await actions.myTicket().catch(() => null);
+      const invite = await actions.myTicket(eventId).catch(() => null);
       if (!invite || !live) return;
-      setTicket({ invite, others: [], left: [] });
       const info = await actions.ticketInfo(invite).catch(() => null);
       if (!info || !live) return;
+      if (eventName && info.event_name && info.event_name !== eventName) return;
       const ids = info.player_ids;
       const others = (info.players || []).filter((n, i) => (ids ? ids[i] !== me.id : n !== me.display_name));
       // A couple's ticket ("Chris and Cina Boitnott"): who hasn't signed up yet.
@@ -293,7 +296,7 @@ function TicketPanel({ me }) {
       setTicket({ invite, others, left, name: info.name, mine });
     })();
     return () => { live = false; };
-  }, [me.id, me.display_name, reload]);
+  }, [me.id, me.display_name, eventId, eventName, reload]);
   if (!ticket) return null;
   const { invite, others, left, name, mine } = ticket;
   const them = left.length === 1 ? left[0].first : 'them';

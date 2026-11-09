@@ -226,13 +226,15 @@ export function useAllTime() {
   );
 }
 
-// Signed in + a current event you're not in yet = enter it (auto-enter on scan).
-// Skip auto-enter when opening /join?invite=... so claiming a ticket for another event doesn't add you to the active event.
+// Signed in + not in any event yet = enter the current event automatically.
+// If a player is already in at least one tournament, don't silently add them to a different tournament
+// just for opening the app — they'll enter when they claim a ticket, log a score, or tap "Enter" on /me.
 let enteredFor = null;
 function maybeEnter() {
   const evId = state.party?.current_event_id;
   if (!state.ready || !state.me || evId == null || state.entrantIds.has(state.me.id) || enteredFor === `${evId}:${state.me.id}`) return;
-  if (typeof location !== 'undefined' && location.pathname === '/join' && new URLSearchParams(location.search).get('invite')) return;
+  if (state.entries.some(x => x.player_id === state.me.id)) return;
+  if (typeof location !== 'undefined' && (location.pathname === '/join' || location.pathname === '/rejoin') && new URLSearchParams(location.search).get('invite')) return;
   enteredFor = `${evId}:${state.me.id}`;
   sb.rpc('enter_current_event', { p_token: getToken() }).then(({ error }) => {
     if (error) { enteredFor = null; return; }
@@ -300,12 +302,13 @@ export const actions = {
   // Results email: opt in (with consent) or out. Never readable back; whoami says has_email.
   // Joined from an invite link: link the invite (and save its email for results if they consented).
   claimInvite: (invite, consent) => rpc('claim_invite', { p_token: getToken(), p_invite: invite, p_consent: !!consent })
-    .then(() => {
+    .then(async () => {
       rememberTicket(state.me?.id, invite);
       if (consent && state.me) set({ me: { ...state.me, has_email: true } });
+      await refreshAll();
     }),
   // The sign-up link (invite token) of the ticket I joined with, for the ME tab's
-  // "Add someone to your ticket". Asks the server (my_ticket, migration 0015); if that
+  // "Add someone to your ticket". Asks the server (my_ticket, migration 0015/0017); if that
   // function isn't there, falls back to the ticket this phone remembers. null = no ticket.
   async myTicket() {
     const pid = state.me?.id;

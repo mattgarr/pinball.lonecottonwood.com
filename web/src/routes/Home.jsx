@@ -6,7 +6,9 @@ import Avatar from '../components/Avatar.jsx';
 
 export default function Home() {
   const { machines, me, standings, party, event } = useStandings();
-  const mine = me ? standings.stats.get(me.id) : null;
+  const mine = me ? (standings.stats.get(me.id) || {
+    player: me, plays: 0, machinesPlayed: 0, perMachine: {}, rating: null, rank: null,
+  }) : null;
   const ranked = standings.meta.rankedPlayers;
   const closed = party?.status === 'closed';
 
