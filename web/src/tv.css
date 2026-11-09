@@ -154,15 +154,15 @@
 }
 .bb-art {
   position: absolute; inset: 0; width: 100%; height: 100%;
-  object-fit: cover; object-position: 50% 30%; display: block;
-  transform-origin: 50% 35%;
+  object-fit: cover; object-position: 50% 0%; display: block;
+  transform-origin: 50% 0%;
   filter: saturate(1.12) contrast(1.06) brightness(0.94);
   animation: bb-kenburns 70s ease-in-out infinite alternate;
   animation-delay: calc(var(--i, 0) * -11s);
 }
 @keyframes bb-kenburns {
-  0% { transform: scale(1.04) translate(-1.2%, 0.6%); }
-  100% { transform: scale(1.12) translate(1.2%, -1%); }
+  0% { transform: scale(1.01) translate(-0.8%, 0%); }
+  100% { transform: scale(1.06) translate(0.8%, 0%); }
 }
 .bb-vignette {
   position: absolute; inset: 0; pointer-events: none;
@@ -891,7 +891,7 @@
 .tk-score { font-family: var(--px) !important; font-size: var(--t12) !important; }
 .tk-empty { font-family: var(--px) !important; font-size: var(--t12) !important; font-style: normal; }
 
-/* 2. Machine Cabinets: 12px machine title -> 10px manufacturer/year -> 10px uniform 10-row score table */
+/* 2. Machine Cabinets: 12px machine title -> 10px manufacturer/year -> 12px single-line player names & scores (10px rank) */
 .cab2-plate { padding: 8px 6px 6px !important; gap: 5px !important; }
 .cab2-name {
   font-family: var(--px) !important; font-size: var(--t12) !important; font-weight: 400 !important;
@@ -901,22 +901,24 @@
   font-family: var(--px) !important; font-size: var(--t10) !important; font-weight: 400 !important;
   line-height: 1 !important; letter-spacing: 0 !important; word-spacing: -2px; color: var(--ink-3);
 }
-.cab2-scores { padding: 5px 5px 8px !important; }
-.cab2-scores li { padding: 0 3px 0 2px !important; gap: 4px !important; }
+.cab2-scores { padding: 5px 4px 8px !important; }
+.cab2-scores li { padding: 0 3px !important; gap: 3px !important; }
 .cab2-scores li .avatar { display: none; }
-.cab2-scores li:not(.slot):not(.cab2-empty) { grid-template-columns: 16px minmax(0, 1fr) auto !important; }
-.cab2-scores li.slot { grid-template-columns: 16px minmax(0, 1fr) !important; }
+.cab2-scores li:not(.slot):not(.cab2-empty) { grid-template-columns: 14px minmax(0, 1fr) auto !important; }
+.cab2-scores li.slot { grid-template-columns: 14px minmax(0, 1fr) !important; }
 .cab2-rank, .cab2-scores li.slot .cab2-rank {
   font-family: var(--px) !important; font-size: var(--t10) !important; font-weight: 400 !important;
-  line-height: 1 !important;
+  line-height: 1 !important; letter-spacing: -1px;
 }
 .cab2-pname, .cab2-scores li.r1 .cab2-pname {
-  font-family: var(--px) !important; font-size: var(--t10) !important; font-weight: 400 !important;
-  line-height: 1.1 !important; letter-spacing: 0 !important; word-spacing: -3px;
+  font-family: var(--px) !important; font-size: var(--t12) !important; font-weight: 400 !important;
+  line-height: 1.1 !important; letter-spacing: -0.5px !important; word-spacing: -5px;
+  white-space: nowrap !important;
 }
 .cab2-pscore, .cab2-scores li.r1 .cab2-pscore {
-  font-family: var(--px) !important; font-size: var(--t10) !important; font-weight: 400 !important;
-  line-height: 1 !important; letter-spacing: -0.5px;
+  font-family: var(--px) !important; font-size: var(--t12) !important; font-weight: 400 !important;
+  line-height: 1 !important; letter-spacing: -1px;
+  white-space: nowrap !important;
 }
 .cab2-scores li.cab2-empty {
   font-family: var(--px) !important; font-size: var(--t12) !important; font-weight: 400 !important;
