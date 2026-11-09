@@ -2158,11 +2158,14 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--nes-sky); outlin
 .ev-name { font-family: var(--px); font-size: var(--t12); line-height: 1.5; }
 .ev-live { background: var(--nes-lime); color: #000; padding: 2px 5px 1px; margin-right: 8px; font-size: var(--t10); }
 .ev-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.host-events .primary:not(.big),
-.ev-actions > button, .ev-actions > a,
-.host .row.gap > button, .host .row.gap > a {
+.host button.primary:not(.big),
+.host button.secondary:not(.big),
+.host button.ghost,
+.host a.ghost,
+.ev-actions > button, .ev-actions > a {
   display: inline-flex; align-items: center; justify-content: center;
-  height: 40px; min-height: 40px; padding: 0 12px; font-size: var(--t10) !important; line-height: 1.2;
+  height: 40px !important; min-height: 40px !important; padding: 0 12px !important;
+  font-size: var(--t10) !important; line-height: 1 !important;
 }
 .ev-roster { border-top: 2px dotted #2c2c44; padding-top: 8px; display: grid; gap: 8px; }
 .ev-roster-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
