@@ -76,15 +76,17 @@ export default function HostEvents({ run, busy }) {
                 </div>
               </div>
               <div className="ev-actions">
-                {!live && <button className="primary" disabled={busy} onClick={() => {
-                  run(() => host.setCurrentEvent(e.id), `${e.name} is now the active event.`);
-                }}>Make active</button>}
+                {live
+                  ? <button className="ghost ev-active-btn" type="button" disabled>★ Active</button>
+                  : <button className="primary" type="button" disabled={busy} onClick={() => {
+                      run(() => host.setCurrentEvent(e.id), `${e.name} is now the active event.`);
+                    }}>Make active</button>}
                 <button className="ghost" type="button" onClick={() => setOpenRosterId(rosterOpen ? null : e.id)}>
                   {rosterOpen ? 'Hide players ▲' : `Players (${inPlayers.length}) ▼`}
                 </button>
                 <Link className="ghost" to={`/host/guests?event=${e.id}`}>Guest list &amp; emails</Link>
-                <button className="ghost" disabled={busy} onClick={() => setEditing(e)}>Edit</button>
-                {!live && <button className="ghost danger" disabled={busy} onClick={() => {
+                <button className="ghost" type="button" disabled={busy} onClick={() => setEditing(e)}>Edit</button>
+                {!live && <button className="ghost danger" type="button" disabled={busy} onClick={() => {
                   const c = prompt(`Delete "${e.name}"? Its ${info.scores} scores AND its guest list are deleted too (permanent player accounts are kept). Type DELETE to confirm.`);
                   if (c == null) return;
                   run(() => host.deleteEvent(e.id, c.trim()), `${e.name} deleted.`);

@@ -2167,6 +2167,10 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--nes-sky); outlin
   height: 40px !important; min-height: 40px !important; padding: 0 12px !important;
   font-size: var(--t10) !important; line-height: 1 !important;
 }
+.ev-active-btn {
+  border-color: var(--nes-lime) !important; color: var(--nes-lime) !important;
+  background: #081808 !important; opacity: 1 !important; cursor: default !important;
+}
 .ev-roster { border-top: 2px dotted #2c2c44; padding-top: 8px; display: grid; gap: 8px; }
 .ev-roster-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
 .ev-add-player { height: 38px; background: #000; color: var(--nes-white); border: 2px solid var(--nes-gray-hi); padding: 0 8px; font-family: var(--pxbody); font-size: var(--b10); }
