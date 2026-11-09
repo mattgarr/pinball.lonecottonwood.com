@@ -92,8 +92,8 @@ Matt's direction: **anyone with a ticket link can sign up; no attendance trackin
   - Hosts linked: FlyingGoat (player 6) → Matt Garr row 19; Megs (player 8) → Meghan Simkover row 21. Test player Goatay (7) deleted.
   - Tip: drive Supabase through ONE long-lived Playwright `connectOverCDP` session (Chrome asks "Allow remote debugging?" on every new connection).
 - **Migration `0016_link_walkins.sql`** (`link_by_email`, `host_link_player`, `event_invites.who`, `set_ticket_who` with ticket-name spelling fix, updated `invite_info` and `host_invites`):
-  - Tested end-to-end on a throwaway local Postgres with all 16 migrations applied.
-  - Frontend falls back gracefully (`localStorage` ticket cache) if `0016` hasn't been run yet.
+  - Tested end-to-end on a throwaway local Postgres with all 16 migrations applied, plus a rolled-back production rehearsal.
+  - **Run in Supabase on Nov 8, ~9:53 PM**, along with setting `who = 'Cina Boitnott'` on row 7 and `who = 'Chris Boitnott'` on row 91.
 - **Still to do:**
   - Test on two real phones.
   - Next reminder note: "Coming as a couple? Each of you can use the same sign-up link or QR on your own phone."
