@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Woodside Pinball — Garage Concept Album (26 Renderings)</title>
+  <title>Woodside Pinball — Garage Concept Album &amp; Slideshow</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
@@ -11,6 +11,7 @@
     :root {
       --bg: #070510;
       --panel: #100c1f;
+      --panel-hi: #181230;
       --border: #2a214a;
       --gold: #ffcc33;
       --cyan: #33f0ff;
@@ -29,21 +30,21 @@
       color: var(--ink);
       font-family: 'Press Start 2P', monospace;
       font-size: var(--t10);
-      line-height: 1.7;
+      line-height: 1.75;
       min-height: 100vh;
-      padding: 24px 16px 64px;
+      padding: 20px 16px 72px;
     }
     .wrap {
-      max-width: 1280px;
+      max-width: 1360px;
       margin: 0 auto;
     }
     header {
       text-align: center;
-      margin-bottom: 24px;
+      margin-bottom: 18px;
       padding: 20px 16px;
-      background: rgba(16, 12, 31, 0.9);
+      background: rgba(16, 12, 31, 0.92);
       border: 2px solid var(--gold);
-      box-shadow: 0 0 24px rgba(255, 204, 51, 0.2);
+      box-shadow: 0 0 28px rgba(255, 204, 51, 0.22);
     }
     h1 {
       font-size: var(--t16);
@@ -54,15 +55,26 @@
     .sub {
       font-size: var(--t10);
       color: var(--cyan);
-      max-width: 900px;
+      max-width: 980px;
       margin: 0 auto;
     }
-    .filters {
+
+    /* Top Control Bar: View Mode Toggle + Category Filters */
+    .toolbar {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 22px;
+      background: rgba(16, 12, 31, 0.85);
+      border: 2px solid var(--border);
+      padding: 14px;
+    }
+    .toolbar-row {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       justify-content: center;
-      margin-bottom: 24px;
+      align-items: center;
     }
     .btn {
       height: 40px;
@@ -77,34 +89,200 @@
       border: 2px solid var(--border);
       cursor: pointer;
       text-decoration: none;
-      transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+      transition: border-color 0.15s, color 0.15s, box-shadow 0.15s, background 0.15s;
+      white-space: nowrap;
     }
     .btn:hover, .btn.active {
       border-color: var(--cyan);
       color: var(--cyan);
+      background: var(--panel-hi);
       box-shadow: 0 0 12px rgba(51, 240, 255, 0.3);
     }
-    .section-head {
-      margin: 32px 0 14px;
-      padding-bottom: 8px;
-      border-bottom: 2px solid var(--magenta);
+    .btn.mode-btn.active {
+      border-color: var(--gold);
+      color: var(--gold);
+      box-shadow: 0 0 14px rgba(255, 204, 51, 0.35);
+    }
+    .btn.play-btn.active {
+      border-color: var(--green);
+      color: var(--green);
+      box-shadow: 0 0 14px rgba(56, 248, 143, 0.35);
+    }
+
+    /* Comparison Callout Box: 180ft Govee Individual Lights vs Smooth Strips */
+    .callout {
+      background: linear-gradient(180deg, rgba(24, 18, 48, 0.95), rgba(16, 12, 31, 0.95));
+      border: 2px solid var(--cyan);
+      padding: 18px;
+      margin-bottom: 24px;
+      box-shadow: 0 0 22px rgba(51, 240, 255, 0.14);
+    }
+    .callout h2 {
+      font-size: var(--t12);
+      color: var(--cyan);
+      margin-bottom: 10px;
+    }
+    .callout-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 14px;
+      margin-top: 10px;
+    }
+    .callout-card {
+      background: rgba(7, 5, 16, 0.7);
+      border: 1px solid var(--border);
+      padding: 12px;
+    }
+    .callout-card h3 {
+      font-size: var(--t10);
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+    .callout-card p {
+      font-size: var(--t10);
+      color: var(--muted);
+    }
+
+    /* SLIDESHOW STAGE MODE */
+    .slideshow-stage {
+      display: none;
+      background: var(--panel);
+      border: 2px solid var(--gold);
+      padding: 18px;
+      margin-bottom: 28px;
+      box-shadow: 0 0 28px rgba(255, 204, 51, 0.18);
+    }
+    .slideshow-stage.open {
+      display: block;
+    }
+    .stage-top {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
+      align-items: center;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
     }
-    .section-head h2 {
+    .stage-counter {
+      font-size: var(--t12);
+      color: var(--gold);
+    }
+    .stage-Controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .stage-main {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      max-height: 72vh;
+      background: #030208;
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      cursor: zoom-in;
+    }
+    .stage-main img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .stage-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(7, 5, 16, 0.9);
+      border: 2px solid var(--gold);
+      color: var(--gold);
+      font-size: var(--t12);
+      padding: 6px 10px;
+    }
+    .stage-info {
+      margin-top: 14px;
+      padding: 14px;
+      background: rgba(7, 5, 16, 0.75);
+      border: 1px solid var(--border);
+    }
+    .stage-title {
+      font-size: var(--t12);
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+    .stage-desc {
+      font-size: var(--t10);
+      color: var(--ink);
+    }
+    .filmstrip {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 12px 2px 4px;
+      margin-top: 10px;
+    }
+    .film-thumb {
+      flex: 0 0 130px;
+      height: 82px;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      opacity: 0.6;
+      transition: opacity 0.15s, border-color 0.15s;
+    }
+    .film-thumb:hover, .film-thumb.active {
+      opacity: 1;
+      border-color: var(--cyan);
+    }
+    .film-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .film-thumb span {
+      position: absolute;
+      bottom: 2px;
+      left: 2px;
+      background: rgba(7, 5, 16, 0.88);
+      color: var(--gold);
+      font-size: var(--t10);
+      padding: 2px 4px;
+    }
+
+    /* THUMBNAIL GRID SECTIONS */
+    .section-block {
+      margin-bottom: 36px;
+    }
+    .section-head {
+      margin: 28px 0 14px;
+      padding: 12px 14px;
+      background: rgba(24, 18, 48, 0.9);
+      border-left: 4px solid var(--magenta);
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .section-head-left h2 {
       font-size: var(--t12);
       color: var(--magenta);
+      margin-bottom: 4px;
     }
-    .section-head span {
+    .section-head-left p {
       font-size: var(--t10);
       color: var(--muted);
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
       gap: 18px;
     }
     .card {
@@ -141,11 +319,20 @@
       position: absolute;
       top: 8px;
       left: 8px;
-      background: rgba(7, 5, 16, 0.88);
+      background: rgba(7, 5, 16, 0.9);
       border: 1px solid var(--gold);
       color: var(--gold);
       font-size: var(--t10);
       padding: 4px 8px;
+    }
+    .level-tag {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(255, 46, 166, 0.9);
+      color: #fff;
+      font-size: var(--t10);
+      padding: 3px 7px;
     }
     .card-body {
       padding: 14px;
@@ -163,6 +350,13 @@
       color: var(--muted);
       flex: 1;
     }
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    /* SHOPPING TABLE */
     .shop-box {
       margin-top: 40px;
       background: var(--panel);
@@ -192,10 +386,12 @@
       color: var(--cyan);
       background: rgba(51, 240, 255, 0.08);
     }
+
+    /* FULL-SCREEN LIGHTBOX MODAL */
     .lightbox {
       position: fixed;
       inset: 0;
-      background: rgba(4, 2, 10, 0.94);
+      background: rgba(4, 2, 10, 0.95);
       display: none;
       align-items: center;
       justify-content: center;
@@ -209,14 +405,14 @@
     }
     .lightbox img {
       max-width: 96vw;
-      max-height: 82vh;
+      max-height: 80vh;
       border: 2px solid var(--gold);
       object-fit: contain;
     }
     .lightbox-bar {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       flex-wrap: wrap;
       justify-content: center;
       max-width: 96vw;
@@ -237,28 +433,83 @@
 <body>
   <div class="wrap">
     <header>
-      <h1>WOODSIDE PINBALL GARAGE — CONCEPT ALBUM</h1>
-      <p class="sub">26 Real-Photo Renderings on Your 29'4" × 29'4" Garage • Click Any Photo to Zoom Full-Screen</p>
+      <h1>WOODSIDE PINBALL GARAGE — MASTER CONCEPT ALBUM</h1>
+      <p class="sub" id="header-sub">Interactive Thumbnail Grid + Concept Slideshow • Minimalist to Maximalist Billy Strings Loft Gallery, Govee 180ft Puck Lights vs. Strips, Ground Fog &amp; Rolling TV Cart</p>
     </header>
 
-    <div class="filters" id="filters">
-      <button class="btn active" data-filter="all">ALL CONCEPTS (29)</button>
-      <button class="btn" data-filter="hero">FINAL MASTER HERO (4)</button>
-      <button class="btn" data-filter="billy">BILLY STRINGS + DISCO (6)</button>
-      <button class="btn" data-filter="core">CORE OPTIONS 1-3 (6)</button>
-      <button class="btn" data-filter="wild">10 THEMED CONCEPTS (10)</button>
-      <button class="btn" data-filter="before">ORIGINAL GARAGE (3)</button>
+    <!-- View Mode + Filter Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-row" id="mode-bar">
+        <button class="btn mode-btn active" id="mode-both" data-mode="both">⚏ SLIDESHOW + THUMBNAILS</button>
+        <button class="btn mode-btn" id="mode-slideshow" data-mode="slideshow">▶ SLIDESHOW STAGE ONLY</button>
+        <button class="btn mode-btn" id="mode-grid" data-mode="grid">▦ THUMBNAIL GRID ONLY</button>
+        <button class="btn play-btn" id="autoplay-btn">▶ AUTO-PLAY SLIDESHOW (4s)</button>
+      </div>
+      <div class="toolbar-row" id="filters">
+        <button class="btn active" data-filter="all" id="filter-all">ALL VIEWS</button>
+        <button class="btn" data-filter="hero">★ FINAL MASTER HERO</button>
+        <button class="btn" data-filter="spectrum">MINIMALIST → MAXIMALIST POSTERS</button>
+        <button class="btn" data-filter="pucks">180FT GOVEE PUCK LIGHTS vs. STRIPS</button>
+        <button class="btn" data-filter="core">CORE ARCHITECTURE &amp; ELEVATIONS</button>
+        <button class="btn" data-filter="wild">10 THEMED CONCEPTS</button>
+        <button class="btn" data-filter="before">ORIGINAL "BEFORE" PHOTOS</button>
+      </div>
     </div>
 
+    <!-- 180ft Govee Individual Puck Lights vs Smooth LED Strips Guide -->
+    <section class="callout">
+      <h2>💡 YOUR QUESTION ANSWERED: 180'–200' GOVEE "INDIVIDUAL LIGHTS" (PERMANENT OUTDOOR PUCKS) vs. CONTINUOUS LED STRIPS</h2>
+      <p style="color: var(--ink); margin-bottom: 8px;">
+        The 180'–200' Govee kit with individual spaced lights (**Govee Permanent Outdoor Lights Pro**, puck lenses spaced every 16") is **NOT worse** than a continuous LED strip — it actually creates a **completely different, super cool architectural effect** depending on the zone:
+      </p>
+      <div class="callout-grid">
+        <div class="callout-card">
+          <h3>1. WHERE THE 200FT INDIVIDUAL PUCKS WIN (POSTERS &amp; TRUSSES)</h3>
+          <p>Because each individual puck has a <strong>focused cone lens</strong> spaced every 16", running them along the <strong>20ft upper loft front</strong> puts 1–2 dedicated mini spotlights on <strong>every single 18"×24" Billy Strings poster</strong> and casts dramatic scalloped V-cones of color across your wood roof trusses and under-loft joists!</p>
+        </div>
+        <div class="callout-card">
+          <h3>2. WHERE SMOOTH STRIPS WIN (BAR LIP &amp; PINBALL GLASS)</h3>
+          <p>Directly above or behind the <strong>sloped pinball playfield glass</strong> and under the <strong>left bar counter lip</strong>, bare individual puck lenses can show up as bright point-reflections in the glass. A smooth continuous strip (or tucking the pucks behind the front wood header lip facing the joists) prevents any pinball glass glare.</p>
+        </div>
+        <div class="callout-card">
+          <h3>3. THE ULTIMATE COMBO (SEE SERIES C BELOW)</h3>
+          <p>Use your <strong>180'–200' Govee Individual Puck Kit</strong> across the roof trusses, under the 10 Billy Strings posters, and tucked inside the under-loft perimeter lip — and pair it with a <strong>$44 Govee RGBIC strip</strong> behind the 6 pinball backboxes &amp; under the cabinets!</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Slideshow Stage -->
+    <section class="slideshow-stage open" id="slideshow-stage">
+      <div class="stage-top">
+        <div class="stage-counter" id="stage-counter">SLIDE 1 OF 39</div>
+        <div class="stage-Controls">
+          <button class="btn" id="stage-prev">◀ PREV SLIDE</button>
+          <button class="btn" id="stage-next">NEXT SLIDE ▶</button>
+          <button class="btn" id="stage-zoom">⛶ FULLSCREEN ZOOM</button>
+        </div>
+      </div>
+      <div class="stage-main" id="stage-main">
+        <img id="stage-img" src="" alt="" />
+        <span class="stage-badge" id="stage-badge">A1</span>
+      </div>
+      <div class="stage-info">
+        <div class="stage-title" id="stage-title"></div>
+        <p class="stage-desc" id="stage-desc"></p>
+      </div>
+      <div class="filmstrip" id="filmstrip"></div>
+    </section>
+
+    <!-- Thumbnail Grid Organized by Concept Series -->
     <div id="album"></div>
 
+    <!-- Ready-to-Order Master Shopping Table -->
     <section class="shop-box">
-      <h2>MASTER READY-TO-ORDER SHOPPING LIST (AMAZON / COSTCO)</h2>
+      <h2>MASTER READY-TO-ORDER SHOPPING LIST (100% AMAZON / COSTCO PARTS)</h2>
       <div class="shop-table-wrap">
         <table>
           <thead>
             <tr>
-              <th>ZONE</th>
+              <th>ZONE / OPTION</th>
               <th>EXACT PRODUCT TO ORDER</th>
               <th>QTY</th>
               <th>EST. COST</th>
@@ -274,7 +525,14 @@
               <td>Remove center horseshoe; hang all 10 frames in one unbroken row across the 20ft upper loft front (~4.5" gap).</td>
             </tr>
             <tr>
-              <td>2. Colored + UV Poster Wash &amp; Under-Loft Perimeter Strip</td>
+              <td>2A. Option A: 200ft Govee Individual Puck Lights</td>
+              <td>Govee Permanent Outdoor Lights Pro 200ft (H706C — individual RGBICW puck pods every 16" with VHB clips)</td>
+              <td>1× 200ft kit</td>
+              <td>$399–$559</td>
+              <td>Run across the 20ft Billy Strings poster ledge (casts scalloped spotlight cones on every poster!), around the under-loft perimeter lip, and across the wood roof trusses.</td>
+            </tr>
+            <tr>
+              <td>2B. Option B: Smooth RGBIC Strips + UV Blacklights</td>
               <td>2× Govee RGBIC LED Strip H619E (65.6ft = 2×32.8ft per box) + 4-Pack 4ft 395nm LED UV Blacklight Bars</td>
               <td>2 boxes + 4 UV bars</td>
               <td>$134</td>
@@ -335,6 +593,7 @@
     </section>
   </div>
 
+  <!-- Fullscreen Zoom Lightbox -->
   <div class="lightbox" id="lightbox">
     <img id="lightbox-img" src="" alt="" />
     <div class="lightbox-bar">
@@ -345,274 +604,93 @@
     </div>
   </div>
 
+  <script src="/concepts-data.js"></script>
   <script>
-    const ITEMS = [
-      // Series A: Final Master Hero
-      {
-        cat: 'hero',
-        section: 'SERIES A — FINAL MASTER HERO (10 BILLY STRINGS POSTERS + 100% COLOR + ROLLING TV + GROUND FOG + UNDER-LOFT STRIP)',
-        code: 'A1',
-        title: 'Final Master Hero — Straight-On Full Room',
-        desc: '10 unbroken 18"×24" Billy Strings posters (horseshoe removed, 100% colored RGBIC + UV wash), 100% colored magenta/cyan left bar wall, 65" TV on rolling cart, 16" disco ball, colored string lights, and ankle-deep low-lying ground fog.',
-        img: '/concepts/hero_final_fog_rollingtv_straight_1794265605206.jpg'
-      },
-      {
-        cat: 'hero',
-        section: 'SERIES A — FINAL MASTER HERO (10 BILLY STRINGS POSTERS + 100% COLOR + ROLLING TV + GROUND FOG + UNDER-LOFT STRIP)',
-        code: 'A2',
-        title: 'Final Master Hero — Wide Diagonal View',
-        desc: 'Wide diagonal perspective showing all 10+ Billy Strings posters across the loft front, 100% colored magenta/cyan bar wall, 65" TV on a rolling cart, 16" mirror disco ball, glowing high-top tables, and ankle-deep ground fog.',
-        img: '/concepts/hero_final_fog_rollingtv_diagonal_1794265625318.jpg'
-      },
-      {
-        cat: 'hero',
-        section: 'SERIES A — FINAL MASTER HERO (10 BILLY STRINGS POSTERS + 100% COLOR + ROLLING TV + GROUND FOG + UNDER-LOFT STRIP)',
-        code: 'A3',
-        title: 'Final Master Hero — 6-Machine Alcove + Rolling TV + Fog Close-Up',
-        desc: 'Close-up of Fathom, Centaur, Cactus Canyon, Whirlwind, Whitewater & Dungeons & Dragons floating on a carpet of ankle-deep ice fog with 100% colored left bar/sink glow and the 65" TV on a black rolling cart.',
-        img: '/concepts/hero_final_fog_alcove_closeup_1794265619858.jpg'
-      },
-      {
-        cat: 'hero',
-        section: 'SERIES A — FINAL MASTER HERO (10 BILLY STRINGS POSTERS + 100% COLOR + ROLLING TV + GROUND FOG + UNDER-LOFT STRIP)',
-        code: 'A4',
-        title: 'Final Master Hero — Under-Loft 3-Sided Perimeter Strip + Ceiling Infill',
-        desc: 'Close-up showing the continuous 3-sided RGBIC strip tucked around the top inside edge of the under-loft ceiling + matte-black acoustic foam covering the open loft cutout above Cactus Canyon.',
-        img: '/concepts/under_loft_perimeter_strip_closeup_1794265701350.jpg'
-      },
-
-      // Series B: Billy Strings Loft Gallery & Disco Ball Variations
-      {
-        cat: 'billy',
-        section: 'SERIES B — BILLY STRINGS LOFT GALLERY & DISCO BALL VARIATIONS (6 RENDERINGS)',
-        code: 'B1',
-        title: '10-Poster Loft Frieze + 16" Disco Ball (No Fog Comparison)',
-        desc: 'Diagonal view with 10+ 18"×24" Billy Strings posters across the loft front, 16" mirror disco ball, rainbow truss strips, and clean black rubber puzzle floor without ground fog.',
-        img: '/concepts/master_10posters_discoball_diagonal_1794265243398.jpg'
-      },
-      {
-        cat: 'billy',
-        section: 'SERIES B — BILLY STRINGS LOFT GALLERY & DISCO BALL VARIATIONS (6 RENDERINGS)',
-        code: 'B2',
-        title: '8 Posters on Loft + 2 on Side Walls (Picture Lights Comparison)',
-        desc: 'Comparison view showing warm-white picture lights over the Billy Strings posters vs. the 100% colored/UV wash in Series A.',
-        img: '/concepts/master_10posters_discoball_straight_1794265239987.jpg'
-      },
-      {
-        cat: 'billy',
-        section: 'SERIES B — BILLY STRINGS LOFT GALLERY & DISCO BALL VARIATIONS (6 RENDERINGS)',
-        code: 'B3',
-        title: 'Psychedelic UV Blacklight + Disco Ball + Nebula Rafters',
-        desc: '395nm UV blacklight bars + rainbow ledge uplight on 8 Billy Strings posters with a 16" mirror disco ball and blue/magenta nebula laser projection on the wood roof decking.',
-        img: '/concepts/billy_strings_loft_psychedelic_1794264827502.jpg'
-      },
-      {
-        cat: 'billy',
-        section: 'SERIES B — BILLY STRINGS LOFT GALLERY & DISCO BALL VARIATIONS (6 RENDERINGS)',
-        code: 'B4',
-        title: '6-Poster Loft Gallery + High-Tops + Ground Fog (No Disco Ball)',
-        desc: 'Multi-color rafter flood wash, 6 spaced Billy Strings posters, two glowing high-top cocktail tables, and ankle-deep low-lying fog without the mirror disco ball.',
-        img: '/concepts/billy_strings_loft_highcolor_b_1794264820362.jpg'
-      },
-      {
-        cat: 'billy',
-        section: 'SERIES B — BILLY STRINGS LOFT GALLERY & DISCO BALL VARIATIONS (6 RENDERINGS)',
-        code: 'B5',
-        title: '8-Poster Loft Gallery — Diagonal View with Warm Cafe Bulbs',
-        desc: 'Diagonal angle with 8 Billy Strings posters, rainbow truss strips, and warm amber S14 cafe string bulbs.',
-        img: '/concepts/billy_strings_loft_diagonal_1794264826901.jpg'
-      },
-      {
-        cat: 'billy',
-        section: 'SERIES B — BILLY STRINGS LOFT GALLERY & DISCO BALL VARIATIONS (6 RENDERINGS)',
-        code: 'B6',
-        title: '6-Poster Loft Gallery + Open Rubber Floor (No Tables)',
-        desc: 'Wide-open black rubber puzzle floor with 6 Billy Strings posters, 180ft Govee strip run, and multi-color truss floods.',
-        img: '/concepts/billy_strings_loft_highcolor_a_1794264821866.jpg'
-      },
-
-      // Series C: Core Lighting Architecture Options (Options 1-3 + Wall Elevations)
-      {
-        cat: 'core',
-        section: 'SERIES C — CORE LIGHTING ARCHITECTURE OPTIONS (180FT GOVEE vs. UPLIGHTS vs. BUCK WILD)',
-        code: 'C1',
-        title: 'Option 1 — The 180-Foot Govee Strip Run',
-        desc: 'Clean architectural neon outline tracing every truss chord, alcove soffit, pinball cabinet, and bar counter with 180ft of continuous Govee RGBIC strips.',
-        img: '/concepts/option1_180ft_govee_room_1794263558239.jpg'
-      },
-      {
-        cat: 'core',
-        section: 'SERIES C — CORE LIGHTING ARCHITECTURE OPTIONS (180FT GOVEE vs. UPLIGHTS vs. BUCK WILD)',
-        code: 'C2',
-        title: 'Option 2 — Selected Hidden Strips + 4× RGB Flood Uplights',
-        desc: 'Fastest 60-minute install: hidden LED strips behind the pinball backboxes & bar paired with 4 wide-beam smart RGB flood uplights washing the wood roof trusses.',
-        img: '/concepts/option2_strips_and_uplights_room_1794263561908.jpg'
-      },
-      {
-        cat: 'core',
-        section: 'SERIES C — CORE LIGHTING ARCHITECTURE OPTIONS (180FT GOVEE vs. UPLIGHTS vs. BUCK WILD)',
-        code: 'C3',
-        title: 'Option 3 ("Buck Wild" Straight-On) — Arcade Nightclub Takeover',
-        desc: 'Every truss bay washed in alternating neon hues, custom LED neon sign on the loft front, nebula star projector, and glowing cyan/magenta high-top tables.',
-        img: '/concepts/option3_buck_wild_room_1794263563900.jpg'
-      },
-      {
-        cat: 'core',
-        section: 'SERIES C — CORE LIGHTING ARCHITECTURE OPTIONS (180FT GOVEE vs. UPLIGHTS vs. BUCK WILD)',
-        code: 'C4',
-        title: 'Option 3 ("Buck Wild" Wide Diagonal View)',
-        desc: 'Wide diagonal perspective of the Buck Wild setup showing the full room depth and extended black rubber puzzle floor.',
-        img: '/concepts/option3_buck_wild_angle_1794263597781.jpg'
-      },
-      {
-        cat: 'core',
-        section: 'SERIES C — CORE LIGHTING ARCHITECTURE OPTIONS (180FT GOVEE vs. UPLIGHTS vs. BUCK WILD)',
-        code: 'C5',
-        title: 'Pinball Alcove Close-Up (True Low Wood-Joist Ceiling)',
-        desc: 'Close-up of the 6 machines under the low wood-joist loft ceiling with backbox halo strips and under-cabinet floor glow.',
-        img: '/concepts/alcove_closeup_fixed_roof_1794263570215.jpg'
-      },
-      {
-        cat: 'core',
-        section: 'SERIES C — CORE LIGHTING ARCHITECTURE OPTIONS (180FT GOVEE vs. UPLIGHTS vs. BUCK WILD)',
-        code: 'C6',
-        title: 'Left Wall 16ft Butcher-Block Bar Elevation',
-        desc: 'Close-up of the 16ft left wall counter transformed into a tournament bar with under-cabinet LED strips and 4 barstools.',
-        img: '/concepts/real_garage_left_wall_bar_1794263300915.jpg'
-      },
-
-      // Series D: 10 Wild & Themed Concepts (Concepts 4-13)
-      {
-        cat: 'wild',
-        section: 'SERIES D — 10 WILD & THEMED CONCEPTS (CONCEPTS 4–13)',
-        code: 'D1',
-        title: 'Concept 4 — Whiskey & Bourbon Speakeasy Taproom',
-        desc: '2200K warm amber rafters, vintage Edison string bulbs, leather club armchairs, Persian area rug, and whiskey barrel high-top tables.',
-        img: '/concepts/concept04_whiskey_speakeasy_1794264238714.jpg'
-      },
-      {
-        cat: 'wild',
-        section: 'SERIES D — 10 WILD & THEMED CONCEPTS (CONCEPTS 4–13)',
-        code: 'D2',
-        title: 'Concept 5 — Cactus Canyon Saloon & Western Roadhouse',
-        desc: 'Inspired by Cactus Canyon & your horseshoe: desert-sunset orange/gold roof uplighting, neon cactus signs, and barrel cocktail tables.',
-        img: '/concepts/concept05_cactus_canyon_saloon_1794264264883.jpg'
-      },
-      {
-        cat: 'wild',
-        section: 'SERIES D — 10 WILD & THEMED CONCEPTS (CONCEPTS 4–13)',
-        code: 'D3',
-        title: 'Concept 6 — Fathom & Whitewater Deep-Sea Bioluminescent Tiki Dive',
-        desc: 'Inspired by Fathom & Whitewater: dynamic ocean-wave water-ripple projection across the wood trusses, seafoam/aqua glow, and bamboo tiki bar.',
-        img: '/concepts/concept06_fathom_tiki_ocean_1794264238288.jpg'
-      },
-      {
-        cat: 'wild',
-        section: 'SERIES D — 10 WILD & THEMED CONCEPTS (CONCEPTS 4–13)',
-        code: 'D4',
-        title: 'Concept 7 — Dungeons & Dragons Tavern & Dragon\'s Lair (with Fog)',
-        desc: 'Inspired by D&D & Centaur: flickering torchlight amber & dragon-fire crimson uplights, medieval banners, and low-lying ground fog.',
-        img: '/concepts/concept07_dnd_tavern_lair_1794264264764.jpg'
-      },
-      {
-        cat: 'wild',
-        section: 'SERIES D — 10 WILD & THEMED CONCEPTS (CONCEPTS 4–13)',
-        code: 'D5',
-        title: 'Concept 8 — 1982 Roller-Rink Mirror Disco Ball & Pizza Arcade',
-        desc: '16" spinning mirror disco ball, rainbow pinspots, red/white checkered pizza parlor high-tops, and glowing neon arcade rug.',
-        img: '/concepts/concept08_80s_disco_pizza_arcade_1794264249659.jpg'
-      },
-      {
-        cat: 'wild',
-        section: 'SERIES D — 10 WILD & THEMED CONCEPTS (CONCEPTS 4–13)',
-        code: 'D6',
-        title: 'Concept 9 — Tokyo Shibuya Cyberpunk Arcade Alley',
-        desc: 'Blade Runner / Tokyo arcade alley with Japanese katakana PINBALL neon signs, cyber-pink/teal laser beams, and wet-look floor reflections.',
-        img: '/concepts/concept09_tokyo_cyberpunk_alley_1794264275547.jpg'
-      },
-      {
-        cat: 'wild',
-        section: 'SERIES D — 10 WILD & THEMED CONCEPTS (CONCEPTS 4–13)',
-        code: 'D7',
-        title: 'Concept 10 — Govee Curtain Pixel Matrix & Hexagon Wall',
-        desc: '3× Govee Curtain Lights on the loft front displaying animated pixel-art pinball graphics + Govee Glide Hexagons & 3D RGB tubes.',
-        img: '/concepts/concept10_govee_curtain_hexagons_fixed_1794264416204.jpg'
-      },
-      {
-        cat: 'wild',
-        section: 'SERIES D — 10 WILD & THEMED CONCEPTS (CONCEPTS 4–13)',
-        code: 'D8',
-        title: 'Concept 11 — IFPA Pinball Championship Broadcast Arena',
-        desc: 'Esports championship stage with ice-blue/gold truss par cans, LED ribbon ticker above the alcove, and velvet stanchions.',
-        img: '/concepts/concept11_esports_tournament_arena_1794264266329.jpg'
-      },
-      {
-        cat: 'wild',
-        section: 'SERIES D — 10 WILD & THEMED CONCEPTS (CONCEPTS 4–13)',
-        code: 'D9',
-        title: 'Concept 12 — 90s UV Blacklight & Green Star-Laser Arcade',
-        desc: 'Deep 395nm UV blacklight flood bars, UV-reactive geometric arcade carpet runner, and green/blue starfield laser points.',
-        img: '/concepts/concept12_uv_blacklight_laser_lounge_1794264259464.jpg'
-      },
-      {
-        cat: 'wild',
-        section: 'SERIES D — 10 WILD & THEMED CONCEPTS (CONCEPTS 4–13)',
-        code: 'D10',
-        title: 'Concept 13 — Living-Room Sectional Sofa & Greenery Wall Lounge',
-        desc: 'Plush charcoal L-shaped sectional sofa + ottoman in the center of the garage with boxwood greenery wall & neon sign on the loft front.',
-        img: '/concepts/concept13_sectional_sofa_dark_mode_1794264403517.jpg'
-      },
-
-      // Series E: Original "Before" Photos
-      {
-        cat: 'before',
-        section: 'ORIGINAL "BEFORE" GARAGE PHOTOS (FOR COMPARISON)',
-        code: 'ORIG-1',
-        title: 'Original Garage — Straight-On Wide View (Before)',
-        desc: 'Your original daytime photo of the 29\'4" × 29\'4" garage before lighting, posters, flooring expansion, and lounge setup.',
-        img: '/concepts/media_1794262331348_42860a8d.jpg'
-      },
-      {
-        cat: 'before',
-        section: 'ORIGINAL "BEFORE" GARAGE PHOTOS (FOR COMPARISON)',
-        code: 'ORIG-2',
-        title: 'Original Garage — Diagonal Wide View (Before)',
-        desc: 'Your original diagonal daytime photo from the front-left corner.',
-        img: '/concepts/media_1794262337138_0fd1c9d1.jpg'
-      },
-      {
-        cat: 'before',
-        section: 'ORIGINAL "BEFORE" GARAGE PHOTOS (FOR COMPARISON)',
-        code: 'ORIG-3',
-        title: 'Original Garage — 6-Machine Pinball Alcove Close-Up (Before)',
-        desc: 'Your original close-up of Fathom, Centaur, Cactus Canyon, Whirlwind, Whitewater & Dungeons & Dragons under the loft.',
-        img: '/concepts/media_1794262320375_b086cf19.jpg'
-      }
-    ];
-
-    let visibleItems = [...ITEMS];
+    let visibleItems = [... window.CONCEPT_ITEMS];
     let currentIndex = 0;
+    let currentFilter = 'all';
+    let currentMode = 'both';
+    let autoPlayTimer = null;
 
-    function renderAlbum(filter) {
+    function updateFilterButtons() {
+      const counts = { all: window.CONCEPT_ITEMS.length };
+      window.CONCEPT_ITEMS.forEach(i => {
+        counts[i.cat] = (counts[i.cat] || 0) + 1;
+      });
+      document.querySelectorAll('#filters .btn').forEach(btn => {
+        const f = btn.dataset.filter;
+        const base = btn.textContent.replace(/\s*\(\d+\)$/, '');
+        btn.textContent = `${base} (${counts[f] || 0})`;
+      });
+      document.getElementById('header-sub').textContent =
+        `${window.CONCEPT_ITEMS.length} Real-Photo Renderings & Views on Your 29'4" × 29'4" Garage • Interactive Slideshow + Thumbnail Grid Organized by Concept`;
+    }
+
+    function renderSlideshow(idx) {
+      if (!visibleItems.length) return;
+      currentIndex = ((idx % visibleItems.length) + visibleItems.length) % visibleItems.length;
+      const item = visibleItems[currentIndex];
+      document.getElementById('stage-counter').textContent =
+        `SLIDE ${currentIndex + 1} OF ${visibleItems.length} — ${item.sectionShort || item.cat.toUpperCase()}`;
+      document.getElementById('stage-img').src = item.img;
+      document.getElementById('stage-img').alt = item.title;
+      document.getElementById('stage-badge').textContent = `${item.code}${item.level ? ' • ' + item.level : ''}`;
+      document.getElementById('stage-title').textContent = `${item.code}: ${item.title}`;
+      document.getElementById('stage-desc').textContent = item.desc;
+
+      const strip = document.getElementById('filmstrip');
+      strip.innerHTML = '';
+      visibleItems.forEach((it, i) => {
+        const th = document.createElement('div');
+        th.className = 'film-thumb' + (i === currentIndex ? ' active' : '');
+        th.innerHTML = `<img src="${it.img}" alt="${it.code}" loading="lazy" /><span>${it.code}</span>`;
+        th.addEventListener('click', () => renderSlideshow(i));
+        strip.appendChild(th);
+      });
+      const activeThumb = strip.querySelector('.film-thumb.active');
+      if (activeThumb) {
+        activeThumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+
+    function renderAlbum(filter, resetSlide = true) {
+      currentFilter = filter;
       const container = document.getElementById('album');
       container.innerHTML = '';
-      visibleItems = filter === 'all' ? [...ITEMS] : ITEMS.filter(i => i.cat === filter);
+      visibleItems = filter === 'all'
+        ? [...window.CONCEPT_ITEMS]
+        : window.CONCEPT_ITEMS.filter(i => i.cat === filter);
+
+      if (resetSlide) renderSlideshow(0);
 
       const sections = [];
       visibleItems.forEach((item, idx) => {
         let sec = sections.find(s => s.name === item.section);
         if (!sec) {
-          sec = { name: item.section, items: [] };
+          sec = { name: item.section, sub: item.sectionSub || '', cat: item.cat, items: [] };
           sections.push(sec);
         }
         sec.items.push({ ...item, globalIdx: idx });
       });
 
       sections.forEach(sec => {
+        const block = document.createElement('section');
+        block.className = 'section-block';
+
         const head = document.createElement('div');
         head.className = 'section-head';
-        head.innerHTML = `<h2>${sec.name}</h2><span>${sec.items.length} VIEWS</span>`;
-        container.appendChild(head);
+        head.innerHTML = `
+          <div class="section-head-left">
+            <h2>${sec.name}</h2>
+            ${sec.sub ? `<p>${sec.sub}</p>` : ''}
+          </div>
+          <button class="btn play-sec-btn" data-idx="${sec.items[0].globalIdx}">▶ SLIDESHOW THIS SERIES (${sec.items.length})</button>
+        `;
+        head.querySelector('.play-sec-btn').addEventListener('click', () => {
+          renderSlideshow(sec.items[0].globalIdx);
+          document.getElementById('slideshow-stage').scrollIntoView({ behavior: 'smooth' });
+        });
+        block.appendChild(head);
 
         const grid = document.createElement('div');
         grid.className = 'grid';
@@ -624,18 +702,37 @@
             <div class="thumb-wrap" data-idx="${item.globalIdx}">
               <img src="${item.img}" alt="${item.title}" loading="lazy" />
               <span class="badge">${item.code}</span>
+              ${item.level ? `<span class="level-tag">${item.level}</span>` : ''}
             </div>
             <div class="card-body">
               <div class="card-title">${item.code}: ${item.title}</div>
               <p class="card-desc">${item.desc}</p>
+              <div class="card-actions">
+                <button class="btn view-stage-btn">▶ IN SLIDESHOW</button>
+                <button class="btn view-zoom-btn">⛶ FULLSCREEN</button>
+              </div>
             </div>
           `;
           card.querySelector('.thumb-wrap').addEventListener('click', () => openLightbox(item.globalIdx));
+          card.querySelector('.view-zoom-btn').addEventListener('click', () => openLightbox(item.globalIdx));
+          card.querySelector('.view-stage-btn').addEventListener('click', () => {
+            if (currentMode === 'grid') setViewMode('both');
+            renderSlideshow(item.globalIdx);
+            document.getElementById('slideshow-stage').scrollIntoView({ behavior: 'smooth' });
+          });
           grid.appendChild(card);
         });
 
-        container.appendChild(grid);
+        block.appendChild(grid);
+        container.appendChild(block);
       });
+    }
+
+    function setViewMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+      document.getElementById('slideshow-stage').classList.toggle('open', mode === 'both' || mode === 'slideshow');
+      document.getElementById('album').style.display = (mode === 'both' || mode === 'grid') ? 'block' : 'none';
     }
 
     function openLightbox(idx) {
@@ -649,7 +746,13 @@
     function stepLightbox(delta) {
       currentIndex = (currentIndex + delta + visibleItems.length) % visibleItems.length;
       openLightbox(currentIndex);
+      renderSlideshow(currentIndex);
     }
+
+    document.getElementById('stage-prev').addEventListener('click', () => renderSlideshow(currentIndex - 1));
+    document.getElementById('stage-next').addEventListener('click', () => renderSlideshow(currentIndex + 1));
+    document.getElementById('stage-zoom').addEventListener('click', () => openLightbox(currentIndex));
+    document.getElementById('stage-main').addEventListener('click', () => openLightbox(currentIndex));
 
     document.getElementById('prev-btn').addEventListener('click', () => stepLightbox(-1));
     document.getElementById('next-btn').addEventListener('click', () => stepLightbox(1));
@@ -659,23 +762,48 @@
     document.getElementById('lightbox').addEventListener('click', (e) => {
       if (e.target.id === 'lightbox') document.getElementById('lightbox').classList.remove('open');
     });
+
     window.addEventListener('keydown', (e) => {
       const lb = document.getElementById('lightbox');
-      if (!lb.classList.contains('open')) return;
-      if (e.key === 'Escape') lb.classList.remove('open');
-      if (e.key === 'ArrowLeft') stepLightbox(-1);
-      if (e.key === 'ArrowRight') stepLightbox(1);
+      if (lb.classList.contains('open')) {
+        if (e.key === 'Escape') lb.classList.remove('open');
+        if (e.key === 'ArrowLeft') stepLightbox(-1);
+        if (e.key === 'ArrowRight') stepLightbox(1);
+      } else {
+        if (e.key === 'ArrowLeft') renderSlideshow(currentIndex - 1);
+        if (e.key === 'ArrowRight') renderSlideshow(currentIndex + 1);
+      }
     });
 
     document.querySelectorAll('#filters .btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#filters .btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        renderAlbum(btn.dataset.filter);
+        renderAlbum(btn.dataset.filter, true);
       });
     });
 
-    renderAlbum('all');
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => setViewMode(btn.dataset.mode));
+    });
+
+    document.getElementById('autoplay-btn').addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      if (autoPlayTimer) {
+        clearInterval(autoPlayTimer);
+        autoPlayTimer = null;
+        btn.classList.remove('active');
+        btn.textContent = '▶ AUTO-PLAY SLIDESHOW (4s)';
+      } else {
+        if (currentMode === 'grid') setViewMode('both');
+        btn.classList.add('active');
+        btn.textContent = '⏸ PAUSE AUTO-PLAY';
+        autoPlayTimer = setInterval(() => renderSlideshow(currentIndex + 1), 4000);
+      }
+    });
+
+    updateFilterButtons();
+    renderAlbum('all', true);
   </script>
 </body>
 </html>
