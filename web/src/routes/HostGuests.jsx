@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { getHostPass, host, useParty } from '../lib/store.js';
 import Avatar from '../components/Avatar.jsx';
+import QR from '../components/QR.jsx';
 
 // Host guest manager: the guest list for one event, with contact info, payment, RSVP, invite and
 // sign-up status. Deliberately plain, modern styling (not 8-bit): this is an admin tool.
@@ -43,6 +44,7 @@ export default function HostGuests() {
   const [filter, setFilter] = useState('all');
   const [sort, setSort] = useState({ key: 'name', dir: 1 });
   const [editing, setEditing] = useState(null); // guest object or blank for "add"
+  const [qrGuest, setQrGuest] = useState(null); // guest object whose sign-up QR modal is open
   const [pasting, setPasting] = useState(false);
   const [composing, setComposing] = useState(false);
   const [toast, setToast] = useState('');
@@ -239,6 +241,7 @@ export default function HostGuests() {
                     </td>
                     <td data-label="Games" className="num">{g.games || <span className="gm-dim">0</span>}</td>
                     <td className="gm-row-actions">
+                      <button type="button" disabled={!g.paid} title="Show scannable sign-up QR code on screen" onClick={() => setQrGuest(g)}>Show QR</button>
                       <button type="button" disabled={!g.paid} title={g.parent_id ? `Copies ${g.parent_name || 'the original guest'}'s ticket link (everyone on a ticket shares it)` : g.paid ? 'Copy their personal sign-up link (to text it to them)' : 'Mark them paid first: sign-up links are only for confirmed tickets'} onClick={() => copyLink(g)}>Copy sign-up link</button>
                       <button type="button" title={g.paid ? 'Email their sign-up QR' : 'Email the invite with the ticket link'} onClick={() => emailOne(g)} disabled={busy || !g.email}>{g.paid ? 'Email QR' : 'Email invite'}</button>
                       <button type="button" onClick={() => setEditing(g)}>Edit</button>
@@ -277,6 +280,24 @@ export default function HostGuests() {
         </section>
       )}
 
+      {qrGuest && (
+        <Modal title={`${nameOf(qrGuest)} — Sign-up QR`} onClose={() => setQrGuest(null)}>
+          <div style={{ display: 'grid', justifyItems: 'center', gap: 12, padding: '8px 0', textAlign: 'center' }}>
+            <div className="gm-dim">Scan with a phone camera to set up {nameOf(qrGuest)}&apos;s player account for <b>{event?.name}</b>:</div>
+            <div style={{ background: '#fff', padding: 12, borderRadius: 12 }}>
+              <QR value={linkOf(qrGuest)} size={220} />
+            </div>
+            <div className="gm-small gm-dim" style={{ wordBreak: 'break-all' }}>{linkOf(qrGuest)}</div>
+            <div className="gm-modal-foot" style={{ width: '100%' }}>
+              <span />
+              <div className="gm-row-btns">
+                <button type="button" className="gm-btn" onClick={() => copyLink(qrGuest)}>Copy sign-up link</button>
+                <button type="button" className="gm-btn gm-primary" onClick={() => setQrGuest(null)}>Done</button>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
       {editing && <GuestForm guest={editing} busy={busy} onClose={() => setEditing(null)} onRemove={editing.id ? () => remove(editing) : null}
         onSave={g => act(async () => { await host.saveGuest(eventId, g); setEditing(null); }, g.id ? 'Guest saved.' : 'Guest added.')} />}
       {pasting && <PasteForm busy={busy} onClose={() => setPasting(false)}

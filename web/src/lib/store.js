@@ -227,10 +227,12 @@ export function useAllTime() {
 }
 
 // Signed in + a current event you're not in yet = enter it (auto-enter on scan).
+// Skip auto-enter when opening /join?invite=... so claiming a ticket for another event doesn't add you to the active event.
 let enteredFor = null;
 function maybeEnter() {
   const evId = state.party?.current_event_id;
   if (!state.ready || !state.me || evId == null || state.entrantIds.has(state.me.id) || enteredFor === `${evId}:${state.me.id}`) return;
+  if (typeof location !== 'undefined' && location.pathname === '/join' && new URLSearchParams(location.search).get('invite')) return;
   enteredFor = `${evId}:${state.me.id}`;
   sb.rpc('enter_current_event', { p_token: getToken() }).then(({ error }) => {
     if (error) { enteredFor = null; return; }

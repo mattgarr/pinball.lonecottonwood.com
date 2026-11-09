@@ -3,7 +3,7 @@ import { host, useParty } from '../lib/store.js';
 import { Link } from 'react-router-dom';
 import Avatar from './Avatar.jsx';
 
-const fmtDate = d => (d ? new Date(`${d}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'No date');
+const fmtDate = d => (d ? new Date(`${d}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'Ongoing (open-ended)');
 
 // Host: events (tournaments/parties). One is "current": phones, scoring and the TV all use it.
 // Player accounts are permanent across all events; each event tracks its own participants, guest list, machines, and scores.
@@ -77,7 +77,6 @@ export default function HostEvents({ run, busy }) {
               </div>
               <div className="ev-actions">
                 {!live && <button className="primary" disabled={busy} onClick={() => {
-                  if (!confirm(`Switch active event to "${e.name}"? Phones, scoring and the TV will all show "${e.name}".`)) return;
                   run(() => host.setCurrentEvent(e.id), `${e.name} is now the active event.`);
                 }}>Make active</button>}
                 <button className="ghost" type="button" onClick={() => setOpenRosterId(rosterOpen ? null : e.id)}>
@@ -157,9 +156,15 @@ function EventForm({ event, machines, picked, busy, onCancel, onSave }) {
   const [makeCurrent, setMakeCurrent] = useState(false);
   const toggle = id => setIds(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   return (
-    <form className="ev-form" onSubmit={e => { e.preventDefault(); onSave({ id: event?.id ?? null, name: name.trim(), startsOn: date, machineIds: [...ids], makeCurrent }); }}>
-      <label className="field"><span>Name</span><input value={name} onChange={e => setName(e.target.value)} maxLength={60} placeholder="e.g. The Auction Party" /></label>
-      <label className="field"><span>Date</span><input type="date" value={date || ''} onChange={e => setDate(e.target.value)} /></label>
+    <form className="ev-form" onSubmit={e => { e.preventDefault(); onSave({ id: event?.id ?? null, name: name.trim(), startsOn: date || null, machineIds: [...ids], makeCurrent }); }}>
+      <label className="field"><span>Name</span><input value={name} onChange={e => setName(e.target.value)} maxLength={60} placeholder="e.g. Spinning Cats" /></label>
+      <label className="field">
+        <span>Date (optional — leave blank for an ongoing / multi-day tournament)</span>
+        <div className="row gap">
+          <input type="date" value={date || ''} onChange={e => setDate(e.target.value)} />
+          {date && <button type="button" className="ghost" onClick={() => setDate('')}>Clear date (ongoing)</button>}
+        </div>
+      </label>
       <div className="field"><span>Machines</span>
         <div className="ev-machines">
           {machines.map(m => (
