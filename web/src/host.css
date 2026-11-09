@@ -1,14 +1,309 @@
-/* Host page + guest manager extras (hardening pass). */
+/* Host page + guest manager extras (scalability, multi-event, and visual polish pass). */
+
+/* Expand /host on tablet & desktop so tables, event cards, and player rows have room to breathe */
+@media (min-width: 640px) {
+  .screen.host {
+    width: min(980px, calc(100vw - 32px));
+    margin-left: calc(50% - min(490px, calc(50vw - 16px)));
+  }
+}
+
+/* Quick active-event switcher bar directly below the Host / Lock header */
+.host-active-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  background: #0c180c;
+  box-shadow: inset 0 0 0 2px var(--nes-green);
+}
+.host-active-bar select {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+/* Sticky section jump bar so hosts never get lost scrolling a long dashboard */
+.host-nav {
+  position: sticky;
+  top: 56px;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: -4px 0 4px;
+  padding: 8px 0;
+  background: rgba(11, 11, 20, 0.95);
+  border-bottom: 2px solid #2c2c44;
+}
+.host-nav::-webkit-scrollbar { display: none; }
+@media (min-width: 680px) {
+  .host-nav {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+.host-nav-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 10px;
+  background: #0c0c1c;
+  color: var(--nes-cream);
+  box-shadow: inset 0 0 0 2px #3c3c5c;
+  font-family: var(--px) !important;
+  font-size: var(--t10) !important;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.host-nav-pill:hover {
+  box-shadow: inset 0 0 0 2px var(--nes-yellow);
+  color: var(--nes-yellow);
+}
+.host-nav-pill.warn {
+  background: #241400;
+  color: var(--nes-yellow);
+  box-shadow: inset 0 0 0 2px var(--nes-orange);
+}
+.host [id^="sec-"] {
+  scroll-margin-top: 112px;
+}
+
+/* Uniform 40px height for all inputs, selects, and buttons in /host so side-by-side rows align to the pixel */
+.host input:not([type="checkbox"]):not([type="radio"]),
+.host select {
+  box-sizing: border-box !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 10px !important;
+  background: #000 !important;
+  color: var(--nes-white) !important;
+  border: 2px solid var(--nes-gray) !important;
+  border-radius: 0 !important;
+  font-family: var(--pxbody) !important;
+  font-size: var(--b12) !important;
+  line-height: 1.2 !important;
+}
+.host input:not([type="checkbox"]):not([type="radio"]):focus,
+.host select:focus {
+  border-color: var(--nes-yellow) !important;
+  outline: none;
+}
+
+/* Card headers & filter bars */
+.host-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.host-card-head > div:first-child {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.host-card-head > div:first-child p {
+  margin: 4px 0 0;
+}
+.host-filter-bar,
+.host-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.host-filter {
+  width: 200px;
+  max-width: 100%;
+  flex: 1 1 160px;
+}
+.host-select {
+  min-width: 150px;
+  flex: 0 1 auto;
+}
+
+/* 2-column grid for compact side-by-side cards on tablet/desktop */
+.host-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (min-width: 680px) {
+  .host-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.host-grid-2 > .card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Bounded scrollable lists so 10+ events, 100+ scores, or 60+ players never make the page 5,000px tall */
+.host-events .ev-list {
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.host-scroll-box {
+  max-height: 440px;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding-right: 2px;
+}
+.ev-roster-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Events card polish */
+.ev-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ev-stat-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 6px 2px;
+  font-family: var(--px) !important;
+  font-size: var(--t10) !important;
+  line-height: 1;
+  background: #1c1c2c;
+  color: var(--nes-gray-hi);
+  box-shadow: inset 0 0 0 2px #3c3c5c;
+}
+.ev-stat-badge.on {
+  background: #082008;
+  color: var(--nes-lime);
+  box-shadow: inset 0 0 0 2px var(--nes-green);
+}
+.ev-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  align-items: center;
+  margin-top: 4px;
+}
+.ev-actions > button,
+.ev-actions > a.ghost {
+  padding: 0 10px !important;
+}
+
+/* Add or fix a score grid */
+.host-add {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px !important;
+  align-items: center;
+}
+@media (min-width: 680px) {
+  .host-add {
+    grid-template-columns: 1fr 1fr 150px auto;
+  }
+}
+
+/* All scores table: full width on desktop (no clipped columns!), stacked rows on phone */
+.host-table {
+  width: 100% !important;
+  min-width: 0 !important;
+  border-collapse: collapse;
+}
+.host-logged-by {
+  display: block;
+  margin-top: 2px;
+}
+@media (min-width: 601px) {
+  .host-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #000;
+    padding: 8px 6px;
+    border-bottom: 2px solid #3c3c5c;
+  }
+  .host-table td {
+    padding: 8px 6px;
+    vertical-align: middle;
+  }
+  .host-table td:first-child,
+  .host-table td:nth-child(4),
+  .host-table td:nth-child(5) {
+    white-space: nowrap;
+  }
+}
+
+/* Players & Review Queue rows: clean single row on desktop, 2-line card on phone so names never break mid-word */
+.host-players .host-player,
+.review-list .host-player {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 8px 0;
+  border-bottom: 2px dotted #2c2c44;
+}
+.host-player-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.host-player-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.host-player-info > .grow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-family: var(--pxbody) !important;
+  font-size: var(--b12) !important;
+  line-height: 1.4 !important;
+  overflow-wrap: break-word;
+}
+.host-player-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .host-players .host-player,
+  .review-list .host-player {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .host-player-actions {
+    padding-left: 38px;
+    justify-content: flex-start;
+  }
+}
 
 /* Host page section dividers: Party night / End of the night / Setup */
-.host .host-section { font-size: 12px !important; color: var(--yellow, #f8b800); margin: 28px 0 8px; letter-spacing: 1px; }
+.host .host-section { font-size: var(--t12) !important; color: var(--yellow, #f8b800); margin: 24px 0 6px; letter-spacing: 1px; }
 
 /* Messages pop up at the bottom where you can see them, wherever you've scrolled. */
 .host-toast {
   position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 300;
   width: min(560px, calc(100vw - 32px)); box-sizing: border-box;
   background: #0f2a14; color: #b8f8b8; border: 2px solid #58d854; padding: 12px 14px;
-  font-size: 12px !important; line-height: 1.6; box-shadow: 0 8px 30px rgba(0,0,0,.6); cursor: pointer;
+  font-size: var(--t12) !important; line-height: 1.6; box-shadow: 0 8px 30px rgba(0,0,0,.6); cursor: pointer;
 }
 .host-toast.err { background: #2a0f14; color: #ffb4c4; border-color: #e40058; }
 
@@ -28,7 +323,56 @@
 .host-advanced { margin-top: 16px; }
 .host-advanced summary { cursor: pointer; font-family: var(--pxbody) !important; font-size: var(--b10) !important; color: #9c9cb4; }
 
-/* Guest manager hints */
+/* Guest manager hints & responsive table fixes */
 .gm .gm-hint { display: block; font-size: 12px !important; color: var(--gm-dim); line-height: 1.4; margin-top: 2px; }
 .gm .gm-hint.warn { color: #f0b84a; }
-.gm .gm-small { font-size: 12px !important; margin-top: 4px; }
+.gm .gm-small { display: block; font-size: 12px !important; margin-top: 4px; }
+.gm-tools {
+  position: sticky;
+  top: 56px;
+  z-index: 20;
+  background: var(--gm-bg);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--gm-line);
+}
+.gm-table-wrap {
+  overflow-x: auto !important;
+}
+@media (min-width: 761px) {
+  .gm-table th,
+  .gm-table td {
+    padding: 7px 4px !important;
+  }
+  .gm-who {
+    min-width: 165px !important;
+    max-width: 215px;
+    overflow-wrap: break-word;
+  }
+  .gm-email {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .gm-table td[data-label="Phone"] {
+    white-space: nowrap;
+    font-size: 13px !important;
+  }
+  .gm-row-actions button {
+    padding: 0 5px !important;
+    margin-left: 3px !important;
+    font-size: 11px !important;
+  }
+}
+@media (max-width: 760px) {
+  .gm-row-actions {
+    white-space: normal !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  .gm-row-actions button {
+    margin: 0 !important;
+  }
+}

@@ -2566,7 +2566,7 @@ button.link { background: none; border: 0; border-bottom: 2px dotted currentColo
   line-height: 1.65 !important;
 }
 .rk-name, .rk-prize-who, .ts-name, .fr-name, .pick-name, .pick-row, .switch-name, .assignee,
-.host-players .host-player > .grow, .review-card .host-player > .grow strong {
+.host-players .host-player .grow, .review-card .host-player .grow strong {
   font-family: var(--pxbody) !important;
   font-size: var(--b12) !important;
   line-height: 1.45 !important;
@@ -2589,7 +2589,7 @@ button.link { background: none; border: 0; border-bottom: 2px dotted currentColo
   font-size: var(--t10) !important;
 }
 .mhero-meta, .mcard-meta, .mcard-champ, .snap-sub, .pad-say, .warn-detail, .crown-detail,
-.danger-card summary, summary, .review-card .host-player > .grow {
+.danger-card summary, summary, .review-card .host-player .grow {
   font-family: var(--pxbody) !important;
   font-size: var(--b10) !important;
 }

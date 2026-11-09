@@ -3,7 +3,7 @@ import { host, useParty } from '../lib/store.js';
 import { Link } from 'react-router-dom';
 import Avatar from './Avatar.jsx';
 
-const fmtDate = d => (d ? new Date(`${d}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'Ongoing (open-ended)');
+const fmtDate = d => (d ? new Date(`${d}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'Ongoing (no end date)');
 
 // Host: events (tournaments/parties). One is "current": phones, scoring and the TV all use it.
 // Player accounts are permanent across all events; each event tracks its own participants, guest list, machines, and scores.
@@ -12,6 +12,8 @@ export default function HostEvents({ run, busy }) {
   const currentId = party?.current_event_id;
   const [editing, setEditing] = useState(null); // null | 'new' | event
   const [openRosterId, setOpenRosterId] = useState(null); // event.id whose participant list is expanded
+  const [evSearch, setEvSearch] = useState('');
+  const [evFilter, setEvFilter] = useState('all'); // 'all' | 'ongoing' | 'dated'
 
   const byEvent = useMemo(() => {
     const m = new Map(events.map(e => [e.id, { playerIds: new Set(), gamesByPlayer: new Map(), scores: 0 }]));
@@ -28,17 +30,27 @@ export default function HostEvents({ run, busy }) {
     return m;
   }, [events, entries, allScores]);
 
+  const filteredEvents = useMemo(() => {
+    const q = evSearch.trim().toLowerCase();
+    return events.filter(e => {
+      if (evFilter === 'ongoing' && e.starts_on) return false;
+      if (evFilter === 'dated' && !e.starts_on) return false;
+      if (q && !e.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [events, evSearch, evFilter]);
+
   return (
-    <section className="card host-events">
-      <div className="row spread">
+    <section id="sec-events" className="card host-events">
+      <div className="host-card-head">
         <div>
-          <h2>Events &amp; tournaments</h2>
+          <h2>Events &amp; tournaments ({events.length})</h2>
           <p className="muted small">
             Each event has its own leaderboard, scores, machines, and guest list. Player accounts (nickname + PIN) carry over across all events.
             The <b>ACTIVE</b> event is what phones, scoring, and the TV show right now.
           </p>
         </div>
-        {!editing && <button className="primary" disabled={busy} onClick={() => setEditing('new')}>＋ New event</button>}
+        {!editing && <button className="primary" type="button" disabled={busy} onClick={() => setEditing('new')}>＋ New event</button>}
       </div>
 
       {editing && (
@@ -53,8 +65,24 @@ export default function HostEvents({ run, busy }) {
         />
       )}
 
+      {events.length > 2 && (
+        <div className="host-toolbar">
+          <input
+            className="host-filter"
+            value={evSearch}
+            onChange={e => setEvSearch(e.target.value)}
+            placeholder="search events…"
+          />
+          <div className="row gap">
+            <button type="button" className={evFilter === 'all' ? 'primary' : 'ghost'} onClick={() => setEvFilter('all')}>All ({events.length})</button>
+            <button type="button" className={evFilter === 'ongoing' ? 'primary' : 'ghost'} onClick={() => setEvFilter('ongoing')}>Ongoing</button>
+            <button type="button" className={evFilter === 'dated' ? 'primary' : 'ghost'} onClick={() => setEvFilter('dated')}>Scheduled</button>
+          </div>
+        </div>
+      )}
+
       <ul className="ev-list">
-        {events.map(e => {
+        {filteredEvents.map(e => {
           const info = byEvent.get(e.id) || { playerIds: new Set(), gamesByPlayer: new Map(), scores: 0 };
           const live = e.id === currentId;
           const nMachines = eventMachines.filter(x => x.event_id === e.id).length;
@@ -69,10 +97,24 @@ export default function HostEvents({ run, busy }) {
           return (
             <li key={e.id} className={live ? 'live' : ''}>
               <div className="ev-main">
-                <div className="ev-name">{live && <span className="ev-live">ACTIVE</span>}{e.name}</div>
-                <div className="muted small">
-                  {fmtDate(e.starts_on)} · {inPlayers.length} player{inPlayers.length === 1 ? '' : 's'} · {info.scores} score{info.scores === 1 ? '' : 's'} · {nMachines} machine{nMachines === 1 ? '' : 's'} · scores {e.status === 'open' ? 'on' : 'off'}
-                  {e.results_sent_at ? ' · results emailed' : ''}
+                <div className="ev-title-row">
+                  <div className="ev-name">
+                    {live && <span className="ev-live">ACTIVE</span>}
+                    {e.name}
+                  </div>
+                  <span className={`ev-stat-badge ${e.status === 'open' ? 'on' : 'off'}`}>
+                    {e.status === 'open' ? 'SCORES ON' : 'SCORES OFF'}
+                  </span>
+                </div>
+                <div className="ev-meta muted small">
+                  <span>{fmtDate(e.starts_on)}</span>
+                  <span>·</span>
+                  <span>{inPlayers.length} player{inPlayers.length === 1 ? '' : 's'}</span>
+                  <span>·</span>
+                  <span>{info.scores} score{info.scores === 1 ? '' : 's'}</span>
+                  <span>·</span>
+                  <span>{nMachines} machine{nMachines === 1 ? '' : 's'}</span>
+                  {e.results_sent_at ? <><span>·</span><span>results emailed</span></> : null}
                 </div>
               </div>
               <div className="ev-actions">
@@ -81,16 +123,25 @@ export default function HostEvents({ run, busy }) {
                   : <button className="primary" type="button" disabled={busy} onClick={() => {
                       run(() => host.setCurrentEvent(e.id), `${e.name} is now the active event.`);
                     }}>Make active</button>}
-                <button className="ghost" type="button" onClick={() => setOpenRosterId(rosterOpen ? null : e.id)}>
+                <button className={`ghost${rosterOpen ? ' on' : ''}`} type="button" onClick={() => setOpenRosterId(rosterOpen ? null : e.id)}>
                   {rosterOpen ? 'Hide players ▲' : `Players (${inPlayers.length}) ▼`}
                 </button>
                 <Link className="ghost" to={`/host/guests?event=${e.id}`}>Guest list &amp; emails</Link>
                 <button className="ghost" type="button" disabled={busy} onClick={() => setEditing(e)}>Edit</button>
-                {!live && <button className="ghost danger" type="button" disabled={busy} onClick={() => {
-                  const c = prompt(`Delete "${e.name}"? Its ${info.scores} scores AND its guest list are deleted too (permanent player accounts are kept). Type DELETE to confirm.`);
-                  if (c == null) return;
-                  run(() => host.deleteEvent(e.id, c.trim()), `${e.name} deleted.`);
-                }}>Delete</button>}
+                <button
+                  className="ghost danger"
+                  type="button"
+                  disabled={busy || live}
+                  title={live ? 'Switch to another active event before deleting this one' : `Delete ${e.name}`}
+                  onClick={() => {
+                    if (live) return;
+                    const c = prompt(`Delete "${e.name}"? Its ${info.scores} scores AND its guest list are deleted too (permanent player accounts are kept). Type DELETE to confirm.`);
+                    if (c == null) return;
+                    run(() => host.deleteEvent(e.id, c.trim()), `${e.name} deleted.`);
+                  }}
+                >
+                  Delete
+                </button>
               </div>
 
               {rosterOpen && (

@@ -243,7 +243,7 @@ export default function HostGuests() {
                     <td data-label="Games" className="num">{g.games || <span className="gm-dim">0</span>}</td>
                     <td className="gm-row-actions">
                       <button type="button" disabled={!g.paid} title="Show scannable sign-up QR code on screen" onClick={() => setQrGuest(g)}>Show QR</button>
-                      <button type="button" disabled={!g.paid} title={g.parent_id ? `Copies ${g.parent_name || 'the original guest'}'s ticket link (everyone on a ticket shares it)` : g.paid ? 'Copy their personal sign-up link (to text it to them)' : 'Mark them paid first: sign-up links are only for confirmed tickets'} onClick={() => copyLink(g)}>Copy sign-up link</button>
+                      <button type="button" disabled={!g.paid} title={g.parent_id ? `Copies ${g.parent_name || 'the original guest'}'s ticket link (everyone on a ticket shares it)` : g.paid ? 'Copy their personal sign-up link (to text it to them)' : 'Mark them paid first: sign-up links are only for confirmed tickets'} onClick={() => copyLink(g)}>Copy link</button>
                       <button type="button" title={g.paid ? 'Email their sign-up QR' : 'Email the invite with the ticket link'} onClick={() => emailOne(g)} disabled={busy || !g.email}>{g.paid ? 'Email QR' : 'Email invite'}</button>
                       <button type="button" onClick={() => setEditing(g)}>Edit</button>
                     </td>
