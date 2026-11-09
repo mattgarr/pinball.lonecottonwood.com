@@ -26,7 +26,7 @@
 .host-steps li.done b { text-decoration: line-through; opacity: .6; }
 
 .host-advanced { margin-top: 16px; }
-.host-advanced summary { cursor: pointer; font-size: 10px !important; color: #9c9cb4; }
+.host-advanced summary { cursor: pointer; font-family: var(--pxbody) !important; font-size: var(--b10) !important; color: #9c9cb4; }
 
 /* Guest manager hints */
 .gm .gm-hint { display: block; font-size: 12px !important; color: var(--gm-dim); line-height: 1.4; margin-top: 2px; }

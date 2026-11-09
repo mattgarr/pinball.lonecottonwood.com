@@ -12,8 +12,8 @@
 }
 
 * { box-sizing: border-box; }
-html, body, #root { height: 100%; }
-html, body { overflow-x: hidden; }
+html, body, #root { min-height: 100%; }
+body { overflow-x: clip; }
 body {
   margin: 0;
   background: radial-gradient(1200px 800px at 20% -10%, #2a1158 0%, transparent 60%),
@@ -2517,3 +2517,101 @@ button.link { background: none; border: 0; border-bottom: 2px dotted currentColo
 .who-edit { display: grid; gap: 10px; }
 .who-edit .who-pick { margin-top: 0; }
 .who-edit-actions { display: flex; gap: 16px; align-items: center; }
+
+/* =====================================================================================
+   NES CONSISTENCY & USABILITY PASS
+   1. Zero synthetic faux-bold on bitmap pixel fonts (Press Start 2P is a 400-weight bitmap;
+      browser faux-bold smears pixels horizontally and looks like a mismatched font).
+   2. Strict 4-size NES hierarchy so 10px and 12px are never mixed randomly on the same row
+      or between stacked banners:
+      - 24px (--t24): Hero machine title, big rating numbers, keypad digits (32px DMD score).
+      - 16px (--t16): Page <h1> titles, hero Snap CTA, big chevrons, emoji grid.
+      - 12px (--t12 / --b12): Standard NES reading & UI size — all <h2>/<h3>, body copy,
+        all banners (.invite-hi, .rejoin-banner, .note-warn), all leaderboard/player/machine
+        row values (.rk-name, .ts-name, .pick-name, .me-machine-name, .host-player .grow),
+        form labels, inputs, and main action buttons.
+      - 10px (--t10 / --b10): Strictly topbar/tabbar chrome, filter tabs & status pills,
+        table headers & box micro-labels (LOGGING ON, LOGGING FOR, YOU TYPED), and muted
+        secondary sub-captions beneath a 12px line.
+   3. Natural form flow on /join and /rejoin so the action button never floats over form
+      inputs or hides behind the mobile numeric keyboard.
+   ===================================================================================== */
+:where(body, body *):not(.gm, .gm *, .qr-sheet, .qr-sheet *) {
+  font-weight: 400 !important;
+}
+:where(b, strong):not(.gm *, .qr-sheet *) {
+  color: var(--nes-yellow);
+}
+
+/* Keyboard focus visibility (WCAG 2.4.7) */
+:where(a:any-link, button, summary):not(.gm *):focus-visible {
+  outline: 2px solid var(--nes-yellow) !important;
+  outline-offset: 2px !important;
+}
+
+/* Forms (/join, /rejoin): keep CTA in natural flow at the end of the form so it never
+   covers inputs while scrolling or hides behind the phone's numeric PIN keyboard. */
+.screen.form { min-height: 0 !important; }
+.screen.form > .actionbar {
+  position: static !important;
+  margin: 8px 0 0 !important;
+  padding: 4px 0 0 !important;
+  background: none !important;
+}
+
+/* 12px standard content rows & banners (never shrink player names or invite banners to 10px) */
+.invite-hi, .who-note, .who-fix {
+  font-family: var(--pxbody) !important;
+  font-size: var(--b12) !important;
+  line-height: 1.65 !important;
+}
+.rk-name, .rk-prize-who, .ts-name, .fr-name, .pick-name, .pick-row, .switch-name, .assignee,
+.host-players .host-player > .grow, .review-card .host-player > .grow strong {
+  font-family: var(--pxbody) !important;
+  font-size: var(--b12) !important;
+  line-height: 1.45 !important;
+}
+.held, .held li {
+  font-family: var(--px) !important;
+  font-size: var(--t12) !important;
+  line-height: 1.6 !important;
+}
+.me-standing { font-size: var(--t12) !important; }
+.me-rating .led-md { --led-fs: var(--t24) !important; }
+
+/* 10px strictly for box micro-labels, compact badges/pills, and secondary sub-captions */
+.rs-label, .mstrip-label, .forwho-label, .confirm-label, .slot-label, .done-machine,
+.done-rank-of, .next-label, .picker-label, .me-standing-label, .note-warn-title, .who-label,
+.mcard-badge, .rank-pill, .move, .ok-pill, .player-ft, .ev-live, .rk-crowns,
+.mhero-switch, .mstrip-switch, .scanner-pill, .drawing-note,
+.linkbtn.small, .ghost-btn.small, .ghost-btn.tiny, .undo-btn.small {
+  font-family: var(--px) !important;
+  font-size: var(--t10) !important;
+}
+.mhero-meta, .mcard-meta, .mcard-champ, .snap-sub, .pad-say, .warn-detail, .crown-detail,
+.danger-card summary, summary, .review-card .host-player > .grow {
+  font-family: var(--pxbody) !important;
+  font-size: var(--b10) !important;
+}
+.emoji-btn { font-family: var(--px) !important; font-size: var(--t16) !important; }
+
+/* Visual alignment polish */
+.ts-list li {
+  grid-template-columns: 22px 24px minmax(0, 1fr) auto !important;
+  gap: 6px !important;
+  padding: 6px 6px !important;
+}
+.ts-name {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.mhero-back, .mhero-switch {
+  top: 10px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+}
+.mhero-back { width: 40px !important; }
+.mstrip-switch { min-height: 36px !important; height: 36px !important; padding: 0 10px !important; }
+.guide-chip { width: 100%; justify-content: center; }
+.me-switch { width: 100%; }
