@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import Avatar from '../Avatar.jsx';
 import PixelEmoji from '../PixelEmoji.jsx';
+import { fmtShort } from '../../lib/scoring.js';
 
 export const TOAST_MS = 4200;
 
@@ -8,12 +9,14 @@ const HEAD = {
   join: () => 'NEW CHALLENGER!',
   enter: () => 'Enters Top Players',
   climb: i => `Climbs ${i.by} spot${i.by > 1 ? 's' : ''}`,
+  pb: i => `★ New best on ${i.machine?.name || 'machine'}`,
+  close: i => `So close on ${i.machine?.name || 'machine'}!`,
   shame: () => 'New Wall of Shame #1',
   milestone: () => 'Party milestone',
 };
-const ICON = { join: '🕹️', enter: '⭐', climb: '🔥', shame: '💀', milestone: '🎉' };
+const ICON = { join: '🕹️', enter: '⭐', climb: '🔥', pb: '⭐', close: '🔥', shame: '💀', milestone: '🎉' };
 
-// Corner callout: joins, board movement, shame, milestones.
+// Corner callout: joins, board movement, personal bests, close calls, shame, milestones.
 export default function Toast({ item, onDone, paused }) {
   useEffect(() => {
     if (paused) return;
@@ -27,6 +30,8 @@ export default function Toast({ item, onDone, paused }) {
     ? <>{item.count} games <span>played tonight</span></>
     : item.kind === 'join' ? <>{p.display_name} <span>has entered the game</span></>
     : item.kind === 'shame' ? <>{p.display_name} <span>ranked with love</span></>
+    : item.kind === 'pb' ? <>{p.display_name} <span>{fmtShort(item.value)} · #{item.rank}</span></>
+    : item.kind === 'close' ? <>{p.display_name} <span>only {fmtShort(item.gap)} shy of #1!</span></>
     : <>{p.display_name} <span>is now #{item.rank}</span></>;
 
   return (

@@ -34,9 +34,11 @@ export default function TV() {
     return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mousedown', move); clearTimeout(t); };
   }, []);
   const [flash, setFlash] = useState({});
-  // Top Players: the top 3 stay pinned; everyone else pages through below them, a few at a time.
+  // Top Players: the top 3 stay pinned; everyone else pages through below them, plus up to 3 "1 machine away" players.
   const PINNED = 3, PAGE = BOARD_N - PINNED;
-  const restCount = Math.max(0, standings.ranked.length - PINNED);
+  const oneAway = [...standings.stats.values()].filter(u => u.machinesPlayed === 1).slice(0, 3).map(u => ({ ...u, isOneAway: true }));
+  const allTopRows = [...standings.ranked, ...oneAway];
+  const restCount = Math.max(0, allTopRows.length - PINNED);
   const pages = Math.max(1, Math.ceil(restCount / PAGE));
   const [page, setPage] = useState(0);
   useEffect(() => {
@@ -45,8 +47,8 @@ export default function TV() {
     return () => clearInterval(iv);
   }, [pages]);
   const pg = page % pages;
-  const boardRows = [...standings.ranked.slice(0, PINNED), ...standings.ranked.slice(PINNED + pg * PAGE, PINNED + (pg + 1) * PAGE)];
-  const pgFrom = PINNED + pg * PAGE + 1, pgTo = Math.min(standings.ranked.length, PINNED + (pg + 1) * PAGE);
+  const boardRows = [...allTopRows.slice(0, PINNED), ...allTopRows.slice(PINNED + pg * PAGE, PINNED + (pg + 1) * PAGE)];
+  const pgFrom = PINNED + pg * PAGE + 1, pgTo = Math.min(allTopRows.length, PINNED + (pg + 1) * PAGE);
   const pageLabel = pages > 1 ? ` · ${pgFrom === pgTo ? pgFrom : `${pgFrom}–${pgTo}`}` : '';
   const [hot, setHot] = useState({}); // machineId -> true while its cabinet celebrates
   const prev = useRef({});
@@ -97,13 +99,17 @@ export default function TV() {
     return () => clearTimeout(t);
   }, [tk]);
 
-  // Sound effects for each new event (only after someone clicks the TV once).
+  // Sound effects for each new live event (attract spotlights stay silent).
   const toast = live.toast;
-  useEffect(() => { if (tk) { lastEvent.current = Date.now(); (tk.kind === 'leader' ? sfx.leader : sfx.record)(); } }, [tk?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!tk || tk.kind === 'spotlight') return;
+    lastEvent.current = Date.now();
+    ({ leader: sfx.leader, ranked: sfx.climb, milestone: sfx.milestone }[tk.kind] || sfx.record)();
+  }, [tk?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!toast || tk) return;
     lastEvent.current = Date.now();
-    ({ join: sfx.join, climb: sfx.climb, enter: sfx.climb, shame: sfx.shame, milestone: sfx.milestone }[toast.kind] || sfx.climb)();
+    ({ join: sfx.join, climb: sfx.climb, enter: sfx.climb, pb: sfx.climb, close: sfx.climb, shame: sfx.shame, milestone: sfx.milestone }[toast.kind] || sfx.climb)();
   }, [toast?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const hitKey = Object.values(live.hits).map(h => h.id).sort().join('|');
   useEffect(() => { if (hitKey && !tk) { lastEvent.current = Date.now(); sfx.coin(); } }, [hitKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -156,16 +162,18 @@ export default function TV() {
               <PanelHead icon="crown" title="Top Players" sub={`${standings.meta.rankedPlayers} ranked${pageLabel}`} />
               <div className="pb">
                 {boardRows.map((st, i) => (
-                  <div key={i < PINNED ? st.player.id : `${pg}-${st.player.id}`} className={`pr${st.rank <= 3 ? ` p${st.rank}` : ''}${i >= PINNED && pages > 1 ? ' paged' : ''}${flash[st.player.id] ? ' flash' : ''}`}>
-                    <span className="pr-rank">{st.rank}</span>
+                  <div key={i < PINNED ? st.player.id : `${pg}-${st.player.id}`} className={`pr${!st.isOneAway && st.rank <= 3 ? ` p${st.rank}` : ''}${st.isOneAway ? ' one-away' : ''}${i >= PINNED && pages > 1 ? ' paged' : ''}${flash[st.player.id] ? ' flash' : ''}`}>
+                    <span className="pr-rank">{st.isOneAway ? '·' : st.rank}</span>
                     <Avatar avatar={st.player.avatar} emoji={st.player.emoji} name={st.player.display_name} color={st.player.color} size={24} />
                     <span className="pr-name">{st.player.display_name}{st.player.first_timer && <span className="pr-ft">NEW</span>}</span>
                     <span className="pr-crowns">{st.crowns > 0 && <><Icon name="crown" size={15} stroke={2.2} />{st.crowns > 1 ? <span>×{st.crowns}</span> : null}</>}</span>
                     <span className="pr-tables">{st.machinesPlayed}/{machines.length}</span>
-                    <Dmd className="pr-val" tone={st.rank === 1 ? 'hot' : undefined}><CountUp value={st.rating} /></Dmd>
+                    {st.isOneAway
+                      ? <span className="pr-nudge">1 MORE</span>
+                      : <Dmd className="pr-val" tone={st.rank === 1 ? 'hot' : undefined}><CountUp value={st.rating} /></Dmd>}
                   </div>
                 ))}
-                {standings.topPlayers.length === 0 && <div className="pnl-empty">Play 2 machines to rank</div>}
+                {boardRows.length === 0 && <div className="pnl-empty">Play 2 machines to rank</div>}
               </div>
               <div className="pnl-legend">Avg finish · 2+ machines to rank</div>
             </div>

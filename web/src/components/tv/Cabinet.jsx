@@ -13,7 +13,9 @@ export default function Cabinet({ entry, i, hot, hit }) {
       <Backbox machine={m} i={i} />
       {hit && (
         <div className="cab2-hit" key={hit.id}>
-          <div className="cab2-hit-label">{hit.rank === 1 ? 'TOP SCORE!' : 'JUST PLAYED'}</div>
+          <div className="cab2-hit-label">
+            {hit.rank === 1 ? 'TOP SCORE!' : hit.isClose ? 'SO CLOSE TO #1!' : hit.isPB ? '★ NEW BEST!' : 'JUST PLAYED'}
+          </div>
           <Avatar avatar={hit.player.avatar} emoji={hit.player.emoji} name={hit.player.display_name} color={hit.player.color} size={56} ring />
           <div className="cab2-hit-name">{hit.player.display_name}</div>
           <Dmd tone="hot" className="cab2-hit-score">{fmtShort(hit.value)}</Dmd>
