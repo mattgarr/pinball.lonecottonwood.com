@@ -649,7 +649,8 @@
       });
       const activeThumb = strip.querySelector('.film-thumb.active');
       if (activeThumb) {
-        activeThumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        const targetLeft = activeThumb.offsetLeft - (strip.clientWidth / 2) + (activeThumb.clientWidth / 2);
+        strip.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
       }
     }
 
