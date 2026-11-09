@@ -18,10 +18,14 @@ import { makeMyPixelAvatar } from '../lib/pixelAvatar.js';
 const UNDO_MS = 15 * 60 * 1000;
 
 export default function Me() {
-  const { me, machines, players, scores, standings, party } = useStandings();
+  const { party, events } = useStandings();
+  const [pickedEvId, setPickedEvId] = useState(null);
+  const evId = pickedEvId ?? party?.current_event_id;
+  const { me, machines, players, scores, standings, event, entrantIds } = useStandings(evId);
   const awards = useAwards(standings, null);
   const [err, setErr] = useState('');
   const [busyId, setBusyId] = useState(null);
+  const [entering, setEntering] = useState(false);
   const [confirmUndo, setConfirmUndo] = useState(null);
   const [switchOpen, setSwitchOpen] = useState(false);
   const [, tick] = useState(0);
@@ -57,7 +61,8 @@ export default function Me() {
     ) : null;
   };
   const mineAll = scores.filter(s => s.player_id === me.id).sort((a, b) => b.id - a.id);
-  const open = party?.status === 'open';
+  const open = event ? event.status === 'open' : party?.status === 'open';
+  const inEvent = !!(me && (entrantIds?.has(me.id) || mineAll.some(s => !s.voided)));
   const fresh = s => !s.voided && open && Date.now() - new Date(s.created_at).getTime() < UNDO_MS;
   // Mine, plus ones I logged for other players (the server lets me undo those too).
   const undoable = scores
@@ -94,14 +99,50 @@ export default function Me() {
         <input ref={selfieRef} type="file" accept="image/*" capture="user" onChange={onSelfie} hidden />
         <div className="grow">
           <h1>{me.display_name}</h1>
-          <div className="muted small">{st.plays} game{st.plays === 1 ? '' : 's'} · {st.machinesPlayed} of {machines.length} machines</div>
+          <div className="muted small">
+            {event ? `${event.name} · ` : ''}{st.plays} game{st.plays === 1 ? '' : 's'} · {st.machinesPlayed} of {machines.length} machines
+          </div>
           <button type="button" className="linkbtn small me-photo-link" onClick={() => selfieRef.current?.click()} disabled={drawing}>
             {drawing ? 'Making your 8-bit self…' : 'Change photo'}
           </button>
-          <div className="muted tiny-note">Need a different name? Ask the host.</div>
+          <div className="muted tiny-note">Your account &amp; PIN work across every tournament.</div>
         </div>
       </div>
       <button type="button" className="ghost-btn small me-switch" onClick={() => setSwitchOpen(true)}>Sign out / switch player</button>
+
+      {events.length > 1 && (
+        <div className="rk-scope" role="tablist" aria-label="Tournament">
+          {events.map(e => {
+            const on = e.id === evId;
+            return (
+              <button key={e.id} type="button" role="tab" aria-selected={on} className={on ? 'on' : ''} onClick={() => setPickedEvId(e.id)}>
+                {e.name}{e.id === party?.current_event_id ? ' ★' : ''}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {event && !inEvent && open && (
+        <section className="panel">
+          <h3>Join {event.name}</h3>
+          <div className="muted small">Tap below to enter this tournament with your existing account.</div>
+          <button
+            type="button"
+            className="cta"
+            style={{ marginTop: 10 }}
+            disabled={entering}
+            onClick={async () => {
+              setEntering(true); setErr('');
+              try { await actions.enterEvent(event.id); }
+              catch (x) { setErr(friendlyError(x)); }
+              finally { setEntering(false); }
+            }}
+          >
+            {entering ? 'Entering…' : `Enter ${event.name}`}
+          </button>
+        </section>
+      )}
 
       {undoable.length > 0 && (
         <section className="panel undo-panel">

@@ -74,7 +74,7 @@ export default function Rejoin() {
   return (
     <div className="screen form">
       <h1>Get back in</h1>
-      <p className="muted">Tap your name.</p>
+      <p className="muted">Tap your name. Your account &amp; PIN work across every tournament.</p>
       <label className="field">
         <input className="picker-search" value={q} onChange={e => setQ(e.target.value)} placeholder="🔍  Search names" autoComplete="off" autoCorrect="off" spellCheck={false} />
       </label>

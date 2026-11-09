@@ -266,7 +266,7 @@ export default function Join() {
       ) : <div className="invite-hi">Hi {firstsOf(people) || 'there'}! You're in for {inv.event_name}.{nameFix}</div>)}
       {event && <div className="event-chip">{event.name}{event.starts_on ? ` · ${new Date(`${event.starts_on}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : ''}</div>}
       <Link to={rejoinHref(next, invite)} className="rejoin-banner">
-        Joined before? <strong>Get back in →</strong>
+        Joined before (or played a past event)? <strong>Get back in →</strong>
       </Link>
 
       {me && !welcome && addHere && (

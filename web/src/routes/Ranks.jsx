@@ -7,15 +7,18 @@ import PixelEmoji from '../components/PixelEmoji.jsx';
 // Leaderboard: OVERALL (rating) or one machine (best scores). My row is always highlighted,
 // and a "YOU" bar up top says where I stand without scrolling.
 export default function Ranks() {
-  const { machines: eventMachines, allMachines, me, standings: eventStandings, party, players, events } = useStandings();
+  const [params, setParams] = useSearchParams();
+  const { events, allMachines, party, me, players } = useStandings();
   const multiEvent = (events?.length ?? 0) > 1;
+  const ever = multiEvent && params.get('t') === 'all';
+  const pickedEvId = multiEvent && !ever && params.get('event') ? Number(params.get('event')) : party?.current_event_id;
+  const { machines: eventMachines, standings: eventStandings, event: pickedEvent } = useStandings(pickedEvId);
   const allTime = useAllTime();
   const awards = useAwards(eventStandings, null);
-  const [params, setParams] = useSearchParams();
-  const ever = multiEvent && params.get('t') === 'all';
   const view = params.get('m') || 'all';
-  const setView = v => setParams({ ...(ever ? { t: 'all' } : {}), ...(v === 'all' ? {} : { m: v }) }, { replace: true });
-  const setEver = on => setParams({ ...(on ? { t: 'all' } : {}), ...(view === 'all' ? {} : { m: view }) }, { replace: true });
+  const scopeParams = ever ? { t: 'all' } : (pickedEvId && pickedEvId !== party?.current_event_id ? { event: String(pickedEvId) } : {});
+  const setView = v => setParams({ ...scopeParams, ...(v === 'all' ? {} : { m: v }) }, { replace: true });
+  const setScope = next => setParams({ ...next, ...(view === 'all' ? {} : { m: view }) }, { replace: true });
   const standings = ever ? allTime : eventStandings;
   const machines = ever ? allMachines : eventMachines;
   const mine = me ? standings.stats.get(me.id) : null;
@@ -25,9 +28,22 @@ export default function Ranks() {
     <div className="screen ranks">
       <h1>Ranks</h1>
       {multiEvent && (
-        <div className="rk-scope" role="tablist">
-          <button role="tab" aria-selected={!ever} className={!ever ? 'on' : ''} onClick={() => setEver(false)}>Tonight</button>
-          <button role="tab" aria-selected={ever} className={ever ? 'on' : ''} onClick={() => setEver(true)}>All-time</button>
+        <div className="rk-scope" role="tablist" aria-label="Tournament">
+          {events.map(e => {
+            const on = !ever && e.id === pickedEvId;
+            return (
+              <button
+                key={e.id}
+                role="tab"
+                aria-selected={on}
+                className={on ? 'on' : ''}
+                onClick={() => setScope(e.id === party?.current_event_id ? {} : { event: String(e.id) })}
+              >
+                {e.name}{e.id === party?.current_event_id ? ' ★' : ''}
+              </button>
+            );
+          })}
+          <button role="tab" aria-selected={ever} className={ever ? 'on' : ''} onClick={() => setScope({ t: 'all' })}>All-time</button>
         </div>
       )}
 
@@ -40,7 +56,7 @@ export default function Ranks() {
         ))}
       </div>
 
-      {view === 'all' ? <Overall standings={standings} mine={mine} me={me} machines={machines} awards={ever ? null : awards} closed={!ever && party?.status === 'closed'} />
+      {view === 'all' ? <Overall standings={standings} mine={mine} me={me} machines={machines} awards={ever ? null : awards} closed={!ever && pickedEvent?.status === 'closed'} />
         : machineEntry ? <MachineBoard entry={machineEntry} me={me} mine={mine} players={players} />
         : <div className="muted">No such machine.</div>}
     </div>

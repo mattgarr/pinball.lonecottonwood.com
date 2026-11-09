@@ -43,10 +43,11 @@ function HostLogin({ onAuth }) {
 }
 
 function HostPanel({ onLogout }) {
-  const { party, players, machines, scores, event } = useParty();
+  const { party, players, machines, scores, allScores, entrantIds, event } = useParty();
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState('');
   const [filter, setFilter] = useState('');
+  const [playerScope, setPlayerScope] = useState('event'); // 'event' | 'all'
 
   const playerById = useMemo(() => new Map(players.map(p => [p.id, p])), [players]);
   const machineById = useMemo(() => new Map(machines.map(m => [m.id, m])), [machines]);
@@ -55,6 +56,16 @@ function HostPanel({ onLogout }) {
     for (const s of scores) if (!s.voided) c.set(s.player_id, (c.get(s.player_id) || 0) + 1);
     return c;
   }, [scores]);
+  const allPlays = useMemo(() => {
+    const c = new Map();
+    for (const s of allScores) if (!s.voided) c.set(s.player_id, (c.get(s.player_id) || 0) + 1);
+    return c;
+  }, [allScores]);
+  const inCurrentEvent = useMemo(() => {
+    const s = new Set(entrantIds);
+    for (const x of scores) if (!x.voided) s.add(x.player_id);
+    return s;
+  }, [entrantIds, scores]);
 
   function flash(t, ms = 4000) { setToast(t); clearTimeout(flash.t); if (ms) flash.t = setTimeout(() => setToast(''), ms); }
   async function run(fn, done) {
@@ -84,12 +95,14 @@ function HostPanel({ onLogout }) {
       <div className="row spread">
         <div>
           <h1>Host</h1>
-          <div className="muted small">{event ? `${event.name}${event.starts_on ? ' · ' + new Date(`${event.starts_on}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''}` : 'No event yet'}</div>
+          <div className="muted small">{event ? `Active event: ${event.name}${event.starts_on ? ' · ' + new Date(`${event.starts_on}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''}` : 'No event yet'}</div>
         </div>
         <button className="ghost" onClick={onLogout}>Lock</button>
       </div>
 
-      <GuestsCard eventId={party?.current_event_id} />
+      <HostEvents run={run} busy={busy} />
+
+      <GuestsCard eventId={party?.current_event_id} eventName={event?.name} />
 
       <h2 className="host-section">Party night</h2>
 
@@ -151,8 +164,21 @@ function HostPanel({ onLogout }) {
       </section>
 
       <section className="card">
-        <h2>Players</h2>
-        <p className="muted small">Someone forgot their PIN? Tap Reset PIN. Someone joined twice? Remove the copy with fewer games.</p>
+        <div className="row spread">
+          <h2>Players</h2>
+          <div className="row gap">
+            <button type="button" className={playerScope === 'event' ? 'primary' : 'ghost'} onClick={() => setPlayerScope('event')}>
+              In {event?.name || 'event'} ({inCurrentEvent.size})
+            </button>
+            <button type="button" className={playerScope === 'all' ? 'primary' : 'ghost'} onClick={() => setPlayerScope('all')}>
+              All accounts ({players.length})
+            </button>
+          </div>
+        </div>
+        <p className="muted small">
+          Player accounts are permanent across all events (nickname, 8-bit portrait, and PIN carry over).
+          Someone forgot their PIN? Tap Reset PIN.
+        </p>
         {players.some(p => p.avatar?.startsWith('data:image/jpeg')) && (
           <button className="ghost" disabled={busy} onClick={() => run(async () => {
             const todo = players.filter(p => p.avatar?.startsWith('data:image/jpeg'));
@@ -166,26 +192,42 @@ function HostPanel({ onLogout }) {
           }, ok => `8-bit portraits: ${ok} done.`)}>Turn selfies into 8-bit portraits</button>
         )}
         <div className="host-players">
-          {[...players].sort((a, b) => a.display_name.localeCompare(b.display_name)).map(p => {
-            const n = plays.get(p.id) || 0;
-            return (
-              <div key={p.id} className="host-player">
-                <Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={28} />
-                <span className="grow">{p.display_name}{p.first_timer && <span className="player-ft">NEW</span>}</span>
-                <span className="muted small">{n} game{n === 1 ? '' : 's'}</span>
-                <button className="ghost" disabled={busy} onClick={() => {
-                  const pin = prompt(`New 4-digit PIN for ${p.display_name} (numbers only):`);
-                  if (pin == null) return;
-                  if (!/^\d{4}$/.test(pin.trim())) { flash('⚠ The PIN has to be exactly 4 numbers.'); return; }
-                  run(() => host.resetPin(p.id, pin.trim()), `PIN reset. Tell ${p.display_name} their new PIN is ${pin.trim()}.`);
-                }}>Reset PIN</button>
-                <button className="ghost danger" disabled={busy} onClick={() => {
-                  if (!confirm(`Remove ${p.display_name}${n ? ` and their ${n} score${n === 1 ? '' : 's'}` : ''}? This can't be undone.${n ? '\n\nIf this is a duplicate, add those scores to the right player first (Add a score).' : ''}`)) return;
-                  run(() => host.removePlayer(p.id), `${p.display_name} removed.`);
-                }}>Remove</button>
-              </div>
-            );
-          })}
+          {[...players]
+            .filter(p => playerScope === 'all' || inCurrentEvent.has(p.id))
+            .sort((a, b) => a.display_name.localeCompare(b.display_name))
+            .map(p => {
+              const n = plays.get(p.id) || 0;
+              const tot = allPlays.get(p.id) || 0;
+              const inEv = inCurrentEvent.has(p.id);
+              return (
+                <div key={p.id} className="host-player">
+                  <Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={28} />
+                  <span className="grow">
+                    {p.display_name}
+                    {p.first_timer && <span className="player-ft">NEW</span>}
+                    {playerScope === 'all' && !inEv && <span className="muted small"> · not in active event</span>}
+                  </span>
+                  <span className="muted small">
+                    {n} game{n === 1 ? '' : 's'}{tot > n ? ` (${tot} all-time)` : ''}
+                  </span>
+                  {playerScope === 'all' && !inEv && party?.current_event_id && (
+                    <button className="ghost" disabled={busy} onClick={() => run(() => host.setEntry(party.current_event_id, p.id, true), `Added ${p.display_name} to ${event?.name || 'event'}.`)}>
+                      + Add to event
+                    </button>
+                  )}
+                  <button className="ghost" disabled={busy} onClick={() => {
+                    const pin = prompt(`New 4-digit PIN for ${p.display_name} (numbers only):`);
+                    if (pin == null) return;
+                    if (!/^\d{4}$/.test(pin.trim())) { flash('⚠ The PIN has to be exactly 4 numbers.'); return; }
+                    run(() => host.resetPin(p.id, pin.trim()), `PIN reset. Tell ${p.display_name} their new PIN is ${pin.trim()}.`);
+                  }}>Reset PIN</button>
+                  <button className="ghost danger" disabled={busy} onClick={() => {
+                    if (!confirm(`Delete permanent account "${p.display_name}"${tot ? ` and all ${tot} of their score${tot === 1 ? '' : 's'} across every event` : ''}? This can't be undone.`)) return;
+                    run(() => host.removePlayer(p.id), `${p.display_name} removed.`);
+                  }}>Remove</button>
+                </div>
+              );
+            })}
           {players.length === 0 && <div className="muted small">No one has joined yet.</div>}
         </div>
       </section>
@@ -194,13 +236,12 @@ function HostPanel({ onLogout }) {
       <EndOfNight party={party} event={event} open={open} busy={busy} run={run} />
 
       <h2 className="host-section">Setup (before the party)</h2>
-      <HostEvents run={run} busy={busy} />
       <section className="card">
         <h2>Scanner setup</h2>
         <p className="muted small">Technical: tests the score camera on each machine. Matt's job.</p>
         <Link className="ghost" to="/host/test">Open scanner setup</Link>
       </section>
-      <CleanupCard players={players} scores={scores} busy={busy} run={run} />
+      <CleanupCard players={players} scores={scores} event={event} busy={busy} run={run} />
 
       {toast && <div className={`host-toast${toast.startsWith('⚠') ? ' err' : ''}`} onClick={() => setToast('')}>{toast}</div>}
     </div>
@@ -208,7 +249,7 @@ function HostPanel({ onLogout }) {
 }
 
 // Big obvious way into the guest list, with the numbers that matter.
-function GuestsCard({ eventId }) {
+function GuestsCard({ eventId, eventName }) {
   const [g, setG] = useState(null);
   useEffect(() => { if (eventId) host.invites(eventId).then(setG).catch(() => setG(null)); }, [eventId]);
   const paid = g?.filter(x => x.paid).length ?? 0;
@@ -217,7 +258,7 @@ function GuestsCard({ eventId }) {
   return (
     <Link to={`/host/guests${eventId ? `?event=${eventId}` : ''}`} className="card host-guests-card">
       <div>
-        <h2>Guest list &amp; emails →</h2>
+        <h2>Guest list &amp; emails{eventName ? ` (${eventName})` : ''} →</h2>
         <div className="muted small">
           {g ? `${g.length} guests · ${paid} paid · ${joined} signed up${unsent ? ` · ${unsent} not emailed yet` : ''}` : 'Contact info, paid, RSVPs, invites and updates'}
         </div>
@@ -326,14 +367,14 @@ function AddScore({ players, machines, busy, run }) {
   );
 }
 
-// Before the party: clear test scores but keep everyone who already signed up.
-function CleanupCard({ players, scores, busy, run }) {
+// Before the party: clear test scores for the active event but keep everyone who already signed up and past events.
+function CleanupCard({ players, scores, event, busy, run }) {
   const [txt, setTxt] = useState('');
   const [wipe, setWipe] = useState('');
   return (
     <section className="card danger-card">
-      <h2>Clear test scores</h2>
-      <p className="muted small">Deletes all {scores.length} scores so the party starts at zero. Players, the guest list and emails are kept. Remove test players one by one in Players above. Type CLEAR to confirm.</p>
+      <h2>Clear test scores ({event?.name || 'active event'})</h2>
+      <p className="muted small">Deletes all {scores.length} score{scores.length === 1 ? '' : 's'} in <b>{event?.name || 'this event'}</b> so the tournament starts at zero. Past events, permanent player accounts, the guest list, and emails are all kept. Type CLEAR to confirm.</p>
       <div className="row gap">
         <input value={txt} onChange={e => setTxt(e.target.value.toUpperCase())} placeholder="CLEAR" />
         <button className="ghost danger" disabled={busy || txt !== 'CLEAR'}

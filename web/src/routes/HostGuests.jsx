@@ -160,13 +160,16 @@ export default function HostGuests() {
     <div className="gm">
       <div className="gm-head">
         <div>
-          <Link to="/host" className="gm-back">← Host</Link>
+          <Link to="/host" className="gm-back">← Host &amp; events</Link>
           <h1>Guests</h1>
-          {events.length > 1 ? (
-            <select value={eventId || ''} onChange={e => setParams({ event: e.target.value })} className="gm-event">
-              {events.map(e => <option key={e.id} value={e.id}>{e.name}{e.id === party?.current_event_id ? ' (live)' : ''}</option>)}
-            </select>
-          ) : <div className="gm-sub">{event?.name}</div>}
+          <div className="gm-event-bar">
+            {events.length > 1 ? (
+              <select value={eventId || ''} onChange={e => setParams({ event: e.target.value })} className="gm-event">
+                {events.map(e => <option key={e.id} value={e.id}>{e.name}{e.id === party?.current_event_id ? ' (active)' : ''}</option>)}
+              </select>
+            ) : <div className="gm-sub">{event?.name}{event?.id === party?.current_event_id ? ' (active event)' : ''}</div>}
+            <Link to="/host" className="gm-manage-events">Switch / + New event →</Link>
+          </div>
         </div>
         <div className="gm-actions">
           <button type="button" className="gm-btn" onClick={exportCsv} disabled={!list.length}>Export CSV</button>

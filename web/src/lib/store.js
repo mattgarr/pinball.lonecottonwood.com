@@ -192,21 +192,29 @@ export function useParty() {
   return useSyncExternalStore(subscribe, () => state);
 }
 
-// Players in this event: entered, or with a score here.
-function eventPlayers(s) {
-  if (!s.entrantIds?.size) return s.players;
-  const scored = new Set(s.scores.map(x => x.player_id));
-  return s.players.filter(p => s.entrantIds.has(p.id) || scored.has(p.id));
+// Players in an event: entered in event_entries, or with a score in that event.
+function playersForEvent(allPlayers, entrantIds, eventScores, fallbackAll = true) {
+  const scored = new Set(eventScores.map(x => x.player_id));
+  if (!entrantIds?.size && !scored.size) return fallbackAll ? allPlayers : [];
+  return allPlayers.filter(p => entrantIds.has(p.id) || scored.has(p.id));
 }
 
-export function useStandings() {
+export function useStandings(targetEventId = null) {
   const s = useParty();
-  const players = useMemo(() => eventPlayers(s), [s.players, s.entrantIds, s.scores]); // eslint-disable-line react-hooks/exhaustive-deps
-  const standings = useMemo(
-    () => computeStandings({ machines: s.machines, players, scores: s.scores }),
-    [s.machines, players, s.scores],
-  );
-  return { ...s, standings };
+  return useMemo(() => {
+    const evId = targetEventId != null ? Number(targetEventId) : s.party?.current_event_id ?? null;
+    if (evId === s.party?.current_event_id || evId == null) {
+      const evPlayers = playersForEvent(s.players, s.entrantIds, s.scores, true);
+      return { ...s, eventPlayers: evPlayers, standings: computeStandings({ machines: s.machines, players: evPlayers, scores: s.scores }) };
+    }
+    const event = s.events.find(e => e.id === evId) || null;
+    const inEvent = new Set(s.eventMachines.filter(x => x.event_id === evId).map(x => x.machine_id));
+    const machines = !inEvent.size ? s.allMachines : s.allMachines.filter(m => inEvent.has(m.id));
+    const scores = s.allScores.filter(x => x.event_id === evId);
+    const entrantIds = new Set(s.entries.filter(x => x.event_id === evId).map(x => x.player_id));
+    const evPlayers = playersForEvent(s.players, entrantIds, scores, false);
+    return { ...s, event, machines, scores, entrantIds, eventPlayers: evPlayers, standings: computeStandings({ machines, players: evPlayers, scores }) };
+  }, [s, targetEventId]);
 }
 
 // Every event together: all machines, all scores, everyone.
@@ -331,6 +339,18 @@ export const actions = {
     await rpc('set_my_avatar', { p_token: getToken(), p_avatar: dataUrl });
     patchAvatar(state.me?.id, dataUrl);
   },
+  // Enter a specific tournament (or the active one) with my permanent player account.
+  async enterEvent(eventId = null) {
+    const evId = eventId ?? state.party?.current_event_id;
+    if (!evId || !state.me) return;
+    const { error } = await sb.rpc('enter_event', { p_token: getToken(), p_event_id: evId });
+    if (error && evId === state.party?.current_event_id) {
+      await rpc('enter_current_event', { p_token: getToken() });
+    } else if (error) throw new Error(error.message);
+    if (!state.entries.some(x => x.event_id === evId && x.player_id === state.me?.id)) {
+      set({ entries: [...state.entries, { event_id: evId, player_id: state.me.id }] });
+    }
+  },
 };
 
 // Ticket links this phone has used, per player (backup for actions.myTicket).
@@ -386,6 +406,13 @@ export const host = {
     hostCall('host_save_event', { p_event_id: id, p_name: name, p_starts_on: startsOn || null, p_machine_ids: machineIds, p_make_current: makeCurrent }),
   setCurrentEvent: id => hostCall('host_set_current_event', { p_event_id: id }),
   deleteEvent: (id, confirm) => hostCall('host_delete_event', { p_event_id: id, p_confirm: confirm }),
+  setEntry: async (eventId, playerId, entered = true) => {
+    await hostCall('host_set_entry', { p_event_id: eventId, p_player_id: playerId, p_in: entered });
+    const next = entered
+      ? (state.entries.some(x => x.event_id === eventId && x.player_id === playerId) ? state.entries : [...state.entries, { event_id: eventId, player_id: playerId }])
+      : state.entries.filter(x => !(x.event_id === eventId && x.player_id === playerId));
+    set({ entries: next });
+  },
   addInvites: (eventId, lines, paid = false) => hostCall('host_add_invites', { p_event_id: eventId, p_lines: lines, p_paid: paid }),
   setInvitePaid: (id, paid) => hostCall('host_set_invite_paid', { p_invite_id: id, p_paid: paid }),
   saveGuest: (eventId, g) => hostCall('host_save_guest', {
