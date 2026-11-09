@@ -12,7 +12,7 @@ export default function Guide() {
 
   return (
     <div className="screen guide">
-      <Link className="back" to={`/machine/${id}`}>← Back</Link>
+      <Link className="back" to={`/machine/${id}`}>← Back to machine</Link>
       {!ready ? <div className="muted">Loading…</div>
         : md ? <article className="markdown"><ReactMarkdown>{md}</ReactMarkdown></article>
         : <div className="err">No guide for this machine yet.</div>}

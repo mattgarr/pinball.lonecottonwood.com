@@ -10,7 +10,7 @@ export default function HostQR() {
     <div className="qr-sheet">
       <div className="qr-sheet-join">
         <div>
-          <div className="qr-sheet-big">Pinball Wizard</div>
+          <div className="qr-sheet-big">The Ultimate Woodside Pinball Tournament</div>
           <div className="qr-sheet-sub">Scan to join, log scores, and see where you stand.</div>
           <div className="qr-sheet-url">{host}</div>
         </div>

@@ -1,6 +1,4 @@
-# How to play
-
-*Pinball in 30 seconds.*
+# Pinball in 30 seconds
 
 Pull the plunger. Two buttons work the flippers. Keep the ball alive. **3 balls per game.** When all 3 drain, your score is final.
 
@@ -12,7 +10,7 @@ Pull the plunger. Two buttons work the flippers. Keep the ball alive. **3 balls 
 - **Nudge, don't shove.** Too hard and it **tilts**: you lose the ball.
 - **Lost? Shoot whatever's blinking.**
 
-Every ball counts toward the leaderboard. Play loose. Some prizes have nothing to do with being good.
+Only your best game on each machine counts for your rating, so play loose. Some prizes have nothing to do with being good.
 
 ---
 *Sources: IPDB, Pinside, Wikipedia, Kineticist and the makers, summarized in our own words.*

@@ -19,7 +19,7 @@ export default function Ticker({ scores, players, machines, n = 8 }) {
 
   return (
     <div className="tk">
-      <div className="tk-label"><span className="tk-live" />LATEST</div>
+      <div className="tk-label"><span className="tk-live" />SCORES</div>
       <ul className="tk-list">
         {items.length ? items.map(s => (
           <li key={s.id} className="tk-chip" style={{ '--glow': machineGlow(s.machine.name) }}>

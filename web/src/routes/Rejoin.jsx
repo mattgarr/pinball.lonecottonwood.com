@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { actions, useParty } from '../lib/store.js';
 import Avatar from '../components/Avatar.jsx';
+import { friendlyError } from '../lib/errors.js';
 
 export default function Rejoin() {
   const { players, ready } = useParty();
   const [params] = useSearchParams();
   const next = params.get('next') || '/';
+  const invite = params.get('invite');
   const [q, setQ] = useState('');
   const [picked, setPicked] = useState(null);
   const [pin, setPin] = useState('');
@@ -32,8 +34,10 @@ export default function Rejoin() {
     setBusy(true); setErr('');
     try {
       await actions.rejoin(picked.id, pin);
+      // Came from an invite link: link it to this player (best effort).
+      if (invite) await actions.claimInvite(invite, false).catch(() => {});
       nav(next, { replace: true });
-    } catch (e) { setErr(e.message); setPin(''); }
+    } catch (e) { setErr(friendlyError(e)); setPin(''); }
     finally { setBusy(false); }
   }
 
@@ -62,7 +66,7 @@ export default function Rejoin() {
         <div className="actionbar">
           <button className="cta" disabled={busy || pin.length !== 4} type="submit">{busy ? 'Checking…' : 'Get back in'}</button>
         </div>
-        <p className="muted small">Forgot it? The host can reset it.</p>
+        <p className="muted small">Forgot it? Find the host — they can reset it in seconds.</p>
       </form>
     );
   }
@@ -76,7 +80,7 @@ export default function Rejoin() {
       </label>
       <div className="pick-list">
         {!ready && <div className="muted">Loading…</div>}
-        {ready && list.length === 0 && <div className="muted">No one by that name.</div>}
+        {ready && list.length === 0 && <div className="muted">No one by that name. New here? Join instead (below).</div>}
         {list.map(p => (
           <button key={p.id} className="pick-row" onClick={() => setPicked(p)}>
             <Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={34} />
@@ -84,7 +88,7 @@ export default function Rejoin() {
           </button>
         ))}
       </div>
-      <Link to="/join" className="muted small center-text">New here? <span className="link">Join instead</span></Link>
+      <Link to={`/join${params.toString() ? `?${params.toString()}` : ''}`} className="muted small center-text">New here? <span className="link">Join instead</span></Link>
     </div>
   );
 }

@@ -1,9 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getHostPass, host, photoUrl, setHostPass, useParty } from '../lib/store.js';
 import { fmt } from '../lib/scoring.js';
+import { emailResults } from '../lib/emailResults.js';
 import Avatar from '../components/Avatar.jsx';
 import PixelEmoji from '../components/PixelEmoji.jsx';
+import { hostPixelize } from '../lib/pixelAvatar.js';
+import HostEvents from '../components/HostEvents.jsx';
+
+const SITE_HOST = 'pinball.lonecottonwood.com';
 
 export default function Host() {
   const [authed, setAuthed] = useState(!!getHostPass());
@@ -19,28 +24,28 @@ function HostLogin({ onAuth }) {
     e.preventDefault();
     setBusy(true); setErr('');
     try {
-      if (!(await host.check(pass.trim()))) { setErr('Wrong passcode.'); return; }
+      if (!(await host.check(pass.trim()))) { setErr('That passcode is not right. Check for typos.'); return; }
       setHostPass(pass.trim());
       onAuth();
-    } catch (e) { setErr(e.message); }
+    } catch { setErr('No connection. Check Wi-Fi and try again.'); }
     finally { setBusy(false); }
   }
   return (
     <form className="screen form" onSubmit={submit}>
       <h1>Host</h1>
-      <p className="muted">Enter passcode.</p>
+      <p className="muted">For the people running the party. Enter the host passcode.</p>
       <input autoFocus type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="passcode" autoComplete="current-password" />
       {err && <div className="err">{err}</div>}
       <button className="primary big" disabled={busy} type="submit">Unlock</button>
+      <p className="muted small">Only unlock on your own phone or laptop. Tap Lock when you're done on a shared device.</p>
     </form>
   );
 }
 
 function HostPanel({ onLogout }) {
-  const { party, players, machines, scores } = useParty();
+  const { party, players, machines, scores, event } = useParty();
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState('');
-  const [matchDigits, setMatchDigits] = useState('');
+  const [toast, setToast] = useState('');
   const [filter, setFilter] = useState('');
 
   const playerById = useMemo(() => new Map(players.map(p => [p.id, p])), [players]);
@@ -51,12 +56,13 @@ function HostPanel({ onLogout }) {
     return c;
   }, [scores]);
 
+  function flash(t, ms = 4000) { setToast(t); clearTimeout(flash.t); if (ms) flash.t = setTimeout(() => setToast(''), ms); }
   async function run(fn, done) {
-    setBusy(true); setMsg('');
-    try { await fn(); if (done) setMsg(done); }
+    setBusy(true);
+    try { const res = await fn(); if (done) flash(typeof done === 'function' ? done(res) : done); return res; }
     catch (e) {
       if (/passcode/i.test(e.message)) { onLogout(); return; }
-      setMsg(`⚠️ ${e.message}`);
+      flash(/fetch|load failed|network/i.test(e.message) ? '⚠ No connection. Nothing changed. Try again.' : `⚠ ${e.message}`, 7000);
     }
     finally { setBusy(false); }
   }
@@ -71,47 +77,40 @@ function HostPanel({ onLogout }) {
   }, [scores, filter, playerById, machineById]);
 
   const open = party?.status === 'open';
+  const liveScores = scores.filter(s => !s.voided).length;
 
   return (
     <div className="screen host">
       <div className="row spread">
-        <h1>Host</h1>
+        <div>
+          <h1>Host</h1>
+          <div className="muted small">{event ? `${event.name}${event.starts_on ? ' · ' + new Date(`${event.starts_on}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''}` : 'No event yet'}</div>
+        </div>
         <button className="ghost" onClick={onLogout}>Lock</button>
       </div>
-      {msg && <div className={msg.startsWith('⚠️') ? 'err' : 'ok'}>{msg}</div>}
+
+      <GuestsCard eventId={party?.current_event_id} />
+
+      <h2 className="host-section">Party night</h2>
 
       <section className="card">
-        <div className="row spread">
-          <div>
-            <h2>Scoring {open ? 'OPEN' : 'CLOSED'}</h2>
-            <div className="muted small">{players.length} players · {scores.filter(s => !s.voided).length} scores</div>
-          </div>
-          <button className={open ? 'secondary' : 'primary'} disabled={busy || !party}
-            onClick={() => run(() => host.setStatus(open ? 'closed' : 'open'), open ? 'Scoring closed.' : 'Scoring reopened.')}>
-            {open ? 'Close it' : 'Reopen'}
-          </button>
-        </div>
-        <div className="row gap">
-          <a className="ghost" href="/tv" target="_blank" rel="noreferrer">TV board ↗</a>
-          <a className="ghost" href="/host/qr" target="_blank" rel="noreferrer">QR sheet ↗</a>
-          <Link className="ghost" to="/host/test">🧪 Calibrate scanner</Link>
-        </div>
+        <h2>Scores are {open ? 'ON' : 'OFF'}</h2>
+        <p className="muted small">{open ? 'Guests can log scores right now.' : "Guests can't log scores right now."} {liveScores} score{liveScores === 1 ? '' : 's'} so far.</p>
+        <button className={open ? 'secondary' : 'primary'} disabled={busy || !party}
+          onClick={() => {
+            if (open && !confirm('Stop accepting scores? Guests will see that scoring is closed. You can turn it back on.')) return;
+            run(() => host.setStatus(open ? 'closed' : 'open'), open ? 'Scores are OFF.' : 'Scores are ON. Guests can log.');
+          }}>
+          {open ? 'Stop accepting scores' : 'Start accepting scores'}
+        </button>
       </section>
 
       <section className="card">
-        <h2>Winner reveal</h2>
-        <p className="muted small">Takes over the TV. Close scoring first.</p>
-        <label className="field">
-          <span>The Match draw, 00–99 (optional)</span>
-          <input type="number" min="0" max="99" value={matchDigits} onChange={e => setMatchDigits(e.target.value)} placeholder="e.g. 42" />
-        </label>
+        <h2>The TV</h2>
+        <p className="muted small">On the TV's web browser, go to <b>{SITE_HOST}/tv</b>. Then click once anywhere on it to turn on the sound.</p>
         <div className="row gap">
-          {!party?.reveal_active ? (
-            <button className="primary big" disabled={busy}
-              onClick={() => run(() => host.reveal(true, matchDigits === '' ? null : Number(matchDigits)), 'Reveal is on the TV.')}>🎉 Start reveal</button>
-          ) : (
-            <button className="secondary big" disabled={busy} onClick={() => run(() => host.reveal(false), 'Back to the leaderboard.')}>End reveal</button>
-          )}
+          <a className="ghost" href="/tv" target="_blank" rel="noreferrer">Open TV board ↗</a>
+          <a className="ghost" href="/host/qr" target="_blank" rel="noreferrer">Print machine QR codes ↗</a>
         </div>
       </section>
 
@@ -121,26 +120,27 @@ function HostPanel({ onLogout }) {
 
       <section className="card">
         <div className="row spread">
-          <h2>Scores</h2>
-          <input className="host-filter" value={filter} onChange={e => setFilter(e.target.value)} placeholder="filter" />
+          <h2>All scores</h2>
+          <input className="host-filter" value={filter} onChange={e => setFilter(e.target.value)} placeholder="search name or machine" />
         </div>
+        <p className="muted small">Wrong or fake score? Tap Remove. You can undo that with Restore.</p>
         <div className="table-wrap">
           <table className="host-table">
             <thead><tr><th>When</th><th>Player</th><th>Machine</th><th className="ralign">Score</th><th></th></tr></thead>
             <tbody>
-              {shown.length === 0 && <tr><td colSpan={5} className="muted">No scores.</td></tr>}
+              {shown.length === 0 && <tr><td colSpan={5} className="muted">No scores yet.</td></tr>}
               {shown.map(s => {
                 const p = playerById.get(s.player_id);
                 return (
                   <tr key={s.id} className={s.voided ? 'voided' : ''}>
                     <td className="muted small">{new Date(s.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</td>
-                    <td>{p?.emoji} {p?.display_name ?? '?'}{s.logged_by ? <span className="muted small"> by {playerById.get(s.logged_by)?.display_name ?? '?'}</span> : null}</td>
-                    <td>{machineById.get(s.machine_id)?.name}{s.photo_path ? <> <a href={photoUrl(s.photo_path)} target="_blank" rel="noreferrer" title="proof photo"><PixelEmoji e="📸" size={22} /></a></> : null}</td>
+                    <td>{p?.emoji ? <PixelEmoji e={p.emoji} size={16} /> : null} {p?.display_name ?? '?'}{s.logged_by ? <span className="muted small"> (logged by {playerById.get(s.logged_by)?.display_name ?? '?'})</span> : null}</td>
+                    <td>{machineById.get(s.machine_id)?.name}{s.photo_path ? <> <a href={photoUrl(s.photo_path)} target="_blank" rel="noreferrer" title="photo of the score"><PixelEmoji e="📸" size={22} /></a></> : null}</td>
                     <td className="ralign mono">{fmt(s.value)}</td>
                     <td>
                       {s.voided
-                        ? <button className="ghost" disabled={busy} onClick={() => run(() => host.voidScore(s.id, false))}>Restore</button>
-                        : <button className="ghost danger" disabled={busy} onClick={() => run(() => host.voidScore(s.id, true))}>Void</button>}
+                        ? <button className="ghost" disabled={busy} onClick={() => run(() => host.voidScore(s.id, false), 'Score restored.')}>Restore</button>
+                        : <button className="ghost danger" disabled={busy} onClick={() => run(() => host.voidScore(s.id, true), `Removed ${p?.display_name ?? ''}'s ${fmt(s.value)}. Tap Restore to undo.`)}>Remove</button>}
                     </td>
                   </tr>
                 );
@@ -152,29 +152,125 @@ function HostPanel({ onLogout }) {
 
       <section className="card">
         <h2>Players</h2>
+        <p className="muted small">Someone forgot their PIN? Tap Reset PIN. Someone joined twice? Remove the copy with fewer games.</p>
+        {players.some(p => p.avatar?.startsWith('data:image/jpeg')) && (
+          <button className="ghost" disabled={busy} onClick={() => run(async () => {
+            const todo = players.filter(p => p.avatar?.startsWith('data:image/jpeg'));
+            let ok = 0;
+            for (let i = 0; i < todo.length; i += 3) {
+              flash(`Drawing ${i + 1}–${Math.min(i + 3, todo.length)} of ${todo.length}…`, 0);
+              const r = await Promise.allSettled(todo.slice(i, i + 3).map(p => hostPixelize(p.id)));
+              ok += r.filter(x => x.status === 'fulfilled').length;
+            }
+            return ok;
+          }, ok => `8-bit portraits: ${ok} done.`)}>Turn selfies into 8-bit portraits</button>
+        )}
         <div className="host-players">
-          {[...players].sort((a, b) => a.display_name.localeCompare(b.display_name)).map(p => (
-            <div key={p.id} className="host-player">
-              <Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={28} />
-              <span className="grow">{p.display_name}{p.first_timer && <span className="player-ft">NEW</span>}</span>
-              <span className="muted small">{plays.get(p.id) || 0} game{plays.get(p.id) === 1 ? '' : 's'}</span>
-              <button className="ghost" disabled={busy} onClick={() => {
-                const pin = prompt(`New 4-digit PIN for ${p.display_name}:`);
-                if (pin == null) return;
-                run(() => host.resetPin(p.id, pin.trim()), `PIN reset for ${p.display_name}. Tell them it's ${pin.trim()}.`);
-              }}>PIN</button>
-              <button className="ghost danger" disabled={busy} onClick={() => {
-                if (!confirm(`Remove ${p.display_name} and all their scores? This can't be undone.`)) return;
-                run(() => host.removePlayer(p.id), `${p.display_name} removed.`);
-              }}>Remove</button>
-            </div>
-          ))}
-          {players.length === 0 && <div className="muted small">No one yet.</div>}
+          {[...players].sort((a, b) => a.display_name.localeCompare(b.display_name)).map(p => {
+            const n = plays.get(p.id) || 0;
+            return (
+              <div key={p.id} className="host-player">
+                <Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={28} />
+                <span className="grow">{p.display_name}{p.first_timer && <span className="player-ft">NEW</span>}</span>
+                <span className="muted small">{n} game{n === 1 ? '' : 's'}</span>
+                <button className="ghost" disabled={busy} onClick={() => {
+                  const pin = prompt(`New 4-digit PIN for ${p.display_name} (numbers only):`);
+                  if (pin == null) return;
+                  if (!/^\d{4}$/.test(pin.trim())) { flash('⚠ The PIN has to be exactly 4 numbers.'); return; }
+                  run(() => host.resetPin(p.id, pin.trim()), `PIN reset. Tell ${p.display_name} their new PIN is ${pin.trim()}.`);
+                }}>Reset PIN</button>
+                <button className="ghost danger" disabled={busy} onClick={() => {
+                  if (!confirm(`Remove ${p.display_name}${n ? ` and their ${n} score${n === 1 ? '' : 's'}` : ''}? This can't be undone.${n ? '\n\nIf this is a duplicate, add those scores to the right player first (Add a score).' : ''}`)) return;
+                  run(() => host.removePlayer(p.id), `${p.display_name} removed.`);
+                }}>Remove</button>
+              </div>
+            );
+          })}
+          {players.length === 0 && <div className="muted small">No one has joined yet.</div>}
         </div>
       </section>
 
-      <WipeCard busy={busy} run={run} />
+      <h2 className="host-section">End of the night</h2>
+      <EndOfNight party={party} event={event} open={open} busy={busy} run={run} />
+
+      <h2 className="host-section">Setup (before the party)</h2>
+      <HostEvents run={run} busy={busy} />
+      <section className="card">
+        <h2>Scanner setup</h2>
+        <p className="muted small">Technical: tests the score camera on each machine. Matt's job.</p>
+        <Link className="ghost" to="/host/test">Open scanner setup</Link>
+      </section>
+      <CleanupCard players={players} scores={scores} busy={busy} run={run} />
+
+      {toast && <div className={`host-toast${toast.startsWith('⚠') ? ' err' : ''}`} onClick={() => setToast('')}>{toast}</div>}
     </div>
+  );
+}
+
+// Big obvious way into the guest list, with the numbers that matter.
+function GuestsCard({ eventId }) {
+  const [g, setG] = useState(null);
+  useEffect(() => { if (eventId) host.invites(eventId).then(setG).catch(() => setG(null)); }, [eventId]);
+  const paid = g?.filter(x => x.paid).length ?? 0;
+  const unsent = g?.filter(x => (x.paid ? !x.register_sent_at : !x.invited_at)).length ?? 0;
+  const joined = g?.filter(x => x.player_id).length ?? 0;
+  return (
+    <Link to={`/host/guests${eventId ? `?event=${eventId}` : ''}`} className="card host-guests-card">
+      <div>
+        <h2>Guest list &amp; emails →</h2>
+        <div className="muted small">
+          {g ? `${g.length} guests · ${paid} paid · ${joined} signed up${unsent ? ` · ${unsent} not emailed yet` : ''}` : 'Contact info, paid, RSVPs, invites and updates'}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function EndOfNight({ party, event, open, busy, run }) {
+  const [matchDigits, setMatchDigits] = useState('');
+  const revealing = !!party?.reveal_active;
+  return (
+    <section className="card">
+      <ol className="host-steps">
+        <li className={open ? '' : 'done'}>
+          <b>Stop scores.</b> {open
+            ? <button className="secondary" disabled={busy} onClick={() => run(() => host.setStatus('closed'), 'Scores are OFF.')}>Stop accepting scores</button>
+            : <span className="muted small">Done: scores are off.</span>}
+        </li>
+        <li>
+          <b>Reveal the winners on the TV.</b>
+          <label className="field">
+            <span>The Match (optional): someone draws a number from 00 to 99. The score whose last two digits are closest to it wins.</span>
+            <input type="number" min="0" max="99" value={matchDigits} onChange={e => setMatchDigits(e.target.value)} placeholder="e.g. 42" />
+          </label>
+          {!revealing ? (
+            <button className="primary big" disabled={busy} onClick={() => {
+              if (open && !confirm('Scores are still ON. Stop scores and start the reveal?')) return;
+              run(async () => {
+                if (open) await host.setStatus('closed');
+                await host.reveal(true, matchDigits === '' ? null : Number(matchDigits));
+              }, 'The reveal is playing on the TV.');
+            }}>🎉 Start the reveal</button>
+          ) : (
+            <button className="secondary big" disabled={busy} onClick={() => run(() => host.reveal(false), 'TV is back to the leaderboard.')}>End the reveal</button>
+          )}
+        </li>
+        <li>
+          <b>Email everyone their results.</b> <span className="muted small">Only players who ticked "email me results" get one.</span>
+          {event?.results_sent_at && <div className="muted small">Already sent {new Date(event.results_sent_at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}.</div>}
+          <button className="ghost" disabled={busy || open || !event} onClick={() => {
+            if (event.results_sent_at && !confirm('Results were ALREADY emailed once. Send them again to everyone?')) return;
+            if (!event.results_sent_at && !confirm('Email final results now to every player who asked for them?')) return;
+            run(() => emailResults(event.id), r => `Results emailed to ${r?.sent ?? 0} player${r?.sent === 1 ? '' : 's'}${r?.skipped ? ` (${r.skipped} didn't want email)` : ''}.`);
+          }}>{open ? 'Stop scores first' : 'Email results'}</button>
+          <button className="ghost" disabled={busy || !event} onClick={() => {
+            const to = prompt('Send a sample to which email? (Uses the current #1 player\'s results. No guest gets anything.)');
+            if (!to?.trim()) return;
+            run(() => emailResults(event.id, { testTo: to.trim() }), `Sample sent to ${to.trim()}.`);
+          }}>Send me a sample</button>
+        </li>
+      </ol>
+    </section>
   );
 }
 
@@ -184,8 +280,8 @@ function ReviewQueue({ scores, playerById, machineById, busy, run }) {
   if (!queue.length) return null;
   return (
     <section className="card review-card">
-      <h2>Check these ({queue.length})</h2>
-      <p className="muted small">New #1s with no photo, or logged by a friend.</p>
+      <h2>Double-check these ({queue.length})</h2>
+      <p className="muted small">New #1 scores with no photo, or scores someone logged for a friend. Looks right? Tap OK.</p>
       {queue.map(s => {
         const p = playerById.get(s.player_id);
         return (
@@ -196,7 +292,7 @@ function ReviewQueue({ scores, playerById, machineById, busy, run }) {
               {s.photo_path ? <> · <a className="link" href={photoUrl(s.photo_path)} target="_blank" rel="noreferrer">photo</a></> : null}
             </span>
             <button className="ghost" disabled={busy} onClick={() => run(() => host.markReviewed(s.id), 'Marked OK.')}>OK</button>
-            <button className="ghost danger" disabled={busy} onClick={() => run(() => host.voidScore(s.id, true), 'Score voided.')}>Void</button>
+            <button className="ghost danger" disabled={busy} onClick={() => run(() => host.voidScore(s.id, true), 'Score removed.')}>Remove</button>
           </div>
         );
       })}
@@ -211,8 +307,8 @@ function AddScore({ players, machines, busy, run }) {
   const ok = pid && mid && /^\d+$/.test(val);
   return (
     <section className="card">
-      <h2>Add a score</h2>
-      <p className="muted small">For a dead phone.</p>
+      <h2>Add or fix a score</h2>
+      <p className="muted small">Phone died? Add it here. Wrong number? Remove it in "All scores" below, then add the right one here.</p>
       <div className="host-add">
         <select value={pid} onChange={e => setPid(e.target.value)}>
           <option value="">Player…</option>
@@ -230,17 +326,28 @@ function AddScore({ players, machines, busy, run }) {
   );
 }
 
-function WipeCard({ busy, run }) {
+// Before the party: clear test scores but keep everyone who already signed up.
+function CleanupCard({ players, scores, busy, run }) {
   const [txt, setTxt] = useState('');
+  const [wipe, setWipe] = useState('');
   return (
     <section className="card danger-card">
-      <h2>Start fresh</h2>
-      <p className="muted small">Deletes ALL players and scores. Type WIPE.</p>
+      <h2>Clear test scores</h2>
+      <p className="muted small">Deletes all {scores.length} scores so the party starts at zero. Players, the guest list and emails are kept. Remove test players one by one in Players above. Type CLEAR to confirm.</p>
       <div className="row gap">
-        <input value={txt} onChange={e => setTxt(e.target.value)} placeholder="WIPE" />
-        <button className="ghost danger" disabled={busy || txt !== 'WIPE'}
-          onClick={() => run(async () => { await host.wipe(txt); setTxt(''); }, 'Everything cleared.')}>Wipe all</button>
+        <input value={txt} onChange={e => setTxt(e.target.value.toUpperCase())} placeholder="CLEAR" />
+        <button className="ghost danger" disabled={busy || txt !== 'CLEAR'}
+          onClick={() => run(async () => { const n = await host.clearScores(txt); setTxt(''); return n; }, n => `Cleared ${n ?? 0} scores. Players kept.`)}>Clear scores</button>
       </div>
+      <details className="host-advanced">
+        <summary>Emergency: erase everything</summary>
+        <p className="muted small">Deletes all {players.length} players (including real guests who already signed up: they'd have to sign up again) and all scores. Only for starting completely over. Type WIPE.</p>
+        <div className="row gap">
+          <input value={wipe} onChange={e => setWipe(e.target.value.toUpperCase())} placeholder="WIPE" />
+          <button className="ghost danger" disabled={busy || wipe !== 'WIPE'}
+            onClick={() => { if (confirm(`Really delete all ${players.length} players and every score?`)) run(async () => { await host.wipe(wipe); setWipe(''); }, 'Everything erased.'); }}>Erase everything</button>
+        </div>
+      </details>
     </section>
   );
 }

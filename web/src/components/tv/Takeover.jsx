@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Avatar from '../Avatar.jsx';
 import Confetti from '../Confetti.jsx';
+import PixelEmoji from '../PixelEmoji.jsx';
 import Backbox from './Backbox.jsx';
 import Dmd from './Dmd.jsx';
 import { fmt } from '../../lib/scoring.js';
@@ -25,8 +26,46 @@ export function useRamp(from, to, ms = 2200, delay = 600) {
   return v;
 }
 
-// Full-canvas "NEW HIGH SCORE" celebration. Mount with key={item.id}; calls onDone when finished.
-export default function Takeover({ item, onDone, queued = 0 }) {
+// Full-canvas celebration. Mount with key={item.id}; calls onDone when finished.
+export default function Takeover(props) {
+  return props.item.kind === 'leader' ? <LeaderTakeover {...props} /> : <RecordTakeover {...props} />;
+}
+
+// "NEW LEADER": someone took overall #1.
+function LeaderTakeover({ item, onDone, queued = 0 }) {
+  const [leaving, setLeaving] = useState(false);
+  const shown = useRamp(0, item.rating, 1800, 900);
+  const p = item.player;
+  useEffect(() => {
+    const a = setTimeout(() => setLeaving(true), TAKEOVER_MS - 550);
+    const b = setTimeout(onDone, TAKEOVER_MS);
+    return () => { clearTimeout(a); clearTimeout(b); };
+  }, [onDone]);
+  return (
+    <div className={`to to-leader${leaving ? ' out' : ''}`} style={{ '--glow': '#f8b800' }}>
+      <div className="to-shade" />
+      <div className="to-rays" />
+      <Confetti count={180} seed={item.rating * 7} />
+      <div className="to-marquee">
+        <span className="to-bulbs" />
+        <span className="to-title">NEW LEADER</span>
+        <span className="to-bulbs r" />
+      </div>
+      <div className="to-lead-body">
+        <div className="to-lead-crown"><PixelEmoji e="👑" size={96} grid={16} /></div>
+        <Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={200} ring />
+        <div className="to-pname to-lead-name">{p.display_name}</div>
+        <div className="to-lead-rating">RATING <Dmd ghost tone="hot" className="to-score" reserve="100">{shown}</Dmd></div>
+        <div className="to-sub">{item.prevPlayer ? <>took #1 from <b>{item.prevPlayer.display_name}</b></> : <>first player ranked #1</>}</div>
+      </div>
+      {queued > 0 && <div className="to-queued">+{queued} more</div>}
+      <div className="to-timer" style={{ animationDuration: `${TAKEOVER_MS}ms` }} />
+    </div>
+  );
+}
+
+// "NEW HIGH SCORE" on one machine.
+function RecordTakeover({ item, onDone, queued = 0 }) {
   const [leaving, setLeaving] = useState(false);
   const shown = useRamp(item.prevScore, item.score, 2300, 700);
   const p = item.player, m = item.machine;

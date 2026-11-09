@@ -5,7 +5,7 @@ import { MIN_TABLES, fmtShort, ordinal } from '../lib/scoring.js';
 import Avatar from '../components/Avatar.jsx';
 
 export default function Home() {
-  const { machines, me, standings, party } = useStandings();
+  const { machines, me, standings, party, event } = useStandings();
   const mine = me ? standings.stats.get(me.id) : null;
   const ranked = standings.meta.rankedPlayers;
   const closed = party?.status === 'closed';
@@ -13,7 +13,7 @@ export default function Home() {
   return (
     <div className="screen home">
       {mine && (
-        <Link to="/me" className="rating-strip" aria-label="My progress">
+        <Link to="/ranks" className="rating-strip" aria-label="My rank">
           <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={38} ring />
           <div className="rs-main">
             <div className="rs-label">{mine.rating != null ? 'Rating' : 'Get ranked'}</div>
@@ -22,7 +22,7 @@ export default function Home() {
                 <><span className="rs-num">{mine.rating}</span><span className="rs-rank">{ordinal(mine.rank)} of {ranked}</span></>
               ) : (
                 <span className="rs-todo">
-                  {mine.machinesPlayed === 0 ? 'PLAY ANY TABLE' : `${MIN_TABLES - mine.machinesPlayed} MORE TO RANK`}
+                  {mine.machinesPlayed === 0 ? 'PLAY ANY MACHINE' : `${MIN_TABLES - mine.machinesPlayed} MORE MACHINE${MIN_TABLES - mine.machinesPlayed === 1 ? '' : 'S'}`}
                 </span>
               )}
             </div>
@@ -40,8 +40,9 @@ export default function Home() {
       {closed && <div className="err">Scoring's closed. Finals on the TV.</div>}
 
       <div className="home-head">
+        {event && <div className="event-chip">{event.name}</div>}
         <h1>Pick your machine</h1>
-        <div className="muted small">New? <Link to="/about" className="link">How to play</Link></div>
+        <div className="muted small">First time here? <Link to="/about" className="link">How the party works</Link></div>
       </div>
 
       <div className="mgrid">
@@ -55,7 +56,7 @@ export default function Home() {
               {pm ? (
                 <span className={`mcard-badge${pm.rank === 1 ? ' gold' : ''}`}>{pm.rank === 1 ? '👑 1st' : `${ordinal(pm.rank)}/${pm.N}`}</span>
               ) : (
-                <span className="mcard-badge new">NEW</span>
+                <span className="mcard-badge new">PLAY ME!</span>
               )}
               <div className="mcard-text">
                 <div className="mcard-name">{m.name}</div>

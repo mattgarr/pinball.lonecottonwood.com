@@ -21,5 +21,5 @@ export function artFallback(e, name) {
 }
 
 // Short machine labels for tight spots (ticker chips).
-const SHORT = { 'dungeons-dragons': 'D&D', 'cactus-canyon': 'Cactus Canyon', 'white-water': 'White Water' };
+const SHORT = { 'dungeons-dragons': 'D&D', 'cactus-canyon': 'Cactus Canyon', 'white-water': 'Whitewater' };
 export const machineShort = name => SHORT[machineSlug(name)] || name;

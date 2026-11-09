@@ -16,8 +16,16 @@ const HOST_KEY = 'pw.host';
 const safe = fn => { try { return fn(); } catch { return null; } };
 export const getToken = () => safe(() => localStorage.getItem(TOKEN_KEY));
 export const setToken = t => safe(() => (t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY)));
-export const getHostPass = () => safe(() => localStorage.getItem(HOST_KEY));
-export const setHostPass = p => safe(() => (p ? localStorage.setItem(HOST_KEY, p) : localStorage.removeItem(HOST_KEY)));
+// The host unlock expires after 2 days, so a forgotten phone or laptop doesn't stay unlocked.
+const HOST_TTL = 2 * 24 * 3600 * 1000;
+export const getHostPass = () => safe(() => {
+  let v = null;
+  try { v = JSON.parse(localStorage.getItem(HOST_KEY) || 'null'); } catch { /* old plain-text format: drop it */ }
+  if (v?.p && Date.now() - v.t < HOST_TTL) return v.p;
+  localStorage.removeItem(HOST_KEY);
+  return null;
+});
+export const setHostPass = p => safe(() => (p ? localStorage.setItem(HOST_KEY, JSON.stringify({ p, t: Date.now() })) : localStorage.removeItem(HOST_KEY)));
 
 // ---------------------------------------------------------------------------
 // One shared, live copy of the whole party (it's small: ~40 players, a few
@@ -26,22 +34,45 @@ export const setHostPass = p => safe(() => (p ? localStorage.setItem(HOST_KEY, p
 let state = {
   ready: false,
   error: null,
-  machines: [],
-  players: [],
-  scores: [],
-  party: null,
+  // raw, across all events
+  allMachines: [],
+  allScores: [],
+  events: [],
+  eventMachines: [],
+  entries: [],
+  players: [],     // the permanent player database
+  party: null,     // live state of the current event (party.current_event_id)
+  // derived for the current event (see derive): event, machines, scores, entrantIds
   me: null,          // the player row for this phone, or null
   meChecked: false,  // finished checking the saved token
 };
 const listeners = new Set();
+// Screens see only the current event's machines and scores; the raw lists stay for all-time views.
+let memo = {};
+function derive(s) {
+  const evId = s.party?.current_event_id ?? null;
+  if (memo.allMachines !== s.allMachines || memo.allScores !== s.allScores || memo.events !== s.events
+      || memo.eventMachines !== s.eventMachines || memo.entries !== s.entries || memo.evId !== evId) {
+    const inEvent = new Set(s.eventMachines.filter(x => x.event_id === evId).map(x => x.machine_id));
+    memo = {
+      allMachines: s.allMachines, allScores: s.allScores, events: s.events, eventMachines: s.eventMachines, entries: s.entries, evId,
+      event: s.events.find(e => e.id === evId) || null,
+      machines: evId == null || !inEvent.size ? s.allMachines : s.allMachines.filter(m => inEvent.has(m.id)),
+      scores: evId == null ? s.allScores : s.allScores.filter(x => x.event_id === evId || x.event_id == null),
+      entrantIds: new Set(s.entries.filter(x => x.event_id === evId).map(x => x.player_id)),
+    };
+  }
+  return { ...s, event: memo.event, machines: memo.machines, scores: memo.scores, entrantIds: memo.entrantIds };
+}
+state = derive(state);
 function set(patch) {
-  state = { ...state, ...patch };
+  state = derive({ ...state, ...patch });
   listeners.forEach(l => l());
 }
 const subscribe = l => { listeners.add(l); return () => listeners.delete(l); };
 
 const PLAYER_COLS = 'id, display_name, emoji, color, avatar, first_timer, created_at';
-const SCORE_COLS = 'id, player_id, machine_id, value, voided, created_at, logged_by, photo_path, needs_review';
+const SCORE_COLS = 'id, player_id, machine_id, value, voided, created_at, logged_by, photo_path, needs_review, event_id';
 
 async function fetchAllScores() {
   const out = [];
@@ -64,16 +95,23 @@ export function refreshAll() {
   if (loading) return loading;
   loading = (async () => {
     try {
-      const [m, players, scores, p] = await Promise.all([
+      const [m, players, scores, p, ev, em, en] = await Promise.all([
         sb.from('machines').select('*').eq('active', true).order('sort_order'),
         fetchPlayers(),
         fetchAllScores(),
         sb.from('party').select('*').eq('id', 1).single(),
+        sb.from('events').select('*').order('starts_on', { ascending: false, nullsFirst: false }),
+        sb.from('event_machines').select('event_id, machine_id'),
+        sb.from('event_entries').select('event_id, player_id'),
       ]);
       if (m.error) throw m.error;
       if (p.error) throw p.error;
-      const me = state.me ? players.find(x => x.id === state.me.id) ?? null : state.me;
-      set({ ready: true, error: null, machines: m.data, players, scores, party: p.data, me });
+      const found = state.me ? players.find(x => x.id === state.me.id) ?? null : null;
+      const me = state.me ? (found ? { ...state.me, ...found } : null) : state.me;
+      set({
+        ready: true, error: null, allMachines: m.data, players, allScores: scores, party: p.data, me,
+        events: ev.data || [], eventMachines: em.data || [], entries: en.data || [],
+      });
       if (state.me && !me) { setToken(null); }
     } catch (e) {
       set({ error: e.message || String(e) });
@@ -104,9 +142,9 @@ function start() {
   sb.channel('party-live')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'scores' }, ev => {
       if (ev.eventType === 'INSERT') {
-        if (!state.scores.some(s => s.id === ev.new.id)) set({ scores: [...state.scores, ev.new] });
+        if (!state.allScores.some(s => s.id === ev.new.id)) set({ allScores: [...state.allScores, ev.new] });
       } else if (ev.eventType === 'UPDATE') {
-        set({ scores: state.scores.map(s => (s.id === ev.new.id ? { ...s, ...ev.new } : s)) });
+        set({ allScores: state.allScores.map(s => (s.id === ev.new.id ? { ...s, ...ev.new } : s)) });
       } else {
         refreshAll();
       }
@@ -114,13 +152,25 @@ function start() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => {
       // Re-read players (rows carry selfies, so we don't trust the realtime payload size).
       fetchPlayers().then(players => {
-        const me = state.me ? players.find(x => x.id === state.me.id) ?? null : null;
+        const found = state.me ? players.find(x => x.id === state.me.id) ?? null : null;
+        const me = state.me && found ? { ...state.me, ...found } : null;
         set({ players, me: state.me ? me : null });
         if (state.me && !me) setToken(null);
       }).catch(() => {});
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'party' }, ev => {
-      if (ev.new && ev.new.id === 1) set({ party: ev.new });
+      if (ev.new && ev.new.id === 1) {
+        const switched = ev.new.current_event_id !== state.party?.current_event_id;
+        set({ party: ev.new });
+        if (switched) refreshAll();
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => refreshAll())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'event_machines' }, () => refreshAll())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'event_entries' }, ev => {
+      if (ev.eventType === 'INSERT' && !state.entries.some(x => x.event_id === ev.new.event_id && x.player_id === ev.new.player_id)) {
+        set({ entries: [...state.entries, { event_id: ev.new.event_id, player_id: ev.new.player_id }] });
+      } else if (ev.eventType !== 'INSERT') refreshAll();
     })
     .subscribe(status => {
       if (status === 'SUBSCRIBED') { if (wasDown) refreshAll(); wasDown = false; }
@@ -134,19 +184,54 @@ function start() {
   setInterval(() => { if (!document.hidden) refreshAll(); }, 60_000);
 }
 
+// Read-only snapshot for non-React helpers (e.g. building the results email).
+export const getState = () => state;
+
 export function useParty() {
   start();
   return useSyncExternalStore(subscribe, () => state);
 }
 
+// Players in this event: entered, or with a score here.
+function eventPlayers(s) {
+  if (!s.entrantIds?.size) return s.players;
+  const scored = new Set(s.scores.map(x => x.player_id));
+  return s.players.filter(p => s.entrantIds.has(p.id) || scored.has(p.id));
+}
+
 export function useStandings() {
   const s = useParty();
+  const players = useMemo(() => eventPlayers(s), [s.players, s.entrantIds, s.scores]); // eslint-disable-line react-hooks/exhaustive-deps
   const standings = useMemo(
-    () => computeStandings({ machines: s.machines, players: s.players, scores: s.scores }),
-    [s.machines, s.players, s.scores],
+    () => computeStandings({ machines: s.machines, players, scores: s.scores }),
+    [s.machines, players, s.scores],
   );
   return { ...s, standings };
 }
+
+// Every event together: all machines, all scores, everyone.
+export function useAllTime() {
+  const s = useParty();
+  return useMemo(
+    () => computeStandings({ machines: s.allMachines, players: s.players, scores: s.allScores }),
+    [s.allMachines, s.players, s.allScores],
+  );
+}
+
+// Signed in + a current event you're not in yet = enter it (auto-enter on scan).
+let enteredFor = null;
+function maybeEnter() {
+  const evId = state.party?.current_event_id;
+  if (!state.ready || !state.me || evId == null || state.entrantIds.has(state.me.id) || enteredFor === `${evId}:${state.me.id}`) return;
+  enteredFor = `${evId}:${state.me.id}`;
+  sb.rpc('enter_current_event', { p_token: getToken() }).then(({ error }) => {
+    if (error) { enteredFor = null; return; }
+    if (!state.entries.some(x => x.event_id === evId && x.player_id === state.me?.id)) {
+      set({ entries: [...state.entries, { event_id: evId, player_id: state.me.id }] });
+    }
+  });
+}
+listeners.add(maybeEnter);
 
 export function useAwards(standings, matchDigits) {
   const s = useParty();
@@ -189,26 +274,95 @@ export const actions = {
   },
   signOut() { setToken(null); set({ me: null }); },
   // opts: { photo } (a data URL that went through readScoreFromPhoto) or { photoPath }.
+  // Returns { score_id, duplicate, logged_by }. duplicate: the server already had this exact
+  // score (same player + machine + value, last 45 min), so nothing new was saved.
   async submitScore(machineId, value, opts = {}) {
     const r = await rpc('submit_score', { p_token: getToken(), p_machine_id: machineId, p_value: value, p_photo_path: photoPathFor(opts) });
-    if (!state.scores.some(s => s.id === r.score_id)) {
-      set({ scores: [...state.scores, { id: r.score_id, player_id: state.me?.id, machine_id: machineId, value, voided: false, created_at: new Date().toISOString() }] });
-    }
+    addLocalScore(r, { player_id: state.me?.id, machine_id: machineId, value });
     return r;
   },
   // Log a score for a friend who played the same game.
   async submitScoreFor(playerId, machineId, value, opts = {}) {
     const r = await rpc('submit_score_for', { p_token: getToken(), p_player_id: playerId, p_machine_id: machineId, p_value: value, p_photo_path: photoPathFor(opts) });
-    if (!state.scores.some(s => s.id === r.score_id)) {
-      set({ scores: [...state.scores, { id: r.score_id, player_id: playerId, machine_id: machineId, value, voided: false, created_at: new Date().toISOString(), logged_by: state.me?.id }] });
-    }
+    addLocalScore(r, { player_id: playerId, machine_id: machineId, value, logged_by: state.me?.id });
     return r;
+  },
+  // Results email: opt in (with consent) or out. Never readable back; whoami says has_email.
+  // Joined from an invite link: link the invite (and save its email for results if they consented).
+  claimInvite: (invite, consent) => rpc('claim_invite', { p_token: getToken(), p_invite: invite, p_consent: !!consent })
+    .then(() => {
+      rememberTicket(state.me?.id, invite);
+      if (consent && state.me) set({ me: { ...state.me, has_email: true } });
+    }),
+  // The sign-up link (invite token) of the ticket I joined with, for the ME tab's
+  // "Add someone to your ticket". Asks the server (my_ticket, migration 0015); if that
+  // function isn't there, falls back to the ticket this phone remembers. null = no ticket.
+  async myTicket() {
+    const pid = state.me?.id;
+    const { data, error } = await sb.rpc('my_ticket', { p_token: getToken() });
+    if (error) return rememberedTicket(pid);
+    if (data) rememberTicket(pid, data);
+    return data || null;
+  },
+  // Who's on a ticket: { players: [names], player_ids: [ids] (once migration 0015 is in) }.
+  ticketInfo: invite => rpc('invite_info', { p_invite: invite }),
+  // A partner's email onto their own guest row (so hosts see it and reminders reach them).
+  // Quietly does nothing if they're not a partner, or before migration 0015 is in.
+  setTicketEmail: email => sb.rpc('set_ticket_email', { p_token: getToken(), p_email: email })
+    .then(({ data }) => data ?? null, () => null),
+  // Couples' tickets: which person on the ticket I am ("Cina Boitnott"). ticketName: the corrected ticket
+  // name when they fixed a misspelling. Quiet no-op before migration 0016.
+  setTicketWho: (who, ticketName = null) => sb.rpc('set_ticket_who', { p_token: getToken(), p_who: who, p_ticket_name: ticketName })
+    .then(({ data }) => data ?? null, () => null),
+  // Joined without a ticket link? If their email is on the guest list, link them to that guest.
+  // Quietly does nothing otherwise (or before migration 0016 is in).
+  linkByEmail: email => sb.rpc('link_by_email', { p_token: getToken(), p_email: email })
+    .then(({ data }) => data ?? null, () => null),
+  async setMyEmail(email, consent) {
+    await rpc('set_my_email', { p_token: getToken(), p_email: email || null, p_consent: !!consent });
+    if (state.me) set({ me: { ...state.me, has_email: !!(consent && email) } });
   },
   async undoScore(scoreId) {
     await rpc('undo_score', { p_token: getToken(), p_score_id: scoreId });
-    set({ scores: state.scores.map(s => (s.id === scoreId ? { ...s, voided: true } : s)) });
+    set({ allScores: state.allScores.map(s => (s.id === scoreId ? { ...s, voided: true } : s)) });
+  },
+  // Save my AI 8-bit portrait (the original selfie is kept server-side).
+  async setMyAvatar(dataUrl) {
+    await rpc('set_my_avatar', { p_token: getToken(), p_avatar: dataUrl });
+    patchAvatar(state.me?.id, dataUrl);
   },
 };
+
+// Ticket links this phone has used, per player (backup for actions.myTicket).
+const TICKET_KEY = pid => `pw.ticket.${pid}`;
+const rememberTicket = (pid, invite) => { if (pid && invite) safe(() => localStorage.setItem(TICKET_KEY(pid), invite)); };
+const rememberedTicket = pid => (pid ? safe(() => localStorage.getItem(TICKET_KEY(pid))) || null : null);
+
+// Optimistic local row for a fresh score. A duplicate never adds a row: the existing one is
+// already here (or arrives with the next refresh), so games-played counts stay honest.
+function addLocalScore(r, row) {
+  if (!r?.score_id || state.allScores.some(s => s.id === r.score_id)) return;
+  if (r.duplicate) { refreshAll(); return; }
+  set({ allScores: [...state.allScores, { id: r.score_id, voided: false, created_at: new Date().toISOString(), logged_by: null, event_id: state.party?.current_event_id ?? null, ...row }] });
+}
+
+// Who already logged this exact score? Same rule as the server (player + machine + value,
+// not voided, last 45 min). Lets the assign screen mark rows "already logged" before submit.
+export const DEDUPE_MS = 45 * 60 * 1000;
+export function findLoggedScore(scores, { playerId = null, machineId, value }) {
+  if (!(value > 0)) return null;
+  const since = Date.now() - DEDUPE_MS;
+  return scores.find(s => !s.voided && s.machine_id === machineId && s.value === value
+    && (playerId == null || s.player_id === playerId) && (Date.parse(s.created_at) || 0) > since) || null;
+}
+
+function patchAvatar(playerId, avatar) {
+  if (!playerId) return;
+  set({
+    players: state.players.map(p => (p.id === playerId ? { ...p, avatar } : p)),
+    ...(state.me?.id === playerId ? { me: { ...state.me, avatar } } : {}),
+  });
+}
 
 const hostCall = (name, args = {}) => rpc(name, { p_pass: getHostPass(), ...args });
 export const host = {
@@ -227,4 +381,37 @@ export const host = {
   resetPin: (playerId, pin) => hostCall('host_reset_pin', { p_player_id: playerId, p_new_pin: pin }),
   removePlayer: playerId => hostCall('host_remove_player', { p_player_id: playerId }),
   wipe: confirm => hostCall('host_wipe', { p_confirm: confirm }),
+  clearScores: confirm => hostCall('host_clear_scores', { p_confirm: confirm }),
+  saveEvent: ({ id = null, name, startsOn = null, machineIds, makeCurrent = false }) =>
+    hostCall('host_save_event', { p_event_id: id, p_name: name, p_starts_on: startsOn || null, p_machine_ids: machineIds, p_make_current: makeCurrent }),
+  setCurrentEvent: id => hostCall('host_set_current_event', { p_event_id: id }),
+  deleteEvent: (id, confirm) => hostCall('host_delete_event', { p_event_id: id, p_confirm: confirm }),
+  addInvites: (eventId, lines, paid = false) => hostCall('host_add_invites', { p_event_id: eventId, p_lines: lines, p_paid: paid }),
+  setInvitePaid: (id, paid) => hostCall('host_set_invite_paid', { p_invite_id: id, p_paid: paid }),
+  saveGuest: (eventId, g) => hostCall('host_save_guest', {
+    p_event_id: eventId, p_id: g.id ?? null, p_name: g.name || null, p_email: g.email, p_phone: g.phone || null,
+    p_party_size: Number(g.party_size) || 1, p_paid: !!g.paid, p_rsvp: g.rsvp || null, p_notes: g.notes || null,
+  }),
+  setTicketUrl: (eventId, url) => hostCall('host_set_ticket_url', { p_event_id: eventId, p_url: url }),
+  invites: eventId => hostCall('host_invites', { p_event_id: eventId }),
+  // Players who joined without a ticket link. null = the server function isn't installed yet.
+  walkins: eventId => hostCall('host_walkins', { p_event_id: eventId }).catch(() => null),
+  // Put a walk-in on a guest's ticket (takes the row if it's free, otherwise joins under it).
+  linkPlayer: (eventId, playerId, inviteId) => hostCall('host_link_player', { p_event_id: eventId, p_player_id: playerId, p_invite_id: inviteId }),
+  removeInvite: id => hostCall('host_remove_invite', { p_invite_id: id }),
+  // kind: 'invite' | 'reminder' | 'update'; audience: 'new' | 'not_joined' | 'all'; testTo: one sample to that address
+  async emailRoster({ eventId, kind, audience, subject, message, testTo, inviteIds }) {
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/email-roster`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+      body: JSON.stringify({ pass: getHostPass(), event_id: eventId, kind, audience, subject: subject || null, message: message || '', test_to: testTo || null, invite_ids: inviteIds || null }),
+    });
+    const out = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(out.error || "Couldn't send.");
+    return out;
+  },
+  async setAvatar(playerId, dataUrl) {
+    await hostCall('host_set_avatar', { p_player_id: playerId, p_avatar: dataUrl });
+    patchAvatar(playerId, dataUrl);
+  },
 };

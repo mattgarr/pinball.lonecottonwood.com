@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation, Link, NavLink } from 'react-router-dom';
 import { getHostPass, useParty } from './lib/store.js';
 import { captureFakeFlag } from './lib/scoreReader.js';
 import Avatar from './components/Avatar.jsx';
 import PixelEmoji from './components/PixelEmoji.jsx';
+import PinballIcon from './components/PinballIcon.jsx';
 
 captureFakeFlag(); // read ?fakephoto=… before the join redirect drops the query string
 
 // Pages anyone can see without joining.
 function isPublicPath(p) {
-  return p === '/join' || p === '/rejoin' || p === '/host' || p === '/host/test' || p === '/about' || /^\/machine\/\d+\/guide$/.test(p);
+  return p === '/join' || p === '/rejoin' || p === '/host' || p === '/host/test' || p === '/host/guests' || p === '/about' || /^\/machine\/\d+\/guide$/.test(p);
 }
 
 function useOnline() {
@@ -44,23 +45,26 @@ export default function App() {
   if (!meChecked || (!ready && !error)) {
     return (
       <div className="boot">
-        <div className="boot-logo"><PixelEmoji e="🎯" size={64} /></div>
-        <div className="boot-name">Pinball Wizard</div>
+        <div className="boot-logo"><PinballIcon size={64} /></div>
+        <div className="boot-name">The Ultimate<br />Woodside Pinball<br />Tournament</div>
         <div className="spinner" aria-label="Loading" />
       </div>
     );
   }
 
+  // Bottom tabs on the main screens only (not mid-score, not while joining).
+  const showTabs = !!me && (loc.pathname === '/' || loc.pathname === '/ranks' || loc.pathname === '/me');
+
   return (
     <div className="app">
       <header className="topbar">
-        <Link to="/" className="brand" aria-label="Pinball Wizard home">
-          <span className="brand-mark"><PixelEmoji e="🎯" size={24} /></span>
-          <span className="brand-word">Pinball Wizard</span>
+        <Link to="/" className="brand" aria-label="The Ultimate Woodside Pinball Tournament home">
+          <span className="brand-mark"><PinballIcon size={24} /></span>
+          <span className="brand-word">Woodside Pinball</span>
         </Link>
         <div className="topbar-right">
           {getHostPass() ? <Link to="/host" className="topbar-link host-chip">Host</Link> : <Link to="/about" className="topbar-link">How to play</Link>}
-          {me ? (
+          {me && showTabs ? null : me ? (
             <Link to="/me" className="me" style={{ borderColor: me.color }} aria-label="My progress">
               <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={28} />
               <span className="name">{me.display_name}</span>
@@ -75,9 +79,19 @@ export default function App() {
       ) : error && !ready ? (
         <div className="offline" role="status">Can't reach scoreboard. Retrying…</div>
       ) : null}
-      <main className="main">
+      <main className={`main${showTabs ? ' with-tabs' : ''}`}>
         <Outlet />
       </main>
+      {showTabs && (
+        <nav className="tabbar" aria-label="Main">
+          <NavLink to="/" end className="tab"><PixelEmoji e="🕹️" size={24} grid={14} /><span>Play</span></NavLink>
+          <NavLink to="/ranks" className="tab"><PixelEmoji e="🏆" size={24} grid={14} /><span>Ranks</span></NavLink>
+          <NavLink to="/me" className="tab">
+            <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={24} />
+            <span>Me</span>
+          </NavLink>
+        </nav>
+      )}
     </div>
   );
 }

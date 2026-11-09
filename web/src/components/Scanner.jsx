@@ -29,10 +29,25 @@ const SCAN_MS = 3500;   // long enough to catch displays that alternate (scores 
 const EVERY_MS = 250;
 const KEEP = 4;         // frames sent per round, spread evenly over the scan
 const ROUNDS = 3;
-const AIM_MS = 1800; // countdown before the first capture, so people can aim
 const MAX_SIDE = 1024;  // cropped frame size sent to the AI
 const CLIP_SIDE = 960;  // video clip size
 const CLIP_BPS = 1_500_000; // video bitrate: small uploads matter more than pixels
+// Fast path: two stills from different moments of the burst are read in parallel while it records.
+// Both must be confident AND agree exactly (rolling-shutter / multiplex glitches differ frame to frame).
+const EARLY_AT = [600, 1300];
+
+// A read we can trust without waiting for the video: player scores shown, confident, not the high-score
+// screen, and not the same number on every display (Centaur shows its high score on all four).
+function sameScores(a, b) {
+  const k = r => (r?.scores || []).filter(s => s.value > 0).map(s => `${s.slot}:${s.value}`).sort().join('|');
+  return k(a) !== '' && k(a) === k(b);
+}
+function confidentRead(r) {
+  const vals = (r?.scores || []).filter(s => s.value > 0).map(s => s.value);
+  if (!r || r.error || r.confidence !== 'high' || !vals.length) return false;
+  if (vals.length >= 2 && vals.every(v => v === vals[0])) return false;
+  return true;
+}
 
 function sharpness(ctx, w, h) {
   const { data } = ctx.getImageData(0, 0, w, h);
@@ -74,7 +89,6 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
   const [progress, setProgress] = useState(0);
   const [round, setRound] = useState(0);
   const [msg, setMsg] = useState('');
-  const [count, setCount] = useState(3);
   const [upload, setUpload] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [job, setJob] = useState(null); // calibration: which method is being sent
@@ -97,9 +111,7 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
         stream.current = s;
         video.current.srcObject = s;
         await video.current.play().catch(() => {});
-        setPhase('aiming');
-        for (let n = Math.ceil(AIM_MS / 600); n > 0 && alive.current; n--) { setCount(n); await sleep(600); }
-        if (alive.current) run();
+        setPhase('aiming'); // wait for the player to line it up and tap READY
       } catch {
         if (alive.current) onFallback(false);
       }
@@ -149,9 +161,12 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
     return picked.sort((a, b) => b.score - a.score).map(f => f.url);
   }
 
-  // Experimental: record a short clip of the boxed area (cropped via a canvas stream when the browser
-  // allows it), plus the sharpest still as proof. Returns { still, clip } (clip may be null).
-  async function recordClip() {
+  // Record a short clip of the boxed area (cropped via a canvas stream when the browser allows it),
+  // plus the sharpest still as proof. Returns { still, clip } (clip may be null).
+  // onEarly(still): called once ~0.6 s in with the sharpest still so far, so it can be read while we
+  // keep recording. Returning true from shouldStop() ends the recording early.
+  async function recordClip(onEarly, shouldStop) {
+    let nextEarly = 0, windowBest = { score: -1, url: null };
     const v = video.current;
     const c = cropRect();
     const k = Math.min(1, CLIP_SIDE / Math.max(c.w, c.h));
@@ -171,12 +186,18 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
     } catch { rec = null; }
     let best = { score: -1, url: null };
     const t0 = performance.now(); let n = 0;
-    while (alive.current && performance.now() - t0 < clipMs) {
+    while (alive.current && performance.now() - t0 < clipMs && !shouldStop?.()) {
       ctx.drawImage(v, c.x, c.y, c.w, c.h, 0, 0, W, H);
       if (n++ % 6 === 0) {
         sctx.drawImage(canvas, 0, 0, small.width, small.height);
         const sc = sharpness(sctx, small.width, small.height);
-        if (sc > best.score) best = { score: sc, url: canvas.toDataURL('image/jpeg', 0.75) };
+        const url = (sc > best.score || sc > windowBest.score) ? canvas.toDataURL('image/jpeg', 0.75) : null;
+        if (sc > best.score) best = { score: sc, url };
+        if (sc > windowBest.score) windowBest = { score: sc, url };
+      }
+      // sharpest still of each time window goes out for an early read
+      if (onEarly && nextEarly < EARLY_AT.length && windowBest.url && performance.now() - t0 >= EARLY_AT[nextEarly]) {
+        onEarly(windowBest.url, nextEarly); nextEarly++; windowBest = { score: -1, url: null };
       }
       setProgress(Math.min(1, (performance.now() - t0) / clipMs));
       await sleep(33); // ~30 fps into the recording, so high Gemini sampling rates see distinct frames
@@ -294,8 +315,29 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
       setRound(r);
       setPhase('scanning');
       let frames, opts = {};
+      let early = null; // { still, result } once two early stills agree
+      let earlyP = null;
+      const earlyReads = [];
       if (isVideo) {
-        const { still, clip } = await recordClip();
+        // Fast path: read one sharp still while the burst keeps recording. A confident player-scores
+        // read wins; otherwise the burst clip decides exactly as before.
+        const useEarly = !testMode && !!machineId;
+        const { still, clip } = await recordClip(
+          useEarly ? (s, i) => {
+            const p = readScoreFromPhoto(s, { id: machineId }, {})
+              .then(res => {
+                earlyReads[i] = confidentRead(res) ? { still: s, result: res } : false;
+                const [a, b] = earlyReads;
+                if (a && b && sameScores(a.result, b.result)) early = a;
+                return res;
+              })
+              .catch(() => { earlyReads[i] = false; return null; });
+            earlyP = earlyP ? Promise.all([earlyP, p]) : p;
+          } : null,
+          () => !!early,
+        );
+        if (!alive.current) return;
+        if (early) { readCache.set(early.still, early.result); finish(early.still); return; }
         frames = still ? [still] : [];
         if (clip) opts = { video: clip, fps: vfps };
       } else {
@@ -306,11 +348,24 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
       scanFrames.set(frames[0], frames.slice(1));
       if (!machineId) { finish(frames[0]); return; } // not on a machine page: let the caller read it
       setPhase('sending'); setUpload(0);
-      const result = await readScoreFromPhoto(frames[0], { id: machineId }, {
+      const clipP = readScoreFromPhoto(frames[0], { id: machineId }, {
         ...opts,
         onProgress: p => { if (p.phase === 'upload') setUpload(p.frac); else setPhase('reading'); },
       });
+      // Whichever confident read lands first: the early still (if still pending) or the clip.
+      if (earlyP && !early) {
+        const first = await Promise.race([clipP.then(r => ({ src: 'clip', r })), earlyP.then(() => (early ? { src: 'early' } : clipP.then(r => ({ src: 'clip', r }))))]);
+        if (!alive.current) return;
+        if (first.src === 'early' && early) { readCache.set(early.still, early.result); finish(early.still); return; }
+      }
       if (!alive.current) return;
+      const result = await clipP;
+      if (!alive.current) return;
+      if (!confidentRead(result) && earlyP) {
+        await earlyP; // the early still may still land a confident read
+        if (!alive.current) return;
+        if (early) { readCache.set(early.still, early.result); finish(early.still); return; }
+      }
       if (testMode) {
         alive.current = false;
         stream.current?.getTracks().forEach(t => t.stop());
@@ -338,10 +393,15 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
     run();
   }
 
+  function ready() {
+    if (phase !== 'aiming') return;
+    run();
+  }
+
   const label =
     phase === 'starting' ? 'Starting camera…'
-    : phase === 'aiming' ? `Aim… ${count}`
-    : phase === 'scanning' ? (testMode?.all ? 'Recording 5s · hold still' : round > 1 ? 'Watching…' : 'Hold still · tilt a bit')
+    : phase === 'aiming' ? 'Line it up'
+    : phase === 'scanning' ? (testMode?.all ? 'Recording 5s · hold still' : round > 1 ? 'Watching…' : 'Hold steady…')
     : phase === 'sending' ? (job ? `Test ${job.i + 1}/${job.n} ${job.label}: sending` : 'Sending…')
     : phase === 'reading' ? (job ? `Test ${job.i + 1}/${job.n} ${job.label}: ${elapsed}s` : `Reading… ${elapsed}s`)
     : phase === 'waiting' ? 'Waiting for scores…'
@@ -367,6 +427,7 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
             Keep aiming. It cycles back.
           </div>
         )}
+        {phase === 'aiming' && <button type="button" className="scanner-go" onClick={ready}>Ready</button>}
         {phase === 'gaveup' ? (
           <>
             <div className="scanner-sub">Scan right after the game, while scores show.</div>
@@ -374,7 +435,7 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
             <button type="button" className="linkbtn small scanner-alt" onClick={() => { alive.current = false; onCancel(); }}>Type it instead</button>
           </>
         ) : (
-          <button type="button" className="linkbtn small scanner-alt" onClick={() => { alive.current = false; onFallback(true); }}>Use a regular photo</button>
+          <button type="button" className="linkbtn small scanner-alt" onClick={() => { alive.current = false; onFallback(true); }}>Trouble? Take a normal photo instead</button>
         )}
       </div>
     </div>

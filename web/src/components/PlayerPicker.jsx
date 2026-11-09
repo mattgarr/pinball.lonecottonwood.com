@@ -51,12 +51,17 @@ export default function PlayerPicker({ players, scores, me, machineId, exclude, 
       {allowMe && !needle && (
         <button type="button" className="pick-row pick-me" onClick={() => onPick('me')}>
           <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={36} />
-          <span className="pick-name">That's me</span>
+          <span className="pick-name">That's me ({me.display_name})</span>
         </button>
       )}
       {matches ? (
         <>
-          {matches.length === 0 && <div className="muted small picker-empty">No “{q}” yet. They must join first.</div>}
+          {matches.length === 0 && (
+            <div className="muted small picker-empty">
+              <strong>{q.trim()}</strong> isn't signed up yet. They can scan any machine's QR code to join,
+              or join on your phone: Me → Sign out / switch player → Add a new player.
+            </div>
+          )}
           {matches.map(p => <Row key={p.id} p={p} />)}
         </>
       ) : (

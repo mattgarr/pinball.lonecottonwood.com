@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { actions, useStandings } from '../lib/store.js';
+import { actions, findLoggedScore, useAllTime, useStandings } from '../lib/store.js';
+import { friendlyError } from '../lib/errors.js';
 import { machineArt } from '../lib/machineArt.js';
 import { fmt, fmtShort, ordinal } from '../lib/scoring.js';
 import { checkScore, crownInfo, sayNumber } from '../lib/plausibility.js';
@@ -17,24 +18,77 @@ import PixelEmoji from '../components/PixelEmoji.jsx';
 
 const UNDO_MS = 15 * 60 * 1000;
 
+// ---------- "same crew as last game" ----------
+// After a multi-score photo we remember who stood in which slot, so the next game with the
+// same group is one tap. Per phone, expires after 2 hours.
+const CREW_KEY = 'pw.crew';
+const CREW_MS = 2 * 60 * 60 * 1000;
+function loadCrew(meId) {
+  try {
+    const c = JSON.parse(localStorage.getItem(CREW_KEY) || 'null');
+    if (!c || c.me !== meId || Date.now() - c.at > CREW_MS) return null;
+    return c.slots || null; // { [slot]: playerId }
+  } catch { return null; }
+}
+function saveCrew(meId, rows) {
+  const slots = {};
+  for (const r of rows) if (r.slot && r.who != null) slots[r.slot] = r.who === 'me' ? meId : r.who;
+  if (Object.keys(slots).length < 2) return;
+  try { localStorage.setItem(CREW_KEY, JSON.stringify({ me: meId, at: Date.now(), slots })); } catch { /* private mode */ }
+}
+
+// Build assign rows from a read: scores someone already logged are matched to that person;
+// other slots get last game's crew. No guessing beyond that: she taps which slot was hers.
+// Nobody lands in two slots.
+function buildRows(read, { scores, mid, me, players, keyPrefix, taken = new Set(), useCrew = true }) {
+  taken = new Set(taken);
+  const rows = read.map((s, i) => {
+    const row = { key: `${keyPrefix}${s.slot ?? ''}-${i}`, slot: s.slot, value: s.value, who: undefined };
+    const hit = findLoggedScore(scores, { machineId: mid, value: s.value });
+    if (hit) {
+      const who = hit.player_id === me.id ? 'me' : hit.player_id;
+      if (!taken.has(who)) {
+        taken.add(who);
+        return { ...row, who, existing: { scoreId: hit.id, loggedBy: hit.logged_by ?? hit.player_id } };
+      }
+    }
+    return row;
+  });
+  const crew = useCrew ? loadCrew(me.id) : null;
+  const alive = new Set(players.map(p => p.id));
+  if (crew) {
+    for (const r of rows) {
+      if (r.who !== undefined || !r.slot) continue;
+      const pid = crew[r.slot];
+      if (!pid || !alive.has(pid)) continue;
+      const who = pid === me.id ? 'me' : pid;
+      if (taken.has(who)) continue;
+      taken.add(who); r.who = who; r.fromCrew = true;
+    }
+  }
+  return rows;
+}
+
 // Steps live in history state (location.state.step), so the phone's Back button walks
 // back through the flow (confirm → keypad → start) instead of dumping you on Home.
 //   start   → big art, "📸 Snap the score" / "or type it"
 //   reading → photo being read
-//   pad     → keypad (single score, me)
+//   pad     → keypad (single score, me or another player)
 //   confirm → big DMD number + machine, plausibility + crown checks, Submit / Fix it
 //   assign  → "Who was who?" (multi-score photo) or "Log your friends' scores"
 //   done    → results; undo; next suggestion; log friends
 export default function Machine() {
   const { id } = useParams();
   const mid = Number(id);
-  const { machines, players, scores, me, standings, party, ready } = useStandings();
+  const { machines, players, scores, me, standings, party, ready, events } = useStandings();
   const loc = useLocation();
   const nav = useNavigate();
 
   const [photo, setPhoto] = useState(null);       // JPEG data URL of the score display
   const [readInfo, setReadInfo] = useState(null);  // { confidence, note, failed }
-  const [pad, setPad] = useState('');              // keypad digits for my single score
+  const [pad, setPad] = useState('');              // keypad digits for a single score
+  const [forWho, setForWho] = useState('me');      // single score is for 'me' or a player id
+  const [whoOpen, setWhoOpen] = useState(false);
   const [rows, setRows] = useState([]);            // group rows (assign step)
   const [groupMode, setGroupMode] = useState('photo'); // 'photo' | 'friends'
   const [results, setResults] = useState([]);      // what got logged (done step)
@@ -54,7 +108,7 @@ export default function Machine() {
   useEffect(() => {
     if (firstRun.current) { firstRun.current = false; return; }
     if (loc.state?.keep) return;
-    setPhoto(null); setReadInfo(null); setPad(''); setRows([]); setResults([]); setNotice(''); setErr('');
+    setPhoto(null); setReadInfo(null); setPad(''); setForWho('me'); setRows([]); setResults([]); setNotice(''); setErr('');
   }, [mid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const machine = machines.find(m => m.id === mid);
@@ -100,7 +154,7 @@ export default function Machine() {
   function lock() {
     if (busyRef.current) return false;
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      setErr("Offline: not sent. Your number is kept. Tap again once Wi-Fi's back.");
+      setErr('No connection — nothing was saved. Check Wi-Fi and try again (your number is kept).');
       return false;
     }
     busyRef.current = true; setBusy(true); setErr('');
@@ -129,23 +183,27 @@ export default function Machine() {
       return;
     }
     setGroupMode('photo');
-    setRows(r.scores.map((s, i) => ({ key: `s${s.slot}-${i}`, slot: s.slot, value: s.value, who: i === 0 ? 'me' : undefined })));
+    setRows(buildRows(r.scores, { scores, mid, me, players, keyPrefix: 's' }));
     goStep('assign', { replace: true });
   }
 
-  // ---------- my single score ----------
+  // ---------- one score (mine, or for another player) ----------
   async function submitSolo() {
     const value = Number(pad);
     if (!value || !lock()) return;
-    const snap = snapshotFor(me.id, value);
-    const { claimedTop } = crownInfo(value, me.id, machineScores);
+    const isMe = forWho === 'me' || forWho === me.id;
+    const pid = isMe ? me.id : forWho;
+    const snap = snapshotFor(pid, value);
+    const { claimedTop } = crownInfo(value, pid, machineScores);
     try {
-      const r = await actions.submitScore(mid, value, { photo, claimedTop });
-      setResults([{ key: `me${r.score_id}`, who: 'me', playerId: me.id, value, scoreId: r.score_id, duplicate: !!r.duplicate, at: Date.now(), ...snap }]);
+      const r = isMe
+        ? await actions.submitScore(mid, value, { photo, claimedTop })
+        : await actions.submitScoreFor(pid, mid, value, { photo, claimedTop });
+      setResults([{ key: `${isMe ? 'me' : pid}-${r.score_id}`, who: isMe ? 'me' : 'friend', playerId: pid, value, scoreId: r.score_id, ...dupOf(r), at: Date.now(), ...snap }]);
       setPad('');
       goStep('done', { replace: true });
     } catch (e) {
-      setErr(friendlyError(e, false));
+      setErr(friendlyError(e, !isMe));
     } finally { unlock(); }
   }
 
@@ -163,8 +221,8 @@ export default function Machine() {
         const res = r.who === 'me'
           ? await actions.submitScore(mid, r.value, { photo, claimedTop })
           : await actions.submitScoreFor(pid, mid, r.value, { photo, claimedTop });
-        out.push({ key: `${pid}-${res.score_id}`, who: r.who === 'me' ? 'me' : 'friend', playerId: pid, value: r.value, scoreId: res.score_id, duplicate: !!res.duplicate, at: Date.now(), ...snap });
-        rowPatch[r.key] = { ok: true, error: null };
+        out.push({ key: `${pid}-${res.score_id}`, who: r.who === 'me' ? 'me' : 'friend', playerId: pid, value: r.value, scoreId: res.score_id, ...dupOf(res), at: Date.now(), ...snap });
+        rowPatch[r.key] = { ok: true, error: null, existing: res.duplicate ? { scoreId: res.score_id, loggedBy: res.logged_by ?? null } : null };
       } catch (e) {
         const msg = friendlyError(e, r.who !== 'me');
         out.push({ key: `${pid}-err-${r.key}`, who: r.who === 'me' ? 'me' : 'friend', playerId: pid, value: r.value, error: msg, ...snap });
@@ -173,6 +231,7 @@ export default function Machine() {
     }
     unlock();
     setRows(rs => rs.map(r => (rowPatch[r.key] ? { ...r, ...rowPatch[r.key] } : r)));
+    if (groupMode === 'photo') saveCrew(me.id, rows.filter(r => !rowPatch[r.key] || rowPatch[r.key].ok));
     const anyOk = out.some(x => !x.error);
     if (!anyOk) { setErr(out[0]?.error || 'Nothing logged. Try again.'); return; }
     setResults(prev => [...prev.filter(p => !out.some(o => o.playerId === p.playerId && p.error)), ...out]);
@@ -184,7 +243,7 @@ export default function Machine() {
     try {
       const { claimedTop } = crownInfo(res.value, res.playerId, machineScores);
       const r = await actions.submitScoreFor(res.playerId, mid, res.value, { photo, claimedTop });
-      setResults(list => list.map(x => (x.key === res.key ? { ...x, error: null, scoreId: r.score_id, duplicate: !!r.duplicate, at: Date.now() } : x)));
+      setResults(list => list.map(x => (x.key === res.key ? { ...x, error: null, scoreId: r.score_id, ...dupOf(r), at: Date.now() } : x)));
     } catch (e) {
       setResults(list => list.map(x => (x.key === res.key ? { ...x, error: friendlyError(e, true) } : x)));
     } finally { unlock(); }
@@ -203,6 +262,25 @@ export default function Machine() {
     } finally { unlock(); }
   }
 
+  // Undo a score I logged for someone else (server allows logged_by = me, 15 min).
+  async function undoFriend(res) {
+    if (!lock()) return;
+    try {
+      await actions.undoScore(res.scoreId);
+      setResults(list => list.filter(x => x.key !== res.key));
+      const p = playerById.get(res.playerId);
+      setNotice(`Removed ${fmt(res.value)} for ${p?.display_name ?? 'them'}.`);
+    } catch (e) {
+      setErr(friendlyError(e, true));
+    } finally { unlock(); }
+  }
+
+  // "‹ Cancel": drop what's in progress and go back to this machine's start.
+  function cancelFlow() {
+    setPhoto(null); setReadInfo(null); setPad(''); setForWho('me'); setRows([]); setResults([]); setNotice(''); setErr('');
+    goStep('start', { replace: true });
+  }
+
   function startFriends() {
     setGroupMode('friends');
     setErr('');
@@ -211,7 +289,7 @@ export default function Machine() {
   }
 
   function logAnother() {
-    setPhoto(null); setReadInfo(null); setPad(''); setRows([]); setResults([]); setNotice(''); setErr('');
+    setPhoto(null); setReadInfo(null); setPad(''); setForWho('me'); setRows([]); setResults([]); setNotice(''); setErr('');
     goStep('start', { replace: true });
   }
 
@@ -221,6 +299,9 @@ export default function Machine() {
   }
 
   const myLoggedHere = results.some(r => r.who === 'me' && !r.error);
+  const forPlayer = forWho === 'me' ? me : playerById.get(forWho) || me;
+  const forIsMe = forPlayer.id === me.id;
+  const whoChip = <ForWhoChip player={forPlayer} isMe={forIsMe} onChange={() => setWhoOpen(true)} />;
 
   return (
     <div className={`screen machine-flow step-${step}`}>
@@ -232,12 +313,15 @@ export default function Machine() {
         />
       )}
 
-      {step === 'reading' && <MachineStrip machine={machine} onSwitch={() => setSwitcher(true)} />}
+      {step === 'start' && notice && <div className="note-ok">{notice}</div>}
+
+      {step === 'reading' && <MachineStrip machine={machine} onSwitch={() => setSwitcher(true)} onCancel={cancelFlow} />}
       {step === 'reading' && <ReadingStep machine={machine} photo={photo} onCancel={() => { setReadInfo({ failed: true }); goStep('pad', { replace: true }); }} />}
 
       {step === 'pad' && (
         <>
-          <MachineStrip machine={machine} onSwitch={() => setSwitcher(true)} />
+          <MachineStrip machine={machine} onSwitch={() => setSwitcher(true)} onCancel={cancelFlow} />
+          {whoChip}
           {notice && <div className="note-ok">{notice}</div>}
           {photo && (
             <button type="button" className="photo-strip" onClick={() => setViewPhoto(true)}>
@@ -250,7 +334,7 @@ export default function Machine() {
             {!photo && (
               <PhotoButton className="ghost-btn" onPhoto={onSnap} onError={setErr}>📸 Snap it</PhotoButton>
             )}
-            <button type="button" className="cta" disabled={!pad} onClick={() => goStep('confirm')}>
+            <button type="button" className="cta" disabled={!Number(pad)} onClick={() => goStep('confirm')}>
               Next
             </button>
           </div>
@@ -260,7 +344,8 @@ export default function Machine() {
       {step === 'confirm' && (
         <ConfirmStep
           machine={machine} value={Number(pad)} photo={photo} readInfo={readInfo} me={me}
-          machineScores={machineScores} busy={busy}
+          forPlayer={forPlayer} whoChip={whoChip} onCancel={cancelFlow}
+          machineScores={machineScores} playerById={playerById} busy={busy}
           onAttach={setPhoto} onPhotoError={setErr}
           onFix={() => (loc.state?.from === 'pad' ? nav(-1) : goStep('pad', { replace: true }))}
           onSubmit={submitSolo} onSwitch={() => setSwitcher(true)}
@@ -273,7 +358,7 @@ export default function Machine() {
           me={me} players={players} scores={scores} machineScores={machineScores}
           allowMe={groupMode === 'photo' || !myLoggedHere}
           myLoggedValue={results.find(r => r.who === 'me' && !r.error)?.value}
-          busy={busy} onSubmit={submitGroup} onSwitch={() => setSwitcher(true)}
+          busy={busy} onSubmit={submitGroup} onSwitch={() => setSwitcher(true)} onCancel={cancelFlow}
           onViewPhoto={() => setViewPhoto(true)} onAttach={setPhoto} onPhotoError={setErr}
           onReadMore={async dataUrl => {
             setPhoto(dataUrl);
@@ -286,14 +371,21 @@ export default function Machine() {
       {step === 'done' && (
         <DoneStep
           machine={machine} machines={machines} results={results} standings={standings} me={me}
-          playerById={playerById} busy={busy}
-          onUndo={undoMine} onRetry={retryFriend} onFriends={startFriends} onAnother={logAnother}
+          playerById={playerById} busy={busy} notice={notice}
+          onUndo={undoMine} onUndoFriend={undoFriend} onRetry={retryFriend} onFriends={startFriends} onAnother={logAnother}
         />
       )}
 
       {err && <div className="err" role="alert">{err}</div>}
 
-      {(step === 'start' || step === 'done') && <TopScores board={board} me={me} mineHere={mineHere} mid={mid} />}
+      {(step === 'start' || step === 'done') && <TopScores board={board} me={me} mineHere={mineHere} mid={mid} multiEvent={(events?.length ?? 0) > 1} />}
+
+      <Sheet open={whoOpen} onClose={() => setWhoOpen(false)} title="Whose score is this?" tall>
+        <PlayerPicker
+          players={players} scores={scores} me={me} machineId={mid} allowMe
+          onPick={who => { setForWho(who === 'me' ? 'me' : who); setWhoOpen(false); }}
+        />
+      </Sheet>
 
       <Sheet open={switcher} onClose={() => setSwitcher(false)} title="Which machine?">
         <div className="switch-list">
@@ -314,16 +406,21 @@ export default function Machine() {
   );
 }
 
-function friendlyError(e, forFriend) {
-  const m = String(e?.message || e || '');
-  if (/does not exist|could not find the function|schema cache/i.test(m)) {
-    return forFriend
-      ? "Friend logging is off. They can log it on their phone, or ask the host."
-      : 'Scoreboard is updating. Try again in a minute.';
-  }
-  if (/failed to fetch|network|load failed|timeout/i.test(m)) return "No connection, not saved. Check Wi-Fi, tap again.";
-  if (/join|rejoin/i.test(m)) return 'Signed out. Rejoin, then try again.';
-  return m || 'Something went wrong. Try again.';
+// RPC result → { duplicate, loggedBy }. loggedBy: who logged the existing row (null if unknown).
+function dupOf(r) {
+  return { duplicate: !!r?.duplicate, loggedBy: r?.duplicate ? r.logged_by ?? null : null };
+}
+
+// "ALREADY LOGGED ✓" / "ALREADY LOGGED BY [avatar] TINA ✓"
+function AlreadyLogged({ by, me, playerById, className = '' }) {
+  const p = by != null && by !== me.id ? playerById.get(by) : null;
+  return (
+    <span className={`dup-tag ${className}`}>
+      {p ? (
+        <>Already logged by <Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={20} /> <strong>{p.display_name}</strong> ✓</>
+      ) : 'Already logged ✓'}
+    </span>
+  );
 }
 
 function Loading() {
@@ -338,14 +435,14 @@ function StartStep({ machine, mineHere, closed, onSwitch, onSnap, onType, onPhot
         <img className="mhero-img" src={machineArt(machine.name)} alt={`${machine.name} backglass`} />
         <div className="mhero-shade" />
         <Link to="/" className="mhero-back" aria-label="All machines">‹</Link>
-        <button type="button" className="mhero-switch" onClick={onSwitch}>Wrong one?</button>
+        <button type="button" className="mhero-switch" onClick={onSwitch}>Wrong machine?</button>
         <div className="mhero-text">
           <div className="mhero-name">{machine.name}</div>
           <div className="mhero-meta">
             {machine.manufacturer} · {machine.year}
             {mineHere
               ? <span className={`rank-pill${mineHere.rank === 1 ? ' gold' : ''}`}>{mineHere.rank === 1 ? '👑 ' : ''}{ordinal(mineHere.rank)} of {mineHere.N}</span>
-              : <span className="rank-pill new">NEW</span>}
+              : <span className="rank-pill new">PLAY ME!</span>}
           </div>
         </div>
       </div>
@@ -365,7 +462,7 @@ function StartStep({ machine, mineHere, closed, onSwitch, onSnap, onType, onPhot
           {mineHere && <div className="muted small center-text">Your best: <span className="mono amber">{fmt(mineHere.best)}</span></div>}
         </div>
       )}
-      <Link to={`/machine/${machine.id}/guide`} className="guide-chip">📖 How to play this one</Link>
+      <Link to={`/machine/${machine.id}/guide`} className="guide-chip">📖 About this machine</Link>
     </>
   );
 }
@@ -384,8 +481,26 @@ function ReadingStep({ machine, photo, onCancel }) {
   );
 }
 
-function MachineStrip({ machine, onSwitch }) {
+// "Logging for: [avatar] Name (you) · Change" on the keypad and confirm steps.
+function ForWhoChip({ player, isMe, onChange }) {
   return (
+    <button type="button" className={`forwho${isMe ? '' : ' other'}`} onClick={onChange}>
+      <span className="forwho-label">Logging for:</span>
+      <Avatar avatar={player.avatar} emoji={player.emoji} name={player.display_name} color={player.color} size={26} />
+      <span className="forwho-name">{player.display_name}{isMe ? ' (you)' : ''}</span>
+      <span className="forwho-change">Change</span>
+    </button>
+  );
+}
+
+function CancelLink({ onCancel }) {
+  return <button type="button" className="flow-cancel" onClick={onCancel}>‹ Cancel</button>;
+}
+
+function MachineStrip({ machine, onSwitch, onCancel }) {
+  return (
+    <>
+    {onCancel && <CancelLink onCancel={onCancel} />}
     <div className="mstrip">
       <img src={machineArt(machine.name)} alt="" />
       <div className="mstrip-shade" />
@@ -395,6 +510,7 @@ function MachineStrip({ machine, onSwitch }) {
       </div>
       <button type="button" className="mstrip-switch" onClick={onSwitch}>Wrong one?</button>
     </div>
+    </>
   );
 }
 
@@ -405,11 +521,19 @@ function preflight(value, pid, machine, machineScores, photo) {
   return { warnings, crown, needsPhoto: crown.contested && !photo };
 }
 
-function ConfirmStep({ machine, value, photo, readInfo, me, machineScores, busy, onAttach, onPhotoError, onFix, onSubmit, onSwitch }) {
-  const { warnings, crown, needsPhoto } = preflight(value, me.id, machine, machineScores, photo);
+function ConfirmStep({ machine, value, photo, readInfo, me, forPlayer, whoChip, onCancel, machineScores, playerById, busy, onAttach, onPhotoError, onFix, onSubmit, onSwitch }) {
+  const pid = forPlayer.id;
+  const isMe = pid === me.id;
+  const { warnings, crown, needsPhoto } = preflight(value, pid, machine, machineScores, photo);
   const fromPhoto = !!photo && readInfo && !readInfo.failed;
+  // Someone already logged this exact score here: this player's (nothing to do) or someone else's game?
+  const hit = findLoggedScore(machineScores, { machineId: machine.id, value });
+  const mineAlready = hit && hit.player_id === pid;
+  const theirs = hit && !mineAlready ? playerById.get(hit.player_id) : null;
+  const theirsIsMe = theirs && theirs.id === me.id;
   return (
     <>
+      <CancelLink onCancel={onCancel} />
       <div className="confirm-card">
         <div className="confirm-art">
           <img src={machineArt(machine.name)} alt="" />
@@ -426,19 +550,38 @@ function ConfirmStep({ machine, value, photo, readInfo, me, machineScores, busy,
         </div>
       </div>
 
-      {warnings.map(w => (
+      {whoChip}
+
+      {mineAlready && (
+        <div className="dup-card">
+          {!isMe && <span className="dup-for">{forPlayer.display_name}: </span>}
+          <AlreadyLogged by={hit.logged_by ?? hit.player_id} me={me} playerById={playerById} />
+        </div>
+      )}
+      {theirs && (
+        <div className="warn-card">
+          <div className="warn-title">🤔 {theirsIsMe ? 'You already have' : `${theirs.display_name} has`} this exact score</div>
+          <div className="warn-detail">
+            {isMe ? "Their game? Tap \"Logging for\" above to log it for them instead."
+              : theirsIsMe ? `Was it your game, not ${forPlayer.display_name}'s? Then it's already in.`
+              : `Only log it for ${forPlayer.display_name} if it was their game.`}
+          </div>
+        </div>
+      )}
+
+      {!mineAlready && warnings.map(w => (
         <div key={w.kind} className="warn-card">
           <div className="warn-title">🤔 {w.title}</div>
           <div className="warn-detail">{w.detail}</div>
         </div>
       ))}
 
-      {crown.claimedTop && (
+      {!mineAlready && crown.claimedTop && (
         <div className={`crown-card${needsPhoto ? ' needs' : ''}`}>
           <div className="crown-title">👑 {crown.contested ? `Beats tonight's best (${fmt(crown.othersBest)})` : 'First score here!'}</div>
           {needsPhoto ? (
             <>
-              <div className="crown-detail">New #1 needs a photo for the host.</div>
+              <div className="crown-detail">Add a photo so the host can verify the #1 — or skip it.</div>
               <PhotoButton className="snap-btn small" onPhoto={onAttach} onError={onPhotoError}>
                 <span className="snap-icon" aria-hidden="true"><PixelEmoji e="📸" size={40} /></span>
                 <span className="snap-title">Add a photo</span>
@@ -453,7 +596,7 @@ function ConfirmStep({ machine, value, photo, readInfo, me, machineScores, busy,
       <div className="actionbar two">
         <button type="button" className="ghost-btn" onClick={onFix} disabled={busy}>✏️ Fix it</button>
         <button type="button" className={`cta${needsPhoto ? ' cta-soft' : ''}`} onClick={onSubmit} disabled={busy}>
-          {busy ? 'Saving…' : needsPhoto ? 'Submit anyway' : warnings.length ? "It's right" : 'Submit'}
+          {busy ? 'Saving…' : mineAlready ? 'OK ✓' : needsPhoto ? 'Submit without photo' : warnings.length ? "It's right" : theirs ? (isMe ? "It's mine" : `It's ${forPlayer.display_name}'s`) : 'Submit'}
         </button>
       </div>
     </>
@@ -462,8 +605,9 @@ function ConfirmStep({ machine, value, photo, readInfo, me, machineScores, busy,
 
 // ---------------------------------------------------------------------------
 function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players, scores, machineScores, allowMe, myLoggedValue,
-  busy, onSubmit, onSwitch, onViewPhoto, onAttach, onPhotoError, onReadMore }) {
+  busy, onSubmit, onSwitch, onCancel, onViewPhoto, onAttach, onPhotoError, onReadMore }) {
   const [pickFor, setPickFor] = useState(null);   // row key
+  const [skipMe, setSkipMe] = useState(false);    // "I didn't play, just logging others" 
   const [editFor, setEditFor] = useState(null);   // row key
   const [editVal, setEditVal] = useState('');
   const [checkOpen, setCheckOpen] = useState(false);
@@ -481,16 +625,27 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
 
   const assignedIds = new Set(rows.filter(r => r.who != null && r.who !== 'me').map(r => r.who));
   const pid = r => (r.who === 'me' ? me.id : r.who);
+  // Already on the board? (same rule as the server). Logged rows keep what the server said.
+  const already = r => {
+    if (r.ok) return r.existing || null;
+    if (r.who == null || !(r.value > 0)) return null;
+    const hit = findLoggedScore(scores, { playerId: pid(r), machineId: machine.id, value: r.value });
+    return hit ? { scoreId: hit.id, loggedBy: hit.logged_by ?? hit.player_id } : null;
+  };
   const readyRows = rows.filter(r => r.who != null && r.value > 0 && !r.ok);
+  const newCount = readyRows.filter(r => !already(r)).length;
+  const crewRows = rows.filter(r => r.fromCrew && !r.ok).length;
   const unresolved = rows.filter(r => !r.ok && (r.who === undefined || (r.who !== null && !(r.value > 0))));
-  const checks = readyRows.map(r => ({ r, ...preflight(r.value, pid(r), machine, machineScores, photo) }));
+  const checks = readyRows.filter(r => !already(r)).map(r => ({ r, ...preflight(r.value, pid(r), machine, machineScores, photo) }));
   const flagged = checks.filter(c => c.warnings.length || c.needsPhoto);
+  // Group photo: she must say which slot was hers (or that she didn't play) before logging.
+  const needMe = mode === 'photo' && allowMe && !skipMe && !rows.some(r => r.who === 'me');
 
   function pick(key, who) {
     const editAfter = rows.find(r => r.key === key && !(r.value > 0)) && who !== null;
     setRows(rs => rs.map(r => {
-      if (r.key === key) return { ...r, who, error: null };
-      if (who != null && r.who === who) return { ...r, who: undefined }; // someone can only be one slot
+      if (r.key === key) return r.who === who ? r : { ...r, who, error: null, existing: null, fromCrew: false };
+      if (who != null && r.who === who) return { ...r, who: undefined, existing: null, fromCrew: false }; // someone can only be one slot
       return r;
     }));
     setPickFor(null);
@@ -499,7 +654,7 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
   function openEdit(r) { setEditVal(r.value ? String(r.value) : ''); setEditFor(r.key); }
   function saveEdit() {
     const v = Number(editVal) || null;
-    setRows(rs => rs.map(r => (r.key === editFor ? { ...r, value: v, error: null } : r)));
+    setRows(rs => rs.map(r => (r.key === editFor ? { ...r, value: v, error: null, ...(v !== r.value ? { existing: null } : {}) } : r)));
     setEditFor(null);
   }
   function addRow() {
@@ -513,25 +668,42 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
     setReading(false);
     if (!r) { onPhotoError("Can't read that photo. Add scores by hand."); return; }
     const fresh = r.scores.filter(s => s.value !== myLoggedValue);
-    setRows(rs => [...rs.filter(x => x.ok || x.who != null || x.value), ...fresh.map((s, i) => ({ key: `p${Date.now()}-${i}`, slot: s.slot, value: s.value, who: undefined }))]);
+    setRows(rs => {
+      const keep = rs.filter(x => x.ok || x.who != null || x.value);
+      const taken = new Set(keep.filter(x => x.who != null).map(x => x.who));
+      if (!allowMe) taken.add('me');
+      return [...keep, ...buildRows(fresh, { scores, mid: machine.id, me, players, keyPrefix: `p${Date.now()}-`, taken, useCrew: false })];
+    });
   }
 
   const editRow = rows.find(r => r.key === editFor);
   const editWho = editRow?.who === 'me' ? me : editRow?.who != null ? playerById.get(editRow.who) : null;
   const editTitle = editRow?.value ? 'Fix score' : editWho ? `${editWho.display_name}'s score` : 'Enter score';
+  const editWhoChip = editWho && (
+    <div className="who-chip">
+      <Avatar avatar={editWho.avatar} emoji={editWho.emoji} name={editWho.display_name} color={editWho.color} size={24} />
+      <span className="who-chip-name">{editRow?.who === 'me' ? `${editWho.display_name} (me)` : editWho.display_name}</span>
+    </div>
+  );
 
   const submitClick = () => (flagged.length ? setCheckOpen(true) : onSubmit());
 
   return (
     <>
-      <MachineStrip machine={machine} onSwitch={onSwitch} />
+      <MachineStrip machine={machine} onSwitch={onSwitch} onCancel={onCancel} />
       <div className="assign-head">
-        <h1>{mode === 'photo' ? 'Who was who?' : "Friends' scores"}</h1>
+        <h1>{needMe ? 'Which player were you?' : mode === 'photo' ? 'Who was who?' : 'Log for other players'}</h1>
         <div className="muted small">
-          {mode === 'photo'
-            ? `Read ${rows.length} score${rows.length === 1 ? '' : 's'}. Tap a name to assign, a number to fix.`
-            : 'Pick a friend, then their score.'}
+          {needMe
+            ? `We read ${rows.length} scores. Tap "That's me" on your score.`
+            : mode === 'photo'
+            ? 'Tap a name to say who played that slot. Tap a number to fix it.'
+            : 'Pick a player, then type their score.'}
         </div>
+        {needMe && (
+          <button type="button" className="linkbtn small" onClick={() => setSkipMe(true)}>I didn't play — just logging others</button>
+        )}
+        {crewRows > 0 && <div className="crew-hint">↺ Same players as last game — tap a name to change.</div>}
       </div>
 
       {photo && (
@@ -547,12 +719,17 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
       <div className="assign-list">
         {rows.map((r, i) => {
           const p = r.who === 'me' ? me : r.who != null ? playerById.get(r.who) : null;
-          const c = r.who != null && r.value > 0 ? preflight(r.value, pid(r), machine, machineScores, photo) : null;
+          const dup = already(r);
+          const c = r.who != null && r.value > 0 && !dup ? preflight(r.value, pid(r), machine, machineScores, photo) : null;
           return (
-            <div key={r.key} className={`assign-row${r.who === null ? ' skipped' : ''}${r.ok ? ' done' : ''}`}>
+            <div key={r.key} className={`assign-row${r.who === null ? ' skipped' : ''}${r.ok ? ' done' : ''}${dup ? ' dup' : ''}`}>
               <div className="assign-top">
                 <span className="slot-label">{r.slot ? `PLAYER ${r.slot}` : `FRIEND ${i + 1}`}</span>
-                {r.ok && <span className="ok-pill">✓ logged</span>}
+                {r.ok && !dup && <span className="ok-pill">✓ logged</span>}
+                {dup && <span className="ok-pill dup-pill">✓ already in</span>}
+                {mode === 'photo' && !r.ok && r.who === undefined && (
+                  <button type="button" className="row-skip" onClick={() => pick(r.key, null)}>Skip</button>
+                )}
                 {mode === 'friends' && !r.ok && (
                   <button type="button" className="row-x" aria-label="Remove" onClick={() => setRows(rs => rs.filter(x => x.key !== r.key))}>✕</button>
                 )}
@@ -562,6 +739,9 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
                 onClick={r.ok || r.who === null ? undefined : () => openEdit(r)}
                 label={r.value ? `Player ${r.slot ?? i + 1} score ${fmt(r.value)}, tap to fix` : 'Enter score'}
               />
+              {needMe && r.who === undefined && !r.ok && (
+                <button type="button" className="cta cta-soft thats-me" onClick={() => pick(r.key, 'me')}>That's me</button>
+              )}
               <button type="button" className={`assignee${p ? '' : ' empty'}`} disabled={r.ok} onClick={() => setPickFor(r.key)}>
                 {r.who === null ? (
                   <><span className="assignee-skip">⤼</span><span>Skipped · tap to add</span></>
@@ -570,9 +750,12 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
                     <span className="assignee-name">{r.who === 'me' ? `${p.display_name} (me)` : p.display_name}</span>
                     {!r.ok && <span className="assignee-change">change</span>}</>
                 ) : (
-                  <><span className="assignee-plus">＋</span><span>Pick player</span></>
+                  <><span className="assignee-plus">？</span><span>{needMe ? 'Someone else? Tap to pick' : 'Who is this?'}</span></>
                 )}
               </button>
+              {dup && dup.loggedBy != null && dup.loggedBy !== pid(r) && dup.loggedBy !== me.id && (
+                <AlreadyLogged by={dup.loggedBy} me={me} playerById={playerById} className="row-dup" />
+              )}
               {c?.warnings.map(w => <div key={w.kind} className="row-warn"><PixelEmoji e="🤔" size={22} /> <strong>{w.title}</strong> {w.detail}</div>)}
               {c?.crown.claimedTop && <div className="row-crown">👑 {c.crown.contested ? 'New record!' : 'First on the board'}{c.needsPhoto ? ' Add a photo.' : ''}</div>}
               {r.error && <div className="row-err">{r.error}</div>}
@@ -591,11 +774,16 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
       </div>
 
       <div className="actionbar">
-        {unresolved.length > 0 && readyRows.length > 0 && (
+        {!needMe && unresolved.length > 0 && readyRows.length > 0 && (
           <div className="actionbar-hint">{unresolved.length} unassigned · will be skipped</div>
         )}
-        <button type="button" className="cta" disabled={busy || readyRows.length === 0} onClick={submitClick}>
-          {busy ? 'Saving…' : readyRows.length ? `Log ${readyRows.length} score${readyRows.length === 1 ? '' : 's'}` : 'Pick who scored'}
+        {needMe && <div className="actionbar-hint">First, tap "That's me" on your score.</div>}
+        <button type="button" className="cta" disabled={busy || readyRows.length === 0 || needMe} onClick={submitClick}>
+          {busy ? 'Saving…'
+            : needMe ? 'Which one was you?'
+            : newCount ? `Log ${newCount} score${newCount === 1 ? '' : 's'}`
+            : readyRows.length ? 'Done ✓'
+            : 'Pick who scored'}
         </button>
       </div>
 
@@ -609,6 +797,7 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
       </Sheet>
 
       <Sheet open={editFor != null} onClose={() => setEditFor(null)} title={editTitle} tall>
+        {editWhoChip}
         {photo && <img className="photo-mini" src={photo} alt="" />}
         <ScorePad value={editVal} onChange={setEditVal} />
         <div className="sheet-actions">
@@ -622,7 +811,10 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
             const p = r.who === 'me' ? me : playerById.get(r.who);
             return (
               <div key={r.key} className="check-item">
-                <div className="check-who">{p?.display_name}: <span className="mono amber">{fmt(r.value)}</span></div>
+                <div className="check-who">
+                  <Avatar avatar={p?.avatar} emoji={p?.emoji} name={p?.display_name} color={p?.color} size={24} />
+                  <span className="check-who-name">{p?.display_name}:</span> <span className="mono amber">{fmt(r.value)}</span>
+                </div>
                 {warnings.map(w => <div key={w.kind} className="warn-detail"><PixelEmoji e="🤔" size={22} /> <strong>{w.title}</strong> {w.detail}</div>)}
                 {needsPhoto && <div className="warn-detail">👑 New #1 needs a photo</div>}
               </div>
@@ -644,7 +836,7 @@ function AssignStep({ mode, machine, rows, setRows, photo, readInfo, me, players
 }
 
 // ---------------------------------------------------------------------------
-function DoneStep({ machine, machines, results, standings, me, playerById, busy, onUndo, onRetry, onFriends, onAnother }) {
+function DoneStep({ machine, machines, results, standings, me, playerById, busy, notice, onUndo, onUndoFriend, onRetry, onFriends, onAnother }) {
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick(x => x + 1), 15000); return () => clearInterval(t); }, []);
 
@@ -657,8 +849,11 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
   const climbed = mine && mine.prevRank != null && now && now.rank < mine.prevRank;
   const undoLeft = mine ? Math.max(0, UNDO_MS - (Date.now() - mine.at)) : 0;
 
-  const title = !mine ? `Logged ${friends.filter(f => !f.error).length} for friends`
-    : mine.duplicate ? 'Already logged'
+  const loggedFriends = friends.filter(f => !f.error);
+  const newFriends = loggedFriends.filter(f => !f.duplicate);
+  const oneName = newFriends.length === 1 ? playerById.get(newFriends[0].playerId)?.display_name : null;
+  const title = !mine ? (oneName ? `Logged for ${oneName}` : newFriends.length ? `Logged ${newFriends.length} scores` : 'Already logged ✓')
+    : mine.duplicate ? 'Already logged ✓'
     : tookCrown ? 'You took the crown!'
     : isPB && mine.prevBest != null ? 'New personal best!'
     : 'Score logged!';
@@ -671,8 +866,23 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
         {tookCrown && <Confetti count={110} />}
         {tookCrown && <div className="done-crown" aria-hidden="true"><PixelEmoji e="👑" size={72} grid={16} /></div>}
         {mine && !mine.duplicate && <div className="done-kicker" aria-hidden="true">{tookCrown ? 'NEW HIGH SCORE!' : 'STAGE CLEAR!'}</div>}
+        {mine ? (
+          <div className="done-hero-avatar">
+            <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={64} ring />
+          </div>
+        ) : loggedFriends.length > 0 && (
+          <div className="done-hero-avatars">
+            {loggedFriends.slice(0, 6).map(f => {
+              const p = playerById.get(f.playerId);
+              return <Avatar key={f.key} avatar={p?.avatar} emoji={p?.emoji} name={p?.display_name} color={p?.color} size={48} ring />;
+            })}
+          </div>
+        )}
         <div className="done-machine">{machine.name}</div>
         <h1 className="done-title">{title}</h1>
+        {mine?.duplicate && mine.loggedBy != null && mine.loggedBy !== me.id && (
+          <AlreadyLogged by={mine.loggedBy} me={me} playerById={playerById} className="done-dup" />
+        )}
         {mine && <LedNumber value={mine.value} size="xl" />}
         {mine && now && (
           <div className="done-stats">
@@ -681,14 +891,24 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
               <span className="done-rank-of">of {now.N}</span>
             </div>
             <div className="done-lines">
-              {mine.prevRank == null
+              {mine.duplicate ? <span className="done-sub">Counted once.</span>
+                : mine.prevRank == null
                 ? <span className="move new">NEW ENTRY</span>
                 : climbed ? <span className="move up">▲ up from {ordinal(mine.prevRank)}</span>
-                : <span className="move flat">held {ordinal(now.rank)}</span>}
-              {isPB && mine.prevBest != null && <span className="move pb">★ NEW BEST</span>}
-              {!isPB && <span className="done-sub">Your best ({fmt(now.best)}) still counts.</span>}
-              {mine.dethroned && <span className="done-sub">Knocked <strong>{mine.dethroned.display_name}</strong> off #1.</span>}
-              {!mine.dethroned && mine.passed > 0 && mine.prevRank != null && <span className="done-sub">Passed {mine.passed} player{mine.passed === 1 ? '' : 's'}.</span>}
+                : <span className="move flat">Still {ordinal(now.rank)}</span>}
+              {!mine.duplicate && isPB && mine.prevBest != null && <span className="move pb">★ NEW BEST</span>}
+              {!mine.duplicate && !isPB && <span className="done-sub">Your best ({fmt(now.best)}) still counts.</span>}
+              {!mine.duplicate && mine.dethroned && (
+                <span className="done-sub done-knocked">
+                  Knocked{' '}
+                  <span className="inline-who">
+                    <Avatar avatar={mine.dethroned.avatar} emoji={mine.dethroned.emoji} name={mine.dethroned.display_name} color={mine.dethroned.color} size={24} />
+                    <strong>{mine.dethroned.display_name}</strong>
+                  </span>{' '}
+                  off #1.
+                </span>
+              )}
+              {!mine.duplicate && !mine.dethroned && mine.passed > 0 && mine.prevRank != null && <span className="done-sub">Passed {mine.passed} player{mine.passed === 1 ? '' : 's'}.</span>}
             </div>
           </div>
         )}
@@ -699,9 +919,11 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
         )}
       </div>
 
+      {notice && <div className="note-ok">{notice}</div>}
+
       {friends.length > 0 && (
         <section className="panel">
-          <h3>Also logged</h3>
+          <h3>{mine ? 'Also logged' : 'Logged'}</h3>
           <ul className="friend-results">
             {friends.map(f => {
               const p = playerById.get(f.playerId);
@@ -712,6 +934,18 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
                   <span className="fr-name">{p?.display_name ?? 'Player'}</span>
                   <span className="fr-val mono amber">{fmtShort(f.value)}</span>
                   <span className="fr-rank">{f.error ? '' : st ? `${st.rank === 1 ? '👑' : ordinal(st.rank)}` : '…'}</span>
+                  {!f.error && (
+                    <div className="fr-status">
+                      {f.duplicate
+                        ? <AlreadyLogged by={f.loggedBy === f.playerId ? null : f.loggedBy} me={me} playerById={playerById} />
+                        : <span className="fr-new">✓ Logged</span>}
+                      {!f.duplicate && f.scoreId && Date.now() - f.at < UNDO_MS && (
+                        <button type="button" className="undo-btn small" disabled={busy} onClick={() => onUndoFriend(f)}>
+                          ↶ Undo <span className="undo-time">{Math.ceil((UNDO_MS - (Date.now() - f.at)) / 60000)}m</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {f.error && (
                     <div className="fr-err">
                       {f.error}
@@ -722,12 +956,12 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
               );
             })}
           </ul>
-          <div className="muted small">Wrong for a friend? They can undo it, or ask the host.</div>
+          <div className="muted small">Wrong one? Undo within 15 min.</div>
         </section>
       )}
 
       <button type="button" className="friends-btn" onClick={onFriends}>
-        <span aria-hidden="true"><PixelEmoji e="👯" size={22} /></span> {friends.length ? 'Log more friends' : "Log friends' scores"}
+        <span aria-hidden="true"><PixelEmoji e="👯" size={22} /></span> {friends.length ? 'Log more players' : 'Log scores for other players'}
       </button>
 
       {next && (
@@ -743,7 +977,7 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
 
       <div className="actionbar two">
         <Link to="/" className="ghost-btn">All machines</Link>
-        <button type="button" className="cta" onClick={onAnother}>Log another</button>
+        <button type="button" className="cta" onClick={onAnother}>Log another game here</button>
       </div>
     </>
   );
@@ -755,7 +989,7 @@ function nextSuggestion(machines, st, currentId) {
   const unplayed = others.find(m => !st.perMachine[m.id]);
   if (unplayed) {
     const left = machines.filter(m => !st.perMachine[m.id]).length;
-    return { machine: unplayed, line: `Try ${unplayed.name}${left > 1 ? ` · ${left} left` : ''}` };
+    return { machine: unplayed, line: `Try ${unplayed.name}${left > 1 ? ` · ${left} machines left` : ''}` };
   }
   const worst = others
     .map(m => ({ m, pm: st.perMachine[m.id] }))
@@ -765,27 +999,35 @@ function nextSuggestion(machines, st, currentId) {
   return null;
 }
 
-function TopScores({ board, me, mineHere }) {
+function TopScores({ board, me, mineHere, mid, multiEvent }) {
+  const [ever, setEver] = useState(false);
+  const allTime = useAllTime();
+  const b = ever ? allTime.machines.find(x => x.machine.id === mid) : board;
+  const mine = ever ? (me ? allTime.stats.get(me.id)?.perMachine[mid] ?? null : null) : mineHere;
   return (
     <section className="panel top-scores">
       <div className="panel-head">
         <h3>High scores</h3>
-        {mineHere && <span className="muted small">You: {ordinal(mineHere.rank)} of {mineHere.N}</span>}
+        <Link to={`/ranks?m=${mid}${ever ? '&t=all' : ''}`} className="link small">All →</Link>
       </div>
-      {(!board || board.top.length === 0) && <div className="muted small">No scores yet. Be first! 👑</div>}
+      {multiEvent && (
+        <div className="rk-scope ts-scope" role="tablist">
+          <button role="tab" aria-selected={!ever} className={!ever ? 'on' : ''} onClick={() => setEver(false)}>Tonight</button>
+          <button role="tab" aria-selected={ever} className={ever ? 'on' : ''} onClick={() => setEver(true)}>All-time</button>
+        </div>
+      )}
+      {mine && <div className="muted small ts-you">You: {ordinal(mine.rank)} of {mine.N} · {fmt(mine.best)}</div>}
+      {(!b || b.top.length === 0) && <div className="muted small">No scores yet. Be first!</div>}
       <ol className="ts-list">
-        {board?.top.map(s => (
+        {b?.top.map(s => (
           <li key={s.player.id} className={s.player.id === me?.id ? 'mine' : ''}>
-            <span className="ts-rank">{s.rank === 1 ? '👑' : s.rank}</span>
+            <span className="ts-rank">{s.rank === 1 ? <PixelEmoji e="👑" size={16} grid={12} /> : s.rank}</span>
             <Avatar avatar={s.player.avatar} emoji={s.player.emoji} name={s.player.display_name} color={s.player.color} size={28} />
             <span className="ts-name">{s.player.display_name}</span>
             <span className="ts-val">{fmt(s.score)}</span>
           </li>
         ))}
       </ol>
-      {mineHere && mineHere.rank > 10 && (
-        <div className="muted small">You: <span className="mono">{fmt(mineHere.best)}</span> ({ordinal(mineHere.rank)})</div>
-      )}
     </section>
   );
 }

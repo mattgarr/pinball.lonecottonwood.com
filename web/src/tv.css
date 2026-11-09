@@ -745,3 +745,150 @@
 .qr-url { font-family: 'NES Body', ui-monospace, monospace; font-size: 13px; word-break: normal; overflow-wrap: anywhere; text-align: center; line-height: 1.4; }
 .cab2-scores li:not(.slot):not(.cab2-empty) { grid-template-columns: 22px minmax(0, 1fr) auto; }
 .pnl-legend { font-size: 14px; line-height: 1.4; }
+.tv2-frame, .tv-frame, .tv, .reveal-tv { text-transform: uppercase; }
+
+/* ===================== LIVE EFFECTS + NEWS CRAWL (NES) ===================== */
+/* room for the crawl: cabinets give up 40px */
+.tv2-drift { grid-template-rows: 44px 438px minmax(0, 1fr) 40px; }
+
+/* --- bottom news crawl --- */
+.crawl { display: grid; grid-template-columns: auto minmax(0, 1fr); background: #000; box-shadow: inset 0 3px 0 var(--nes-red); overflow: hidden; }
+.crawl-tag {
+  display: flex; align-items: center; gap: 10px; padding: 3px 16px 0; background: var(--nes-red); color: #fff;
+  font-family: var(--px); font-size: 16px; letter-spacing: 0; clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%); padding-right: 26px;
+}
+.crawl-dot { width: 9px; height: 9px; background: #fff; animation: tk-blink 1.06s steps(2, start) infinite; }
+.crawl-track { overflow: hidden; display: flex; align-items: center; padding-top: 3px; }
+.crawl-move { display: flex; width: max-content; animation: crawl-go linear infinite; }
+@keyframes crawl-go { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.crawl-run { display: flex; white-space: nowrap; }
+.crawl-item { font-family: var(--px); font-size: 16px; color: #e8e8f4; padding-left: 26px; display: inline-flex; align-items: center; gap: 14px; }
+.crawl-item b { font-weight: 400; color: var(--nes-yellow); }
+.crawl-item i { font-style: normal; color: var(--nes-red); padding-left: 12px; }
+.crawl-item.hot b { background: var(--nes-red); color: #fff; padding: 3px 8px 2px; }
+.crawl-item.hot { color: #fff; }
+
+/* --- a cabinet just got a score --- */
+.cab2 { position: relative; }
+.cab2.hit { animation: cab-hit 0.5s steps(2, start) 6; }
+@keyframes cab-hit { 50% { box-shadow: inset 0 0 0 3px var(--nes-yellow), 0 0 28px rgba(248, 184, 0, 0.5); } }
+.cab2-hit {
+  position: absolute; left: 6px; right: 6px; top: 70px; z-index: 6;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 8px 12px;
+  background: rgba(0, 0, 0, 0.92); box-shadow: inset 0 0 0 3px var(--nes-yellow); clip-path: var(--notch);
+  animation: hit-in 0.45s steps(4, end) both, hit-out 0.4s steps(3, end) 4.05s forwards;
+}
+@keyframes hit-in { from { transform: translateY(-40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes hit-out { to { opacity: 0; transform: translateY(20px); } }
+.cab2-hit-label { font-family: var(--px); font-size: 12px; color: var(--nes-yellow); animation: tk-blink 0.5s steps(2, start) infinite; }
+.cab2-hit-name { font-family: var(--px); font-size: 12px; color: #fff; text-align: center; line-height: 1.4; overflow-wrap: anywhere; }
+.cab2-hit-score { font-size: 24px !important; }
+.cab2-hit-rank { font-family: var(--px); font-size: 10px; color: var(--nes-sky); }
+
+/* --- attract mode: light chase across the cabinets --- */
+.tv2-cabs.attract .cab2 { animation: cab-chase 0.3s steps(2, start) calc(var(--i) * 0.15s) 8; }
+@keyframes cab-chase { 50% { box-shadow: inset 0 0 0 3px var(--glow, var(--nes-yellow)), 0 0 22px color-mix(in srgb, var(--glow, #f8b800) 45%, transparent); } }
+
+/* --- toast kinds --- */
+.toast2.join { box-shadow: inset 0 0 0 3px var(--nes-sky); }
+.toast2.join .toast2-head { color: var(--nes-sky); animation: tk-blink 0.5s steps(2, start) 6; }
+.toast2.shame { box-shadow: inset 0 0 0 3px var(--nes-red); }
+.toast2.shame .toast2-head { color: var(--nes-red); }
+.toast2.milestone { box-shadow: inset 0 0 0 3px var(--nes-pink); }
+.toast2.milestone .toast2-head { color: var(--nes-pink); }
+.toast2-icon { display: grid; place-items: center; }
+.toast2 { bottom: 384px !important; }
+
+/* --- NEW LEADER takeover --- */
+.to-leader { background: radial-gradient(60% 60% at 50% 45%, #241800, #000 75%); }
+.to-lead-body { position: relative; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 18px; margin-top: 24px; }
+.to-lead-crown { animation: lead-bob 0.6s steps(2, start) infinite; margin-bottom: -10px; }
+@keyframes lead-bob { 50% { transform: translateY(-8px); } }
+.to-lead-name { font-size: 40px !important; }
+.to-lead-rating { display: flex; align-items: center; gap: 18px; font-family: var(--px); font-size: 20px; color: var(--nes-sky); }
+
+/* --- sound button / demo badge --- */
+.tv-sound {
+  position: absolute; right: 22px; top: 8px; z-index: 120; cursor: pointer;
+  font-family: var(--px); font-size: 10px; color: #000; background: var(--nes-yellow); border: 0; padding: 6px 10px 5px;
+  animation: tk-blink 1.06s steps(2, start) infinite;
+}
+.tv-sound.on { background: transparent; color: #5c5c74; animation: none; }
+.tv-demo { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); z-index: 120; font-family: var(--px); font-size: 12px; color: #000; background: var(--nes-pink); padding: 5px 10px 4px; }
+@media (prefers-reduced-motion: reduce) { .crawl-move { animation-duration: 400s !important; } }
+.tv-sound { top: auto; bottom: 16px; right: 18px; height: 40px; padding: 0 14px; box-shadow: -14px 0 0 #000; }
+/* long names on the takeovers wrap instead of "MULTI…" */
+.to-pname { font-size: 84px !important; white-space: normal !important; overflow: visible !important; text-overflow: clip !important; line-height: 0.95 !important; max-width: 640px; overflow-wrap: anywhere; }
+.to-lead-name { text-align: center; max-width: 1100px; }
+.tv2-frame.show-cursor, .tv2-frame.show-cursor * { cursor: default !important; } .tv2-frame.show-cursor .tv-sound { cursor: pointer !important; }
+
+/* ===================== CLEANUP PASS (2026-11-08) ===================== */
+/* One type system for the bottom panels: tiny pixel-font labels, one readable size for names and numbers. */
+.pr-rank { font-family: var(--vt) !important; font-size: 22px !important; }
+.pr-name { font-family: var(--vt) !important; font-size: 22px !important; line-height: 1 !important; }
+.pr-crowns, .pr-crowns span { font-family: var(--vt) !important; font-size: 20px !important; }
+.pr-tables, .pr-worst { font-family: var(--vt) !important; font-size: 20px !important; }
+.pr-val { font-size: 16px !important; }
+.pnl-legend { font-family: var(--vt) !important; font-size: 17px !important; line-height: 1.25 !important; }
+
+/* Prizes: room inside each box so text never touches the border. */
+.pz-list { gap: 6px !important; }
+.pz { padding: 5px 10px 5px 8px !important; gap: 10px !important; align-items: center !important; }
+.pz-icon { width: 30px !important; height: 30px !important; }
+.pz-body { line-height: 1 !important; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.pz-top { align-items: center !important; }
+.pz-name { font-family: var(--px) !important; font-size: 10px !important; line-height: 1.2 !important; }
+.pz-stat { font-family: var(--px) !important; font-size: 10px !important; line-height: 1.2 !important; }
+.pz-sub { margin-top: 0 !important; gap: 6px !important; }
+.pz-who { font-family: var(--vt) !important; font-size: 20px !important; line-height: 1 !important; }
+.pz-crit, .pz-sep { font-family: var(--vt) !important; font-size: 17px !important; line-height: 1 !important; }
+.pz-leader .avatar { flex-shrink: 0; }
+
+/* Sound control: hidden on the TV; it shows only while the mouse moves (a small settings chip). */
+.tv-sound { display: none !important; }
+.tv2-frame.show-cursor .tv-sound { display: flex !important; align-items: center; }
+
+/* A machine that just got a score: black/white strobe, then a bright pulsing glow while "JUST PLAYED" shows. */
+.cab2.hit { animation: cab-glow 0.5s ease-in-out infinite alternate !important; box-shadow: inset 0 0 0 4px var(--glow, var(--nes-yellow)), 0 0 46px var(--glow, var(--nes-yellow)); z-index: 2; }
+.cab2.hit::after {
+  content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none;
+  background: #fff; mix-blend-mode: difference; opacity: 0;
+  animation: cab-strobe 0.22s linear 9;
+}
+@keyframes cab-strobe { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes cab-glow {
+  from { box-shadow: inset 0 0 0 4px var(--glow, var(--nes-yellow)), 0 0 18px var(--glow, var(--nes-yellow)); }
+  to { box-shadow: inset 0 0 0 6px #fff, 0 0 60px var(--glow, var(--nes-yellow)); }
+}
+.tv2-logo b { margin-left: 0 !important; }
+/* Wall of Shame: give names the room (the small "worst finish" column goes). */
+.pr.shame { grid-template-columns: 26px 24px minmax(0, 1fr) 48px !important; }
+.pr.shame .pr-worst { display: none !important; }
+/* Prizes: once someone holds a prize, show just their name; the rule shows while it's up for grabs. */
+.pz-leader ~ .pz-sep, .pz-leader ~ .pz-crit { display: none !important; }
+/* Header: "WOODSIDE PINBALL" brand on one line, the event's full name under it. */
+.tv2-head { grid-template-columns: 450px minmax(0, 1fr) !important; }
+.tv2-logo { white-space: nowrap; font-size: 18px !important; }
+.tv2-logo b { margin-left: 12px !important; }
+.tv2-stats.tv2-event { font-size: 13px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--nes-yellow, #f8b800); margin-top: 6px; }
+/* Top "SCORES" tag matches the bottom "NEWS" tag: red slanted label, white pixel text, blinking square. */
+.tk-label {
+  align-self: stretch; display: flex !important; align-items: center; gap: 10px !important;
+  padding: 3px 26px 0 16px !important; background: var(--nes-red) !important; color: #fff !important;
+  font-family: var(--px) !important; font-size: 16px !important; letter-spacing: 0 !important;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+}
+.tk-label .tk-live { width: 9px !important; height: 9px !important; background: #fff !important; animation: tk-blink 1.06s steps(2, start) infinite !important; }
+/* One size for player names everywhere on the board. Names are capped at 12 characters when joining,
+   and 12 characters at 16px fill a machine column exactly, so every name shows in full. */
+.cab2-pname, .cab2-scores li.r1 .cab2-pname, .tk-name, .pr-name, .pz-who { font-size: 16px !important; line-height: 1 !important; }
+/* Prize rows: content fits inside the box (label 12 + gap 3 + name 16 + padding 6 = 37px). */
+.pz { padding: 3px 10px 3px 8px !important; }
+.pz-body { gap: 3px !important; }
+.pz-crit, .pz-sep { font-size: 15px !important; }
+.pz-list { gap: 3px !important; }
+/* NEWS crawl text matches the SCORES strip: same font, same size. */
+.crawl-item { font-family: var(--vt) !important; font-size: 22px !important; }
+/* Top Players paging: rows below the pinned top 3 slide in, a page at a time. */
+.pr.paged { animation: pr-page-in 0.4s steps(4, end) both; }
+@keyframes pr-page-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }

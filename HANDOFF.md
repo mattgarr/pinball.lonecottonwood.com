@@ -1,0 +1,116 @@
+# Woodside Pinball: handoff notes (Nov 8, 2026)
+
+This file is for the next AI assistant (Antigravity) taking over from Claude Code. Read it fully before changing anything.
+
+## What this is
+
+**Woodside Pinball** is a party leaderboard app for a home pinball party.
+- **Event:** "The Ultimate Woodside Pinball Tournament" on **Sat Nov 14, 2026, 6–10 PM** at the Garr home, 252 Raymundo Drive, Woodside.
+- **Hosts:** the Garrs (Matt and Stacia) and the Simkovers (Meghan and Zack). Credit both families in every email.
+- **How it works:** guests sign up on their phones, log scores per machine (with a camera score scanner), and watch a live TV board at `/tv`. Prizes are awarded at the end of the night.
+
+| Piece | Where |
+|---|---|
+| Website (Vite + React) | `web/`, published to GitHub Pages at https://pinball.lonecottonwood.com |
+| Database + server functions | Supabase project `llmggdjxiffkwnjuogxf` |
+| Email | Resend, sending from `pinball@lonecottonwood.com` (free plan: **100 emails/day**) |
+| Schema history | `supabase/migrations/0001…0014_*.sql` (run by hand, in order) |
+| Server functions | `supabase/functions/email-roster`, `email-results`, `resend-alerts` (plus `pixel-avatar`) |
+| Scoring and prizes | `web/src/lib/scoring.js` |
+| Shared data store | `web/src/lib/store.js` |
+| Host guest manager | `web/src/routes/HostGuests.jsx` (`/host/guests`) |
+| TV board | `web/src/routes/TV.jsx`, `web/src/components/tv/*`, `web/src/components/Reveal.jsx` |
+
+`server/` and `config.json` are dead code from an old design. Ignore them.
+
+## How to deploy
+
+- **Website:** run `bash scripts/deploy.sh` from the repo root. It builds and pushes `web/dist` to the `gh-pages` branch, and the site is live about a minute later. Delete `web/public/_emtest` first if it exists.
+- **Database changes:** paste the new `supabase/migrations/00NN_*.sql` file into the Supabase dashboard SQL editor and run it. There is no Supabase CLI and no database password: never use psql.
+- **Server functions:** edit the code in the Supabase dashboard (Edge Functions → function → Code), click **Deploy updates**, confirm, and wait for the "Successfully updated edge function" message before leaving the page.
+  - Keep the local file in `supabase/functions/` identical to what you deploy.
+  - Typing into the dashboard editor auto-closes quotes and brackets. Setting the editor model value with JS (`monaco.editor.getModels()[0]`) and comparing a SHA-256 of the text against the local file works best.
+- **Step-by-step skills:** `.claude/skills/` has detailed walkthroughs: `supabase-dashboard`, `pinball-deploy`, `html-email` (Gmail dark-mode rules), and `ipdb-backglass`.
+
+## Rules (from Matt)
+
+- **Never print the host passcode.** It's in line 3 of the gitignored `HOST_PASSCODE.txt`. Matt signs in to the host pages himself in the browser.
+- **Never type API keys, passwords or webhook secrets into websites.** Matt pastes those himself.
+- **Never email real guests without Matt's explicit OK.** Test samples go only to mattgarr@gmail.com (or sasherman@gmail.com when asked), using the guest manager's "Send yourself a sample".
+- **Watch the Resend quota.** The free plan allows 100 emails a day, and tests count. Plan on one real send per day.
+- **Keep the all-caps 8-bit look** in the guest-facing app and emails. The host guest manager uses plain, modern styling.
+- **Email copy rules:**
+  - Don't say "guest list" or "on the list".
+  - No parking line, no "trash talk", no prize list. Just say "Prizes at the end of the night."
+  - Unpaid invites show "TICKETS: $150 PER PERSON" and a buy button.
+  - Sign-up links and QR codes go only to paid guests.
+- **Write for a non-technical host:** Stacia must be able to run everything without help.
+
+## Current state
+
+- **Guest list:** 77 rows (17 paid). First emails went out Nov 8: 60 invites and 16 "You're in!" QR emails.
+- **Bounce alerts are live:**
+  - A Resend webhook calls the `resend-alerts` function. It checks the Svix signature against the Supabase secret `RESEND_WEBHOOK_SECRET`, with JWT verification turned OFF for this function.
+  - It emails Matt about each bounce or spam complaint, and marks the guest with `bounce_*` columns (migration 0013), which shows as a red "Bounced" tag in the guest manager.
+- **Prizes (12 total):**
+  - **The awards:** Grand Champion, 2nd, 3rd, one champion per machine (6), The Grinder, The Big Whiff, The Match.
+  - **One prize per person:** `ONE_PRIZE_EACH` in `scoring.js`. If someone wins two, the lower prize passes to the next person in line.
+  - **TV:** the prize panel alternates between "overall" and "machines" every 8 seconds, and the end-of-night reveal follows the same order.
+  - **Shopping list:** the Google Doc "Woodside Pinball – Awards & Prizes (Nov 14)" (id `14ptAryLZjz33urNHxV-onfHjQ3VspXBEMNXX2sojP_Q`), which matches Matt's Amazon cart.
+- **Shared tickets (migration 0014, shipped Nov 8):**
+  - One sign-up link or QR can sign up several people, for example a couple on one ticket.
+  - The first person attaches to the original row. Each extra person gets their own guest row with `parent_id` set and no email, and the original row's party size drops by one.
+  - The sign-up page shows who on the ticket has already joined, and after signing up there's a "Share this link" button.
+  - The guest manager shows extra people as "On X's ticket" with a "Shared ticket" tag. `email-roster` skips rows without an email.
+  - Tested in SQL with a rolled-back test, but **not yet tested end-to-end on two real phones.**
+
+## Shared-ticket flow (reworked Nov 8 evening, Antigravity)
+
+Matt's direction: **anyone with a ticket link can sign up; no attendance tracking.** So there are no spot counts or caps. Study: `brain/060e222e-…/signup-flow-study.md`.
+
+- **Done and deployed:**
+  - ME tab "Bringing someone? / Your ticket" box under the rating, listing who's on the ticket.
+  - "Bringing someone?" box on the welcome screen after signing up from a ticket link.
+  - "This phone will switch players" warning before signing someone up on your phone.
+  - A partner's own email (typed at sign-up) is saved to their guest row. They're included in reminder emails (Matt OK'd the extra quota). They don't count as "not emailed".
+  - "You" is recognized by player ID, not nickname.
+  - Guest manager:
+    - People on a ticket are listed under its owner.
+    - Party size never shows fewer than the people signed up.
+    - An automatic "Joined at the party" section lists players with no guest row (e.g. joined from a machine QR).
+    - "Playing" stat.
+- **Migration `0015_ticket_flow.sql`** (`my_ticket`, `invite_info` with ids, `claim_invite` no longer lowers party size, `set_ticket_email`, `host_walkins`):
+  - Tested on a throwaway local Postgres with all 15 migrations applied.
+  - **Run in Supabase on Nov 8, ~8:21 PM** (driven through Matt's Chrome via remote debugging + Playwright `connectOverCDP`).
+  - Data fix the same night: Chris Boitnott (player "Bad B-nott", id 9) had joined without the ticket link. He was added as guest row 91 under Cina's row 7.
+  - Hosts linked: FlyingGoat (player 6) → Matt Garr row 19; Megs (player 8) → Meghan Simkover row 21. Test player Goatay (7) deleted.
+  - Tip: drive Supabase through ONE long-lived Playwright `connectOverCDP` session (Chrome asks "Allow remote debugging?" on every new connection).
+- **Dropped:** fix 2 ("Link to a guest"), replaced by the automatic walk-in list; the optional add-a-partner-by-email feature.
+- **Still to do:**
+  - Test on two real phones.
+  - Next reminder note: "Coming as a couple? Each of you can use the same sign-up link or QR on your own phone."
+
+## Optional feature (on hold)
+
+**Letting a guest add people in their party by email, with a direct sign-up link and QR for each.** Matt raised this, but shared tickets already cover the need: a partner can use the same link or QR, and the share button makes passing it on easy. Build this only if Matt asks again.
+
+Instead, the next reminder update should carry this line in its note: "Coming as a couple? Each of you can use the same sign-up link or QR on your own phone."
+
+Suggested design, if it's ever needed (confirm with Matt before building):
+
+1. After sign-up (and on the ME tab), add a section: "Add someone on your ticket", with fields for name and email.
+2. Add a new RPC, for example `add_party_member(p_token, p_invite, p_name, p_email)`:
+   - Check that the caller's player is on that ticket (the parent row or one of its child rows), and that the ticket is **paid**.
+   - Cap the number of extras at something sensible, and reject an email that's already on the event.
+   - Insert a child row: `parent_id` = the ticket row, the given email and name, `paid` copied from the ticket, `party_size` 1, and a new token. Decrease the parent's party size by one (minimum 1).
+3. Send the new person their "You're in!" email with the QR code:
+   - `email-roster` currently requires the host passcode.
+   - Either add a guest-triggered mode that's only allowed for a just-created child row (checked by the inviter's player token and ticket), or create a small new function.
+   - Make sure a random person can't use it to spam emails, and remember the 100/day quota.
+4. Show it in the guest manager (child rows already display as "On X's ticket").
+
+## Other open items
+
+- **Before the party:** clear test scores and test players (the Host page has "Clear test scores"), check the TV at `/tv`, and test the score scanner on each machine.
+- **Party night:** close scoring, then run the reveal. The Match needs a drawn number from 00 to 99. Then send results with "Email results", which goes only to players who opted in. Avoid sending any other emails that day because of the quota.
+- **Cina Boitnott asked** whether both she and Chris can sign up. Yes: both can use the same link on their own phones, and both will now show in the guest list.

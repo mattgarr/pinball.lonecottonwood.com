@@ -6,11 +6,20 @@ import { fmtShort } from '../../lib/scoring.js';
 import { machineGlow } from './theme.js';
 
 // One machine column: lit backbox on top, name plate, then the top-10 like a high-score table.
-export default function Cabinet({ entry, i, hot }) {
+export default function Cabinet({ entry, i, hot, hit }) {
   const { machine: m, top } = entry;
   return (
-    <div className={`cab2${hot ? ' hot' : ''}`} style={{ '--glow': machineGlow(m.name), '--i': i }}>
+    <div className={`cab2${hot ? ' hot' : ''}${hit ? ' hit' : ''}`} style={{ '--glow': machineGlow(m.name), '--i': i }}>
       <Backbox machine={m} i={i} />
+      {hit && (
+        <div className="cab2-hit" key={hit.id}>
+          <div className="cab2-hit-label">{hit.rank === 1 ? 'TOP SCORE!' : 'JUST PLAYED'}</div>
+          <Avatar avatar={hit.player.avatar} emoji={hit.player.emoji} name={hit.player.display_name} color={hit.player.color} size={56} ring />
+          <div className="cab2-hit-name">{hit.player.display_name}</div>
+          <Dmd tone="hot" className="cab2-hit-score">{fmtShort(hit.value)}</Dmd>
+          {hit.rank ? <div className="cab2-hit-rank">#{hit.rank} HERE</div> : null}
+        </div>
+      )}
       <div className="cab2-plate">
         <span className="cab2-name">{m.name}</span>
         <span className="cab2-meta">{m.manufacturer} · {m.year}</span>

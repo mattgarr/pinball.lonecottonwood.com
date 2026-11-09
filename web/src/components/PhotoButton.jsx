@@ -13,6 +13,7 @@ export default function PhotoButton({ onPhoto, onError, className = 'snap-btn', 
   const [busy, setBusy] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [noLive, setNoLive] = useState(false); // live camera was refused: use the regular camera
+  const [blocked, setBlocked] = useState(''); // shown right under the button
   const input = useRef(null);
 
   async function onChange(e) {
@@ -21,12 +22,13 @@ export default function PhotoButton({ onPhoto, onError, className = 'snap-btn', 
     if (!file) return;
     setBusy(true);
     try { onPhoto(await photoToJpeg(file)); }
-    catch { onError?.("Can't open that photo. Retry or type it."); }
+    catch { onError?.("That photo didn't work — try another, or type it in."); }
     finally { setBusy(false); }
   }
 
   function start(e) {
     if (disabled || busy) return;
+    setBlocked('');
     if (canScan() && !noLive) { e.preventDefault(); setScanning(true); }
     // else: the <label> click opens the regular camera via the hidden input
   }
@@ -37,13 +39,14 @@ export default function PhotoButton({ onPhoto, onError, className = 'snap-btn', 
         <input ref={input} type="file" accept="image/*" capture="environment" onChange={onChange} disabled={disabled || busy} hidden />
         {busy ? <span>Opening photo…</span> : children}
       </label>
+      {blocked && <div className="photo-blocked" role="alert">{blocked}</div>}
       {scanning && createPortal(
         <Scanner
           onCancel={() => setScanning(false)}
           onFallback={fromTap => {
             setScanning(false); setNoLive(true);
             if (fromTap) input.current?.click(); // must run inside the tap for iOS
-            else onError?.('Camera blocked. Tap again for a regular photo.');
+            else setBlocked("Camera's blocked — tap Snap again to use your phone's camera app, or type it in.");
           }}
           onDone={frame => { setScanning(false); onPhoto(frame); }}
         />,

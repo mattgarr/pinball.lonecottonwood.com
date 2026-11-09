@@ -6,6 +6,15 @@ export default function Avatar({ avatar, emoji, name, color, size = 32, ring = f
   const dim = { width: size, height: size };
   const ringStyle = ring ? { boxShadow: `0 0 0 2px ${color || '#fff'}` } : null;
 
+  if (avatar && avatar.startsWith('data:image/png')) {
+    // AI-drawn 8-bit portrait: already pixel art, show it as-is with hard edges.
+    return (
+      <span className="avatar" style={{ ...dim, ...ringStyle }}>
+        <img src={avatar} alt="" className="avatar-img" draggable={false}
+          style={{ width: size, height: size, imageRendering: 'pixelated', objectFit: 'cover', display: 'block' }} />
+      </span>
+    );
+  }
   if (avatar) {
     return (
       <span className="avatar" style={{ ...dim, ...ringStyle }}>

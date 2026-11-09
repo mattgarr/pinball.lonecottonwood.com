@@ -1,3 +1,4 @@
+import { machineSlug } from './machineArt.js';
 // How to point the phone at each machine's score display. Shown in the scanner and in host Test & calibrate.
 // shape = the on-screen box: 'tall' (whole backglass) or 'wide' (one display panel / screen).
 const BY_SLUG = {
@@ -40,7 +41,7 @@ const BY_TYPE = {
   'modern-lcd': BY_SLUG['dungeons-dragons'],
 };
 
-const slugOf = name => String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+const slugOf = name => machineSlug(name || '');
 
 export function captureTips(machine) {
   return BY_SLUG[slugOf(machine?.name)] || BY_TYPE[machine?.display_type] || { shape: 'wide', aim: 'Fill the box with the scores.', note: '' };

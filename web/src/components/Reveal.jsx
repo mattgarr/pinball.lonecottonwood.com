@@ -12,7 +12,7 @@ const fmt = n => Number(n).toLocaleString();
 const SLIDE_MS = 6500;
 const ordinal = n => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
 
-// Auto-advancing reveal: fun prizes, then machine champions, then the overall champion last.
+// Auto-advancing reveal: fun prizes, then machine champions, then 3rd, 2nd and the Grand Champion last.
 export default function Reveal({ standings, awards }) {
   const slides = buildSlides({ standings, awards });
   const [idx, setIdx] = useState(0);
@@ -84,33 +84,13 @@ const hero = p => p && { avatar: p.avatar, emoji: p.emoji, name: p.display_name,
 function buildSlides({ standings, awards }) {
   const slides = [];
 
-  if (awards?.beginnersLuck) {
-    const b = awards.beginnersLuck;
+  // Fun prizes first.
+  if (awards?.theMatch) {
+    const t = awards.theMatch;
     slides.push({
-      label: "BEGINNER'S LUCK", confetti: true, hero: hero(b.player), title: b.player.display_name,
-      subtitle: `${b.machine.name} · ${b.pct}% of top`, score: b.value, scoreCount: true,
-      accent: '#ffcc33', footer: 'first-timer with the goods ✨',
-    });
-  }
-  if (awards?.grinder) {
-    const g = awards.grinder;
-    slides.push({
-      label: 'THE GRINDER', confetti: true, hero: hero(g.player), title: g.player.display_name,
-      subtitle: `${g.plays} games logged`, accent: '#4d8bff', footer: 'absolutely sent it 💪',
-    });
-  }
-  if (awards?.globetrotters?.length) {
-    slides.push({
-      label: 'GLOBETROTTERS', confetti: true,
-      list: awards.globetrotters.map(p => ({ player: p })),
-      subtitle: 'Played all six machines', accent: '#2ee6a0', footer: '🌍',
-    });
-  }
-  if (awards?.heartbreakers?.length) {
-    slides.push({
-      label: 'HEARTBREAKERS', confetti: false,
-      list: awards.heartbreakers.map(h => ({ player: h.player, note: h.machine.name })),
-      subtitle: 'So close: 2nd place', accent: '#ff4fa0', footer: '💔',
+      label: 'THE MATCH', confetti: true, hero: hero(t.player), title: t.player.display_name,
+      subtitle: `Drawn: ${String(t.drawn).padStart(2, '0')} · on ${t.machine.name}`,
+      score: t.value, scoreCount: true, accent: '#29d4d4', footer: 'pure luck, the best kind 🎰',
     });
   }
   if (awards?.bigWhiff) {
@@ -123,34 +103,46 @@ function buildSlides({ standings, awards }) {
       score: `${w.rating}/100`, accent: '#ff5b5b', footer: 'a humble effort, bravely made 🤝',
     });
   }
-  if (awards?.theMatch) {
-    const t = awards.theMatch;
+  if (awards?.grinder) {
+    const g = awards.grinder;
     slides.push({
-      label: 'THE MATCH', confetti: true, hero: hero(t.player), title: t.player.display_name,
-      subtitle: `Drawn: ${String(t.drawn).padStart(2, '0')} · on ${t.machine.name}`,
-      score: t.value, scoreCount: true, accent: '#29d4d4', footer: 'the classic free-game raffle 🎰',
+      label: 'THE GRINDER', confetti: true, hero: hero(g.player), title: g.player.display_name,
+      subtitle: `${g.plays} games logged`, accent: '#4d8bff', footer: 'absolutely sent it 💪',
     });
   }
 
-  for (const m of standings?.machines ?? []) {
-    const c = m.champion;
-    if (!c) continue;
+  // A champion for each machine.
+  for (const c of awards?.machineChamps ?? []) {
+    if (!c.player) continue;
+    const m = c.machine;
     slides.push({
-      label: `${m.machine.name.toUpperCase()} CHAMPION`, confetti: true, hero: hero(c.player), machine: m.machine,
-      title: c.player.display_name, subtitle: `${m.machine.manufacturer} · ${m.machine.year}`,
-      score: c.score, scoreCount: true, accent: machineGlow(m.machine.name), footer: '👑',
+      label: `${m.name.toUpperCase()} CHAMPION`, confetti: true, hero: hero(c.player), machine: m,
+      title: c.player.display_name, subtitle: `${m.manufacturer} · ${m.year}`,
+      score: c.score, scoreCount: true, accent: machineGlow(m.name),
+      footer: c.rank > 1 ? 'next in line: the top scorer already won a prize 👑' : '👑',
     });
   }
 
+  // The podium, saving the best for last.
+  const podium = [
+    [awards?.third, '3RD PLACE', '#cd7f32', '🥉'],
+    [awards?.second, '2ND PLACE', '#c0c7d4', '🥈'],
+  ];
+  for (const [st, label, accent, footer] of podium) {
+    if (!st) continue;
+    slides.push({
+      label, confetti: true, hero: hero(st.player), title: st.player.display_name,
+      subtitle: `${st.machinesPlayed} machines played`, score: `${st.rating}/100`, accent, footer,
+    });
+  }
   const champ = awards?.champion;
   if (champ) {
     slides.push({
-      label: 'PINBALL WIZARD 2026', trophy: true, confetti: true, rays: true, hero: hero(champ.player),
+      label: 'GRAND CHAMPION', trophy: true, confetti: true, rays: true, hero: hero(champ.player),
       title: champ.player.display_name,
-      subtitle: `Champion · ${champ.crowns} crown${champ.crowns === 1 ? '' : 's'}`,
-      score: `${champ.rating}/100`, accent: '#ffcc33', footer: '🎉 the wizard 🎉',
+      subtitle: `The Pinball Wizard · ${champ.crowns} crown${champ.crowns === 1 ? '' : 's'}`,
+      score: `${champ.rating}/100`, accent: '#ffcc33', footer: '🎉 Woodside Pinball 2026 🎉',
     });
   }
-
   return slides;
 }
