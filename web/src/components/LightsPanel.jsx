@@ -122,7 +122,7 @@ export default function LightsPanel({ busy, run }) {
       <div className="row gap lights-row">
         <button type="button" className="ghost" onClick={() => downloadPresets(settings.zones)}>Download controller presets</button>
       </div>
-      <p className="muted small">The lights' own shows for when the TV isn't running (Attract, Calm, Exciting, Music, House lights, Off). Upload the file in WLED: Config → Security &amp; Updates → Restore presets. Download it again after calibrating.</p>
+      <p className="muted small">The lights' own shows for when the TV isn't running (Attract, Calm, Exciting, Music, Machine showcase, House lights, Cozy, Off). Upload the file in WLED: Config → Security &amp; Updates → Restore presets. Download it again after calibrating.</p>
       <p className="muted small">The TV drives the lights once you unlock this host page on the TV's Mac, move the mouse to the bottom-right corner of the TV and click "Lights: click to drive the garage lights from this screen".</p>
       <div className="lights-topic">
         <div className="muted small">For WLED's MQTT settings (keep these private: anyone with them can control the lights):</div>

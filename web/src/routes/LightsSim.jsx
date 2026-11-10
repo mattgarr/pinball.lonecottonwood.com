@@ -276,7 +276,7 @@ export default function LightsSim() {
               if (hardware) publish('api', { ps: Number(v) }); else feedRef.current({ ps: Number(v) });
             }}>
               <option value="">Pick a controller preset…</option>
-              {[1, 2, 3, 4, 5, 6].map(id => <option key={id} value={id}>{presets[id].n}</option>)}
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(id => <option key={id} value={id}>{presets[id].n}</option>)}
             </select>
           </label>
           <span className="ls-buttons"><button type="button" onClick={() => {

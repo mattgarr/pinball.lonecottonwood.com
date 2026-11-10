@@ -3,26 +3,33 @@
 // the zones, the curb stacking and the cool palette match. Download from the host lights card and
 // upload in WLED (Config → Security & Updates → Restore presets).
 //
-//   1 Attract   cycles the cool ambient effects, 3 min each (boot preset)
-//   2 Calm      slow and dim
-//   3 Exciting  fast and bright
-//   4 Music     sound-reactive, from the controller's mic
-//   5 House lights · 6 Off · 9 Next mode (cycles 1 → 4; for the controller's button)
-// WLED's WiZmote remote maps buttons 1–4 to presets 1–4, so the remote's buttons are the four modes.
+//   1 Attract    cycles the cool ambient effects, 3 min each (boot preset)
+//   2 Calm       slow and dim
+//   3 Exciting   fast and bright
+//   4 Music      sound-reactive, from the controller's mic
+//   5 Showcase   each machine glows in its own theme colors, a soft cool glow between them
+//   6 House lights · 7 Cozy (warm, dim amber twinkle)
+//   8 Off · 9 Next mode (cycles 1 → 5; for the controller's button)
+// Presets 1–7 = the remote's seven scene buttons; the remote has its own on/off.
 import { LIGHTS, defaultZones } from './config.js';
 import { LightsEngine } from './engine.js';
 
 const fx = name => LIGHTS.effects[name] ?? 0;
 const cool = names => names.map(n => LIGHTS.coolColors[n]);
 
-// The full segment layout (ids 0–14, ascending), with one state on the three base layers.
-function layout(zones, state) {
+// The full segment layout (ids 0–14, ascending), with one state on the three base layers. `machine`
+// (optional) gives a state per machine zone: (machineId) => state; otherwise machine zones are off.
+function layout(zones, state, machine = null) {
   let segs = [];
   const eng = new LightsEngine({ send: p => { segs = p.seg || segs; }, zones });
   eng.applyLayout(zones); eng.flush(); eng.destroy();
   const { top, curb } = LIGHTS.runs;
   const base = [top.baseSeg, top.bandSeg, curb.baseSeg];
-  return segs.map(s => (base.includes(s.id) ? { ...s, on: true, bri: 255, mi: false, rev: false, ...state } : { ...s, on: false }));
+  return segs.map(s => {
+    if (base.includes(s.id)) return { ...s, on: true, bri: 255, mi: false, rev: false, ...state };
+    const i = s.id >= curb.firstMachineSeg ? s.id - curb.firstMachineSeg : s.id - top.firstMachineSeg;
+    return machine ? { ...s, on: true, bri: 255, mi: true, rev: true, ...machine(LIGHTS.machineOrder[i]) } : { ...s, on: false };
+  });
 }
 
 const show = (zones, n, bri, state) => ({ n, on: true, bri, transition: 15, seg: layout(zones, { sx: 128, ix: 128, pal: 0, ...state }) });
@@ -57,8 +64,15 @@ export function buildPresets(zones = defaultZones()) {
   });
   p[4] = playlist('Music', Object.keys(LIGHTS.music).map((_, i) => 31 + i), 45);
 
-  p[5] = show(zones, 'House lights', 255, { fx: fx('Solid'), col: [LIGHTS.houseWhite] });
-  p[6] = { n: 'Off', on: false };
-  p[9] = { n: 'Next mode', ps: '1~4~' }; // each press: Attract → Calm → Exciting → Music → Attract
+  // Showcase: every machine in its own colors (slow, mirrored from its center), top and curb together.
+  p[5] = {
+    n: 'Machine showcase', on: true, bri: 200, transition: 15,
+    seg: layout(zones, { fx: fx('Aurora'), sx: 60, ix: 128, pal: 4, bri: 90, col: cool(['purple', 'blue', 'teal']) },
+      id => ({ fx: fx('Colorwaves'), sx: 60, ix: 128, pal: 4, col: LIGHTS.machineThemes[id]?.colors || LIGHTS.partyBase.col })),
+  };
+  p[6] = show(zones, 'House lights', 255, { fx: fx('Solid'), col: [LIGHTS.houseWhite] });
+  p[7] = show(zones, 'Cozy', 110, { fx: fx('Twinklefox'), sx: 40, ix: 180, pal: 4, col: [[255, 110, 10, 40], [255, 60, 0, 0], [200, 120, 40, 60]] });
+  p[8] = { n: 'Off', on: false };
+  p[9] = { n: 'Next mode', ps: '1~5~' }; // each press: Attract → Calm → Exciting → Music → Showcase → Attract
   return p;
 }
