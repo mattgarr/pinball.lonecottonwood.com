@@ -13,9 +13,14 @@ const SLIDE_MS = 6500;
 const ordinal = n => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
 
 // Auto-advancing reveal: fun prizes, then machine champions, then 3rd, 2nd and the Grand Champion last.
-export default function Reveal({ standings, awards }) {
+export default function Reveal({ standings, awards, onSlide }) {
   const slides = buildSlides({ standings, awards });
   const [idx, setIdx] = useState(0);
+
+  // Tell the lights which slide is up, so the strips and the TV share one timeline.
+  const cur = slides[idx] ?? slides[0];
+  const cueKey = cur ? `${idx}:${cur.label}:${cur.title || ''}` : '';
+  useEffect(() => { if (cur && onSlide) onSlide(cur); }, [cueKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (slides.length <= 1) return;

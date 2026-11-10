@@ -10,7 +10,7 @@ captureFakeFlag(); // read ?fakephoto=… before the join redirect drops the que
 
 // Pages anyone can see without joining.
 function isPublicPath(p) {
-  return p === '/join' || p === '/rejoin' || p === '/host' || p === '/host/test' || p === '/host/guests' || p === '/about' || /^\/machine\/\d+\/guide$/.test(p);
+  return p === '/join' || p === '/rejoin' || p === '/host' || p === '/host/test' || p === '/host/guests' || p === '/host/calibrate' || p === '/about' || /^\/machine\/\d+\/guide$/.test(p);
 }
 
 function useOnline() {

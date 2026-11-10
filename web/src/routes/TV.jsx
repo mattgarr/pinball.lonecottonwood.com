@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useAwards, useStandings } from '../lib/store.js';
+import { useAwards, useParty, useStandings } from '../lib/store.js';
+import { useLightsDirector } from '../lib/lights/useLightsDirector.js';
 import QR from '../components/QR.jsx';
 import Reveal from '../components/Reveal.jsx';
 import Avatar from '../components/Avatar.jsx';
@@ -21,6 +22,9 @@ export default function TV() {
   const awards = useAwards(standings, party?.reveal_active ? party.match_digits : null);
   const demo = typeof location !== 'undefined' && new URLSearchParams(location.search).has('demo');
   const live = useLiveEvents({ standings, scores, players, ready, demo });
+  const { lights: lightsSettings } = useParty();
+  // Garage lights: only the screen marked as the lights driver (the TV on the Mac) sends anything.
+  const lights = useLightsDirector({ settings: lightsSettings, party, scores, players, standings, ready: ready && !demo });
   const [soundOn, setSoundOn] = useState(false);
   const [attract, setAttract] = useState(false);
   const lastEvent = useRef(Date.now());
@@ -130,7 +134,7 @@ export default function TV() {
   }
 
   if (party?.reveal_active) {
-    return <div className={`tv-frame tv2-frame${cursor ? ' show-cursor' : ''}`}><Reveal standings={standings} awards={awards} /></div>;
+    return <div className={`tv-frame tv2-frame${cursor ? ' show-cursor' : ''}`}><Reveal standings={standings} awards={awards} onSlide={lights.onRevealSlide} /></div>;
   }
 
   const joinURL = `${location.origin}/`;
@@ -211,6 +215,12 @@ export default function TV() {
         {tk && <Takeover key={tk.id} item={tk} queued={live.queued} onDone={live.nextTakeover} />}
         <button type="button" className={`tv-sound${soundOn ? ' on' : ''}`} onClick={e => { e.stopPropagation(); toggleSound(); }}>
           {soundOn ? '⚙ Sound effects: on (click to mute)' : '⚙ Sound effects: off (click to turn on)'}
+        </button>
+        <button type="button" className={`tv-sound tv-lights${lights.driver ? ' on' : ''}`} onClick={e => { e.stopPropagation(); lights.setDriver(!lights.driver); }}
+          title="Only the TV in the garage should drive the lights">
+          {lights.driver
+            ? `⚙ Lights: this screen drives them${lights.enabled ? (lights.dry ? ' (simulator only)' : '') : ' (lights off in host)'} · click to stop`
+            : '⚙ Lights: click to drive the garage lights from this screen'}
         </button>
         {demo && <div className="tv-demo">DEMO</div>}
       </div>

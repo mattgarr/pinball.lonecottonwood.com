@@ -13,6 +13,8 @@ import About from './routes/About.jsx';
 import TV from './routes/TV.jsx';
 import Host from './routes/Host.jsx';
 import HostQR from './routes/HostQR.jsx';
+import LightsSim from './routes/LightsSim.jsx';
+import HostCalibrate from './routes/HostCalibrate.jsx';
 import HostTest from './routes/HostTest.jsx';
 import HostGuests from './routes/HostGuests.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
@@ -26,6 +28,7 @@ createRoot(document.getElementById('root')).render(
       <Routes>
         <Route path="/tv" element={<TV />} />
         <Route path="/host/qr" element={<HostQR />} />
+        <Route path="/lights-sim" element={<LightsSim />} />
         <Route element={<App />}>
           <Route path="/" element={<Home />} />
           <Route path="/join" element={<Join />} />
@@ -39,6 +42,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/host" element={<Host />} />
           <Route path="/host/test" element={<HostTest />} />
           <Route path="/host/guests" element={<HostGuests />} />
+          <Route path="/host/calibrate" element={<HostCalibrate />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

@@ -6,10 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && cp dist/index.html dist/404.html",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "lights:test": "node scripts/lights-test.mjs",
+    "lights:mock": "node scripts/mock-wled.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
+    "mqtt": "^5.10.1",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -18,6 +22,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
   }
 }

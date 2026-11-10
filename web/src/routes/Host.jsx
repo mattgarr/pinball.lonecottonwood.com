@@ -7,6 +7,7 @@ import Avatar from '../components/Avatar.jsx';
 import PixelEmoji from '../components/PixelEmoji.jsx';
 import { hostPixelize } from '../lib/pixelAvatar.js';
 import HostEvents from '../components/HostEvents.jsx';
+import LightsPanel from '../components/LightsPanel.jsx';
 
 const SITE_HOST = 'pinball.lonecottonwood.com';
 
@@ -177,6 +178,8 @@ function HostPanel({ onLogout }) {
           </div>
         </section>
       </div>
+
+      <LightsPanel busy={busy} run={run} />
 
       <ReviewQueue scores={scores} playerById={playerById} machineById={machineById} busy={busy} run={run} />
 

@@ -42,6 +42,7 @@ let state = {
   entries: [],
   players: [],     // the permanent player database
   party: null,     // live state of the current event (party.current_event_id)
+  lights: null,    // garage lights settings (lights_settings row): enabled, dry_run, zones
   // derived for the current event (see derive): event, machines, scores, entrantIds
   me: null,          // the player row for this phone, or null
   meChecked: false,  // finished checking the saved token
@@ -113,6 +114,7 @@ export function refreshAll() {
         events: ev.data || [], eventMachines: em.data || [], entries: en.data || [],
       });
       if (state.me && !me) { setToken(null); }
+      refreshLights();
     } catch (e) {
       set({ error: e.message || String(e) });
     } finally {
@@ -120,6 +122,13 @@ export function refreshAll() {
     }
   })();
   return loading;
+}
+
+// Lights settings live in their own small table; a missing table (before migration 0018) is fine.
+export function refreshLights() {
+  return sb.from('lights_settings').select('*').eq('id', 1).maybeSingle()
+    .then(({ data, error }) => { if (!error) set({ lights: data || null }); })
+    .catch(() => {});
 }
 
 async function checkMe() {
@@ -165,6 +174,7 @@ function start() {
         if (switched) refreshAll();
       }
     })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'lights_settings' }, ev => { if (ev.new) set({ lights: ev.new }); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => refreshAll())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'event_machines' }, () => refreshAll())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'event_entries' }, ev => {
@@ -407,6 +417,8 @@ export const host = {
   removePlayer: playerId => hostCall('host_remove_player', { p_player_id: playerId }),
   wipe: confirm => hostCall('host_wipe', { p_confirm: confirm }),
   clearScores: confirm => hostCall('host_clear_scores', { p_confirm: confirm }),
+  setLights: ({ enabled = null, dryRun = null, zones = null } = {}) =>
+    hostCall('host_set_lights', { p_enabled: enabled, p_dry_run: dryRun, p_zones: zones }).then(r => { refreshLights(); return r; }),
   saveEvent: ({ id = null, name, startsOn = null, machineIds, makeCurrent = false }) =>
     hostCall('host_save_event', { p_event_id: id, p_name: name, p_starts_on: startsOn || null, p_machine_ids: machineIds, p_make_current: makeCurrent }),
   setCurrentEvent: id => hostCall('host_set_current_event', { p_event_id: id }),

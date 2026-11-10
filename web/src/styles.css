@@ -2738,3 +2738,47 @@ button.link { background: none; border: 0; border-bottom: 2px dotted currentColo
   max-width: none !important;
 }
 
+
+/* ---------------- Garage lights: simulator, host card, calibration ---------------- */
+.ls-page { min-height: 100vh; background: #05050a; color: #e9e9f2; padding: 16px; font-family: var(--px); font-size: var(--t10); box-sizing: border-box; }
+.ls-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.ls-head h1 { font-size: var(--t16); margin: 0 12px 0 0; color: var(--nes-yellow); }
+.ls-back { margin-left: auto; color: #9ad; }
+.ls-dot { display: inline-block; width: 10px; height: 10px; margin-right: 6px; background: #555; vertical-align: middle; }
+.ls-dot.ok { background: #38d39f; box-shadow: 0 0 8px #38d39f; }
+.ls-dot.bad { background: #ff5b6e; box-shadow: 0 0 8px #ff5b6e; }
+.ls-dot.idle { background: #666; }
+.ls-strip { margin-bottom: 18px; }
+.ls-label { color: #9c9cb4; margin-bottom: 6px; }
+.ls-scroll { overflow-x: auto; padding-bottom: 6px; }
+.ls-scroll canvas { display: block; background: #05050a; }
+.ls-sections { position: relative; height: 16px; }
+.ls-section { position: absolute; top: 0; height: 14px; border-left: 2px solid #3c3c5c; padding-left: 4px; color: #7c7c9c; white-space: nowrap; overflow: hidden; box-sizing: border-box; }
+.ls-zones { position: relative; height: 20px; }
+.ls-zone { position: absolute; top: 2px; height: 16px; line-height: 16px; text-align: center; color: #cfd; white-space: nowrap; overflow: hidden; box-sizing: border-box; border-left: 1px solid #44446a; }
+.ls-controls { border-top: 2px solid #22222e; padding-top: 12px; }
+.ls-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+.ls-row label { display: inline-flex; align-items: center; gap: 6px; }
+.ls-row select { font-family: var(--px); font-size: var(--t10); height: 32px; background: #111; color: #eee; border: 2px solid #33334a; }
+.ls-buttons button { font-family: var(--px); font-size: var(--t10); height: 40px; padding: 0 12px; background: var(--nes-yellow); color: #000; border: 0; cursor: pointer; }
+.ls-colors { display: flex; flex-wrap: wrap; gap: 6px; }
+.ls-color { width: 28px; height: 28px; border: 2px solid transparent; cursor: pointer; padding: 0; }
+.ls-color.on { border-color: #fff; outline: 2px solid #000; }
+.ls-log { margin-top: 16px; font-size: var(--t10); color: #9c9cb4; line-height: 1.6; word-break: break-all; }
+.ls-log b { color: #e9e9f2; font-weight: normal; }
+.ls-dim { color: #66667a; }
+
+.lights-status { display: flex; flex-wrap: wrap; gap: 14px; margin: 6px 0 8px; }
+.lights-stat { display: inline-flex; align-items: center; }
+.lights-row { margin-top: 10px; }
+.lights-bri { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.lights-bri input { flex: 1; }
+.lights-test { margin-top: 12px; }
+.lights-test .ls-colors { margin: 6px 0 10px; }
+.lights-machines { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+
+.calib .calib-pos { margin: 16px 0 8px; font-size: var(--t16); }
+.calib .calib-arrows { margin-bottom: 14px; }
+.calib .calib-zones { padding-left: 18px; line-height: 1.8; }
+.calib .row button, .calib .card button { height: 40px; min-height: 40px; padding: 0 14px; margin: 0; display: inline-flex; align-items: center; justify-content: center; }
+.calib .row { flex-wrap: wrap; }
