@@ -60,6 +60,7 @@ describe('lights engine', () => {
   });
 
   it('nearby changes merge into one message', () => {
+    e.start(); vi.advanceTimersByTime(60); sent = [];
     e.score(WHIRLWIND, MAG);
     e.score(FATHOM, CYAN);
     vi.advanceTimersByTime(60);
@@ -374,5 +375,23 @@ describe('lights engine', () => {
     vi.advanceTimersByTime(1500); // the 60 s re-push lands during the champion effect
     const offs = sent.flatMap(p => p.seg || []).filter(s => (s.id === 4 || s.id === 11) && s.on === false);
     expect(offs).toEqual([]);
+  });
+
+  it('a fresh engine (host card, no TV) lays out the zones before its first effect', () => {
+    e.test(WHIRLWIND, MAG);
+    vi.advanceTimersByTime(60);
+    const z = sent[0].seg.find(s => s.id === 11);
+    expect(z).toMatchObject({ on: true });
+    expect(z.start).toBeLessThan(320); // the real pixels, not the parking spot
+  });
+
+  it('a controller reboot during the reveal (party closed) re-lays the zones before the next cue', () => {
+    e.start(); e.stop(); e.revealCue({ color: MAG }); vi.advanceTimersByTime(60); sent = [];
+    e.resync();
+    e.revealCue({ color: CYAN, machineId: WHIRLWIND });
+    vi.advanceTimersByTime(60);
+    const ids = sent.flatMap(p => p.seg || []).map(s => s.id);
+    for (const id of [0, 1, 8, 2, 9]) expect(ids).toContain(id);
+    expect(sent.flatMap(p => p.seg || []).find(s => s.id === 4 && s.on)?.start).toBeLessThan(320);
   });
 });

@@ -47,9 +47,9 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     const sendTo = simChannel || (dry ? 'sim' : 'api');
     const engine = new LightsEngine({ send: payload => publish(sendTo, payload), zones: settings?.zones || undefined, music: settings?.music || null });
     engineRef.current = engine;
-    engine.start(); // clean slate: zones pushed, machine segments off, party base on
-    // Outside the party (not open), the room belongs to your WLED preset; the TV only adds moments.
-    if (!simOnly && partyRef.current?.status !== 'open') engine.stop();
+    // During the party: clean slate, zones pushed, party lights on. Outside it (not open), the room
+    // belongs to your WLED preset and the TV only adds moments.
+    if (simOnly || partyRef.current?.status === 'open') engine.start(); else engine.stop();
     const beat = () => { if (!simOnly) publish('director', { at: Date.now(), dry, page: 'tv' }, { retain: true }); };
     beat();
     const iv = setInterval(beat, HEARTBEAT_MS);
@@ -64,10 +64,14 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     });
     const bye = () => { engine.stop(); if (!simOnly) publish('director', { at: Date.now(), off: true }, { retain: true }); };
     window.addEventListener('pagehide', bye);
+    // Safari can restore this page from its back/forward cache after pagehide: pick the party back up.
+    const back = ev => { if (ev.persisted && (simOnly || partyRef.current?.status === 'open')) engine.start(); };
+    window.addEventListener('pageshow', back);
     return () => {
       clearInterval(iv);
       unStatus();
       window.removeEventListener('pagehide', bye);
+      window.removeEventListener('pageshow', back);
       bye();
       engine.destroy();
       engineRef.current = null;
@@ -98,8 +102,7 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     statusRef.current = status;
     const rev = !!party?.reveal_active;
     if (revealRef.current && !rev && e) {
-      e.revealEnd();
-      if (status !== 'open') e.stop(); // reveal over and the party is closed: back to your preset
+      if (status === 'open') e.revealEnd(); else e.stop(); // party closed: straight back to your preset
     }
     revealRef.current = rev;
   }, [party?.status, party?.reveal_active]);

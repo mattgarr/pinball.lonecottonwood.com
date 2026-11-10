@@ -2824,3 +2824,42 @@ details.ls-log summary { cursor: pointer; color: #9c9cb4; margin-bottom: 8px; }
 @media (max-width: 900px) {
   .ls-main, .ls-main.no-tv { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* --- lights simulator v3: everything on one screen ---
+   Header (one row of controls) · left: TV view + the garage wall, sized together to fit the window
+   height · right: the control tabs and the command log. Below 900 px it stacks and scrolls. */
+.ls-page { padding: 12px 16px; }
+.ls-head { gap: 10px 14px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #1c1c28; }
+.ls-head h1 { margin-right: 4px; }
+.ls-pick { display: inline-flex; align-items: center; gap: 8px; color: #9c9cb4; }
+.ls-pick select { font-family: var(--px); font-size: var(--t10); height: 40px; background: #111; color: #eee; border: 2px solid #33334a; }
+.ls-head .ls-colors { gap: 4px; }
+.ls-head .ls-color { width: 22px; height: 22px; }
+.ls-back { margin-left: auto; }
+.ls-main { grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; margin-bottom: 0; }
+.ls-stage { display: flex; flex-direction: column; gap: 10px; min-width: 0;
+  /* TV (16:9) + wall (3.6:1) + the view switch: as wide as the window height allows */
+  width: min(100%, calc((100vh - 190px) * 1.15)); justify-self: center; }
+.ls-stage .ls-tv { margin: 0; max-width: none; width: 100%; aspect-ratio: 16 / 9; }
+.lw { width: 100%; border: 2px solid #22222e; background: #07070d; line-height: 0; }
+.lw canvas { display: block; width: 100%; }
+.ls-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; position: sticky; top: 12px; }
+.ls-side .ls-log { margin-top: 0; max-height: 30vh; overflow: auto; }
+@media (max-width: 900px) {
+  .ls-main { grid-template-columns: minmax(0, 1fr); }
+  .ls-stage { width: 100%; }
+  .ls-side { position: static; }
+  .ls-back { margin-left: 0; }
+}
+
+/* v3 polish: one-row header, TV + wall and the panel centered together */
+.ls-main { display: flex; justify-content: center; align-items: flex-start; gap: 18px; }
+.ls-stage { flex: 0 1 auto; width: min(calc(100vw - 32px - 340px - 18px), calc((100vh - 140px) * 1.15)); }
+.ls-side { flex: 0 0 340px; }
+.ls-tabbody .ls-colors { gap: 4px; }
+.ls-tabbody .ls-color { width: 22px; height: 22px; }
+@media (max-width: 900px) {
+  .ls-main { flex-direction: column; align-items: stretch; }
+  .ls-stage { width: 100%; }
+  .ls-side { flex: 1 1 auto; }
+}

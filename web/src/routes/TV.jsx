@@ -169,11 +169,12 @@ export default function TV() {
   // The reveal: one prize at a time, advanced by hand (host page Next / Back, or a click, Space or the
   // arrow keys here). /tv?reveal previews it locally without touching the party.
   if (party?.reveal_active || revealPreview) {
-    const onStep = revealPreview ? null : n => { if (getHostPass()) host.revealStep(n).catch(() => {}); };
+    // Clicks / keys here move the party's reveal only on a Mac with the host page unlocked.
+    const onStep = !revealPreview && getHostPass() ? n => { host.revealStep(n).catch(() => {}); } : null;
     return (
       <div className={`tv-frame tv2-frame${cursor ? ' show-cursor' : ''}`}>
         <Reveal standings={standings} awards={awards} onSlide={lights.onRevealSlide}
-          step={revealPreview ? 0 : party?.reveal_step || 0} onStep={onStep} />
+          step={revealPreview ? 0 : party?.reveal_step || 0} onStep={onStep} preview={revealPreview} />
       </div>
     );
   }

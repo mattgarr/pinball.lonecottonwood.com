@@ -344,16 +344,20 @@ function RevealControls({ party, busy, run }) {
   const { standings } = useStandings();
   const awards = useAwards(standings, party?.match_digits ?? null);
   const plan = revealPlan({ standings, awards });
-  const step = Math.min(party?.reveal_step || 0, Math.max(0, plan.length - 1));
+  // Optimistic: the next press uses the step we just asked for, even before the update echoes back.
+  const [asked, setAsked] = useState(null);
+  useEffect(() => { setAsked(null); }, [party?.reveal_step]);
+  const step = Math.min(asked ?? party?.reveal_step ?? 0, Math.max(0, plan.length - 1));
+  const goTo = (n, msg) => { setAsked(n); run(() => host.revealStep(n), msg); };
   const cur = plan[step], next = plan[step + 1];
   return (
     <div className="reveal-controls">
       <div className="muted small">Prize {step + 1} of {plan.length}{cur ? `: ${cur.label}, ${cur.title}` : ''}</div>
       <div className="row gap">
-        <button className="secondary" type="button" disabled={busy || step === 0} onClick={() => run(() => host.revealStep(step - 1), 'Back one prize.')}>◀ Back</button>
-        <button className="primary" type="button" disabled={busy || !next} onClick={() => run(() => host.revealStep(step + 1), `Next: ${next.label}.`)}>{next ? `Next prize: ${next.label} ▶` : 'That was the last prize'}</button>
+        <button className="secondary" type="button" disabled={busy || step === 0} onClick={() => goTo(step - 1, 'Back one prize.')}>◀ Back</button>
+        <button className="primary" type="button" disabled={busy || !next} onClick={() => goTo(step + 1, `Next: ${next.label}.`)}>{next ? `Next prize: ${next.label} ▶` : 'That was the last prize'}</button>
       </div>
-      <div className="muted small">On the TV Mac you can also click, or press Space or the arrow keys.</div>
+      <div className="muted small">On the TV Mac (with this host page unlocked there) you can also click, or press Space or the arrow keys.</div>
     </div>
   );
 }

@@ -36,6 +36,7 @@ export class LightsEngine {
     this.cycleIdx = 0; // which ambient effect is up (rotates every cfg.ambientMinutes)
     this.cycleTimer = null;
     this.bounds = {}; // machine segment id → its real pixels { start, stop }
+    this.needsLayout = true; // until zones are pushed, the first effect pushes them (host / simulator engines)
   }
 
   // --- helpers ---------------------------------------------------------------------------------
@@ -256,7 +257,12 @@ export class LightsEngine {
   // The controller came back (power cut, reboot): it has forgotten the app's segments. Push the
   // zones again and put the current look back, without interrupting anything the app is doing.
   resync() {
-    if (this.closed) return; // your preset is playing; leave it alone
+    if (this.closed) {
+      // Your preset is playing; leave it alone. (During the reveal the zones still matter: re-lay them
+      // before the next cue.)
+      this.needsLayout = true;
+      if (!this.revealing) return;
+    }
     this.applyLayout();
     if (this.house) for (const id of this.baseSegs()) this.queue({ id, on: true, fx: this.fx('Solid'), bri: 255, col: [this.cfg.houseWhite] });
     else if (!this.revealing) for (const id of this.baseSegs()) if (this.seg(id).prio === 0) this.queue(this.restState(id));

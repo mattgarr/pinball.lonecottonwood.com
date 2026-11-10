@@ -15,12 +15,16 @@ const ordinal = n => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n
 // The reveal, one prize at a time: fun prizes, then machine champions, then 3rd, 2nd and the Grand
 // Champion last. Each prize: its name and a 3-2-1 countdown, then the winner, then it waits for the
 // host (`step` from the party, via the host page's Next / Back) or a click / Space / arrow key here.
-export default function Reveal({ standings, awards, onSlide, step = 0, onStep }) {
+export default function Reveal({ standings, awards, onSlide, step = 0, onStep, preview = false }) {
   const slides = buildSlides({ standings, awards });
   const last = Math.max(0, slides.length - 1);
   const [idx, setIdx] = useState(Math.min(step, last));
   useEffect(() => { setIdx(Math.min(step, last)); }, [step, last]);
+  // Only a screen that can move the whole party's reveal (host unlocked) or a local preview advances,
+  // so the TV and the host page never disagree about which prize is up.
+  const canAdvance = preview || !!onStep;
   const go = n => {
+    if (!canAdvance) return;
     const next = Math.max(0, Math.min(last, n));
     if (next === idx) return;
     setIdx(next);
@@ -28,6 +32,7 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep })
   };
   useEffect(() => {
     const key = e => {
+      if (e.repeat) return; // holding a key must not skip prizes
       if (['ArrowRight', ' ', 'Enter', 'PageDown'].includes(e.key)) { e.preventDefault(); go(idx + 1); }
       else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); go(idx - 1); }
     };
@@ -38,13 +43,15 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep })
   // 3, 2, 1, then the winner (count 0). The lights get each count and the reveal, on the same timeline.
   const cur = slides[idx] ?? slides[0];
   const cueKey = cur ? `${idx}:${cur.label}:${cur.title || ''}` : '';
-  const [count, setCount] = useState(3);
+  // The count belongs to one prize: a new prize starts at 3 on its very first frame (no flash of the
+  // winner before the countdown).
+  const [cd, setCd] = useState({ k: cueKey, n: 3 });
+  const count = cd.k === cueKey ? cd.n : 3;
   useEffect(() => {
     if (!cur) return undefined;
-    setCount(3);
-    onSlide?.(cur, 'count', 3);
-    const ts = [2, 1].map((n, k) => setTimeout(() => { setCount(n); onSlide?.(cur, 'count', n); }, COUNT_MS * (k + 1)));
-    ts.push(setTimeout(() => { setCount(0); onSlide?.(cur, 'show'); }, COUNT_MS * 3));
+    const ts = [setTimeout(() => onSlide?.(cur, 'count', 3), 0)]; // after the lights engine is up
+    [2, 1].forEach((n, k) => ts.push(setTimeout(() => { setCd({ k: cueKey, n }); onSlide?.(cur, 'count', n); }, COUNT_MS * (k + 1))));
+    ts.push(setTimeout(() => { setCd({ k: cueKey, n: 0 }); onSlide?.(cur, 'show'); }, COUNT_MS * 3));
     return () => ts.forEach(clearTimeout);
   }, [cueKey]); // eslint-disable-line react-hooks/exhaustive-deps
 

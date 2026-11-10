@@ -4,12 +4,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ensureLightsTopic, useParty } from '../lib/store.js';
-import { LIGHTS, defaultZones, bandOf } from '../lib/lights/config.js';
+import { LIGHTS, defaultZones } from '../lib/lights/config.js';
 import { LightsEngine } from '../lib/lights/engine.js';
 import { runControl } from '../lib/lights/useLightsDirector.js';
 import { publish, subscribe, onConnection } from '../lib/lights/mqtt.js';
 import { applyMessage, newModel, renderRange } from '../lib/lights/render.js';
 import { buildPresets } from '../lib/lights/presets.js';
+import LightsWall from '../components/LightsWall.jsx';
 
 // The 12 player colors (same palette players get when they sign up).
 const COLORS = ['#ff5b6e', '#ffb020', '#ffd84d', '#38d39f', '#2ec5e8', '#5b8cff', '#a07bff', '#ff6fd0', '#7ee081', '#ff8a4c', '#4dd4c4', '#c9a0ff'];
@@ -34,13 +35,8 @@ export default function LightsSim() {
   const [ch] = useState(() => Math.random().toString(36).slice(2, 12));
   useEffect(() => { ensureLightsTopic(); }, []); // with the host unlock, also show the real controller's traffic
   const model = useRef(newModel());
-  const canvasTop = useRef(null), canvasCurb = useRef(null);
   const nameOf = id => allMachines.find(m => m.id === id)?.name || `#${id}`;
   const shortName = id => { const n = nameOf(id); return /dragons/i.test(n) ? 'D&D' : n.split(' ')[0]; };
-  // Pixel size: fit the whole top run across the screen (both runs use the same size, to scale).
-  const fit = () => Math.max(3, Math.min(10, Math.floor((window.innerWidth - 40) / (LIGHTS.runs.top.stop - LIGHTS.runs.top.start))));
-  const [PX, setPX] = useState(fit);
-  useEffect(() => { const r = () => setPX(fit()); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Seed the model with the current layout so zones and base segments render before any traffic.
   useEffect(() => {
@@ -109,29 +105,6 @@ export default function LightsSim() {
   }), [hardware, speed, JSON.stringify(zones)]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => engine.destroy(), [engine]);
 
-  // Draw both strips at the same pixel size, so the top run shows about 2.75× as long as the curb.
-  useEffect(() => {
-    let raf;
-    const draw = () => {
-      const now = performance.now();
-      for (const [ref, run] of [[canvasTop, LIGHTS.runs.top], [canvasCurb, LIGHTS.runs.curb]]) {
-        const cv = ref.current; if (!cv) continue;
-        const ctx = cv.getContext('2d');
-        const px = renderRange(model.current, run.start, run.stop, now, speed);
-        ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, cv.width, cv.height);
-        px.forEach(([r, g, b], i) => {
-          ctx.fillStyle = `rgb(${r},${g},${b})`;
-          ctx.shadowColor = `rgb(${r},${g},${b})`; ctx.shadowBlur = 8;
-          ctx.fillRect(i * PX, 6, Math.max(2, PX - 1), cv.height - 12);
-        });
-        ctx.shadowBlur = 0;
-      }
-    };
-    // A plain timer (not requestAnimationFrame) keeps drawing even when the window is in the background.
-    raf = setInterval(draw, 33);
-    draw();
-    return () => clearInterval(raf);
-  }, [speed, PX]);
 
   // Moments the TV shows (scores, records, #1…): with the TV view on, the button makes the TV show it
   // and the lights follow the TV, as at the party. (With "send to hardware", the real strips get it too.)
@@ -202,19 +175,10 @@ export default function LightsSim() {
     fire('revealEnd');
   }
 
-  const W = (run) => (run.stop - run.start) * PX;
-  const zoneLabels = (list, run) => list.map((z, i) => (
-    <div key={z.machineId} className="ls-zone" title={nameOf(z.machineId)} style={{ left: (z.start - run.start) * PX, width: (z.stop - z.start) * PX, background: i % 2 ? '#1c1c2e' : '#26263c' }}>
-      {shortName(z.machineId)}
-    </div>
-  ));
-  let acc = 0;
-  // Draw the curb directly under the beam band (the stretch of the beam over the machines).
-  const curbShift = Math.max(0, bandOf(zones).start - LIGHTS.runs.top.start);
 
   const MOMENTS = [
     ['score', 'Score', 'That machine breathes, player color ↔ machine color'],
-    ['champion', 'Machine record', 'White flashes, then the machine\'s colors chase out from its center'],
+    ['champion', 'High score', 'A new #1 on a machine: white flashes, then the machine\'s colors chase out from its center'],
     ['leader', 'New #1', 'White bounces top ↔ curb, then the room washes in their color'],
     ['ranked', 'Player ranked', 'The room breathes once in their color'],
     ['milestone', 'Milestone', 'A games-played milestone: gold bounces top ↔ curb'],
@@ -228,31 +192,20 @@ export default function LightsSim() {
       <div className="ls-head">
         <h1>Garage lights simulator</h1>
         <span className="ls-conn"><span className={`ls-dot ${conn ? 'ok' : 'bad'}`} />{conn ? 'Connected' : 'Connecting…'}</span>
-        <Link to="/host" className="ls-back">← Host</Link>
-      </div>
-
-      <div className="ls-bar">
         <div className="ls-seg" role="group" aria-label="Where effects go">
           <button type="button" className={!hardware ? 'on' : ''} onClick={() => setHardware(false)}>Simulator only</button>
           <button type="button" className={hardware ? 'on' : ''} onClick={() => setHardware(true)}>Real lights too</button>
         </div>
-        <label>Machine
-          <select value={machineId} onChange={e => setMachineId(Number(e.target.value))}>
-            {LIGHTS.machineOrder.map(id => <option key={id} value={id}>{nameOf(id)}</option>)}
-          </select>
-        </label>
-        <div className="ls-colors" aria-label="Test color">
-          {COLORS.map(c => <button key={c} type="button" className={`ls-color${c === color ? ' on' : ''}`} style={{ background: c }} onClick={() => setColor(c)} aria-label={c} />)}
-        </div>
-        <label>Speed
+        <label className="ls-pick">Speed
           <select value={speed} onChange={e => setSpeed(Number(e.target.value))}>
             <option value={1}>Normal</option><option value={2}>½ speed</option><option value={4}>¼ speed</option>
           </select>
         </label>
+        <Link to="/host" className="ls-back">← Host</Link>
       </div>
 
       <div className={`ls-main${tvMode === 'off' ? ' no-tv' : ''}`}>
-        <div className="ls-tvcol">
+        <div className="ls-stage">
           <div className="ls-seg" role="group" aria-label="TV view">
             {[['demo', 'TV demo'], ['reveal', 'Winner reveal'], ['live', 'Live party'], ['off', 'Hide TV']].map(([k, l]) => (
               <button key={k} type="button" className={tvMode === k ? 'on' : ''} onClick={() => setTvMode(k)}>{l}</button>
@@ -261,9 +214,11 @@ export default function LightsSim() {
           {tvMode !== 'off' && (
             <div className="ls-tv"><iframe ref={tvFrame} key={tvMode} title="TV board" src={tvSrc} /></div>
           )}
+          <LightsWall model={model} speed={speed} zones={zones} nameOf={nameOf} />
           {tvMode === 'reveal' && <div className="ls-dim ls-note">Click the TV to go to the next prize.</div>}
         </div>
 
+        <div className="ls-side">
         <div className="ls-panel">
           <div className="ls-tabs" role="tablist">
             {[['moments', 'Moments'], ['offline', 'No TV'], ['look', 'Ambient']].map(([k, l]) => (
@@ -273,6 +228,16 @@ export default function LightsSim() {
 
           {panel === 'moments' && (
             <div className="ls-tabbody">
+              <label className="ls-field">Machine
+                <select value={machineId} onChange={e => setMachineId(Number(e.target.value))}>
+                  {LIGHTS.machineOrder.map(id => <option key={id} value={id}>{nameOf(id)}</option>)}
+                </select>
+              </label>
+              {(tvMode === 'off' || hardware) && (
+                <div className="ls-colors" aria-label="Player color">
+                  {COLORS.map(c => <button key={c} type="button" className={`ls-color${c === color ? ' on' : ''}`} style={{ background: c }} onClick={() => setColor(c)} aria-label={c} />)}
+                </div>
+              )}
               <div className="ls-grid">
                 {MOMENTS.map(([cmd, label, what]) => <button key={cmd} type="button" title={what} onClick={() => fire(cmd)}>{label}</button>)}
               </div>
@@ -347,35 +312,14 @@ export default function LightsSim() {
             </div>
           )}
         </div>
-      </div>
-
-      <div className="ls-strip">
-        <div className="ls-label">Top run ({LIGHTS.runs.top.stop - LIGHTS.runs.top.start} px)</div>
-        <div className="ls-scroll">
-          <div style={{ position: 'relative', width: W(LIGHTS.runs.top) }}>
-            <div className="ls-sections">
-              {LIGHTS.runs.top.sections.map(s => { const l = acc; acc += s.len; return <div key={s.name} className="ls-section" style={{ left: l * PX, width: s.len * PX }}>{s.name}</div>; })}
-            </div>
-            <canvas ref={canvasTop} width={W(LIGHTS.runs.top)} height={40} />
-            <div className="ls-zones">{zoneLabels(zones.top, LIGHTS.runs.top)}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="ls-strip">
-        <div className="ls-label">Curb run, behind the machines ({LIGHTS.runs.curb.stop - LIGHTS.runs.curb.start} px), lined up under the beam</div>
-        <div className="ls-scroll">
-          <div style={{ position: 'relative', width: W(LIGHTS.runs.curb), marginLeft: curbShift * PX }}>
-            <canvas ref={canvasCurb} width={W(LIGHTS.runs.curb)} height={40} />
-            <div className="ls-zones">{zoneLabels(zones.curb, LIGHTS.runs.curb)}</div>
-          </div>
-        </div>
-      </div>
-
-      <details className="ls-log">
+        <details className="ls-log">
         <summary>Command log ({log.length})</summary>
         {log.length ? log.map((l, i) => <div key={i}><b>{l.at}</b> [{l.src}] {l.msg}</div>) : <div className="ls-dim">Nothing yet.</div>}
       </details>
+        </div>
+      </div>
+
+
     </div>
   );
 }
