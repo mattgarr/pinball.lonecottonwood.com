@@ -20,16 +20,16 @@ export const LIGHTS = {
   //
   // The curb is treated as a second row of pixels directly under the loft beam: each machine gets the
   // same number of pixels on the curb as on the beam, and the curb copies the beam pixel above it.
-  // How: segment 1 covers the whole beam; the curb's segment 8 is made the same length as the beam
-  // (WLED's output 2 is set to the beam's length; the pixels past the real 20 ft simply don't exist),
-  // and its "offset" shifts the pattern so curb pixel k shows what the beam pixel above it shows.
-  // Same effect + same length + same start time = identical, stacked. Seams fall only at the wall corners.
+  // How: the top run is one continuous segment (walls and beam flow together, no seam at the corners).
+  // The curb's segment 8 is made the same length as the top run (WLED's output 2 is set to 235; the
+  // pixels past the real 20 ft simply don't exist), and its "offset" shifts the pattern so curb pixel k
+  // shows what the top pixel above it shows. Same effect + same length + same start time = stacked.
   //
   // Segments (higher ids draw on top in WLED):
-  //   0 whole top run (walls + beam) · 1 the loft beam · 2–7 top machine zones
-  //   8 curb (beam length, offset) · 9–14 curb machine zones · 15 calibration pointer
+  //   0 whole top run (walls + beam) · 1 same bounds as 0 · 2–7 top machine zones
+  //   8 curb (top-run length, offset) · 9–14 curb machine zones · 15 calibration pointer
   //
-  // WLED LED setup: output 1 = top run length; output 2 = the BEAM's length (not the curb's 85).
+  // WLED LED setup: output 1 = top run (235); output 2 = ALSO 235 (not the curb's real 85).
   runs: {
     top: { start: 0, stop: 235, baseSeg: 0, bandSeg: 1, firstMachineSeg: 2,
       sections: [{ name: 'Left wall', len: 43 }, { name: 'Loft beam', len: 149 }, { name: 'Right wall', len: 43 }] },

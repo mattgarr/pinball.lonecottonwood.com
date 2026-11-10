@@ -232,4 +232,20 @@ describe('lights engine', () => {
     const fx = [0, 1, 8].map(id => segsFor(id).at(-1).fx);
     expect(new Set(fx).size).toBe(1); // back to the shared ambient effect
   });
+
+  it('the top run is one smooth pattern across the wall/beam corners (no restart at the corners)', async () => {
+    const { newModel, applyMessage, renderRange } = await import('./render.js');
+    globalThis.performance ??= { now: () => Date.now() };
+    const m = newModel();
+    const eng = new LightsEngine({ send: msg => applyMessage(m, msg) });
+    eng.start(); eng.setAmbient(LIGHTS.ambientCycle.findIndex(a => a.fx === 'Plasma'));
+    vi.advanceTimersByTime(100);
+    const s0 = m.segs[0], s1 = m.segs[1];
+    expect([s1.start, s1.stop]).toEqual([s0.start, s0.stop]);
+    const now = performance.now() + 777;
+    const whole = renderRange(m, 0, 235, now);
+    delete m.segs[1]; // only the single whole-run segment left
+    expect(renderRange(m, 0, 235, now)).toEqual(whole);
+    eng.destroy();
+  });
 });

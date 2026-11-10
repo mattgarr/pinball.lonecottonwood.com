@@ -173,12 +173,14 @@ export class LightsEngine {
   applyLayout(zones = this.zones) {
     this.zones = zones;
     const { top, curb } = this.cfg.runs;
-    const beam = beamOf(this.cfg);
-    const len = beam.len;
-    const of = ((curbOffset(zones, this.cfg) % len) + len) % len;
+    // The top run is one continuous pattern from the left wall over the beam to the right wall: segment 1
+    // has exactly the same bounds as segment 0, so no pattern restarts at the corners.
+    // The curb is the top run's length too (pixels past the real strip don't exist), shifted by `of`,
+    // so curb pixel k shows what the top pixel directly above it shows.
+    const len = top.stop - top.start;
+    const of = ((beamOf(this.cfg).start - top.start + curbOffset(zones, this.cfg)) % len + len) % len;
     this.queue({ id: top.baseSeg, start: top.start, stop: top.stop });
-    this.queue({ id: top.bandSeg, start: beam.start, stop: beam.stop });
-    // The curb copies the beam: same length (pixels past the real strip don't exist), shifted by `of`.
+    this.queue({ id: top.bandSeg, start: top.start, stop: top.stop });
     this.queue({ id: curb.baseSeg, start: curb.start, stop: curb.start + len, of });
     this.cfg.machineOrder.forEach((mid, i) => {
       const t = zones.top.find(z => z.machineId === mid) || zones.top[i];
