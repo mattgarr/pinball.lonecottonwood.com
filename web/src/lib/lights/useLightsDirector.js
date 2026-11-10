@@ -18,7 +18,9 @@ export function readDriver() {
   } catch { return false; }
 }
 
-export function useLightsDirector({ settings, party, scores, players, standings, ready }) {
+// simOnly (/tv?lights=sim, used by the simulator's TV view): always drives, but only the simulator
+// topic, whatever the host settings say. Real strips are never touched.
+export function useLightsDirector({ settings, party, scores, players, standings, ready, simOnly = false }) {
   const [driver, setDriverState] = useState(readDriver);
   const setDriver = useCallback(on => {
     try { localStorage.setItem(DRIVER_KEY, on ? '1' : '0'); } catch { /* ignore */ }
@@ -26,8 +28,8 @@ export function useLightsDirector({ settings, party, scores, players, standings,
   }, []);
 
   const enabled = !!settings?.enabled;
-  const dry = settings?.dry_run !== false;
-  const active = driver && enabled && ready;
+  const dry = simOnly || settings?.dry_run !== false;
+  const active = simOnly ? ready : driver && enabled && ready;
   const engineRef = useRef(null);
   const colorOf = useRef(() => [255, 0, 170, 0]);
   colorOf.current = pid => hexToRgbw(players.find(p => p.id === pid)?.color);
@@ -36,13 +38,13 @@ export function useLightsDirector({ settings, party, scores, players, standings,
   useEffect(() => {
     if (!active) return undefined;
     const sendTo = dry ? 'sim' : 'api';
-    const engine = new LightsEngine({ send: payload => publish(sendTo, payload), zones: settings?.zones || undefined });
+    const engine = new LightsEngine({ send: payload => publish(sendTo, payload), zones: settings?.zones || undefined, music: settings?.music || null });
     engineRef.current = engine;
     engine.start(); // clean slate: zones pushed, machine segments off, party base on
-    const beat = () => publish('director', { at: Date.now(), dry, page: 'tv' }, { retain: true });
+    const beat = () => { if (!simOnly) publish('director', { at: Date.now(), dry, page: 'tv' }, { retain: true }); };
     beat();
     const iv = setInterval(beat, HEARTBEAT_MS);
-    const bye = () => { engine.stop(); publish('director', { at: Date.now(), off: true }, { retain: true }); };
+    const bye = () => { engine.stop(); if (!simOnly) publish('director', { at: Date.now(), off: true }, { retain: true }); };
     window.addEventListener('pagehide', bye);
     return () => {
       clearInterval(iv);
@@ -59,6 +61,10 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     const e = engineRef.current;
     if (e && settings?.zones) { e.applyLayout(settings.zones); e.flush(); }
   }, [zonesKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Music mode switched on/off in /host.
+  const music = settings?.music || null;
+  useEffect(() => { engineRef.current?.setMusic(music); }, [music]);
 
   // New scores: a pulse behind that machine, or a champion effect when it's a new high score.
   const seen = useRef(null);
@@ -123,7 +129,17 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     e.revealCue({ color: hexToRgbw(hex), machineId: slide.machine?.id, final: slide.label === 'GRAND CHAMPION' });
   }, []);
 
-  return { driver, setDriver, enabled, dry, active, onRevealSlide };
+  // Demo events from the TV's demo mode (simulator preview only).
+  const onDemo = useCallback(ev => {
+    const e = engineRef.current;
+    if (!e || !simOnly) return;
+    const c = colorOf.current(ev.player?.id);
+    if (ev.kind === 'score') e.score(ev.machineId, c);
+    else if (ev.kind === 'champion') e.champion(ev.machineId, c);
+    else if (ev.kind === 'leader') e.leader(c);
+  }, [simOnly]);
+
+  return { driver, setDriver, enabled, dry, active, onRevealSlide, onDemo };
 }
 
 // Shared by the TV (as driver) and the simulator / host page (when no TV is driving).
@@ -137,11 +153,13 @@ export function runControl(e, msg) {
     case 'score': e.score(msg.machineId, color); break;
     case 'champion': e.champion(msg.machineId, color); break;
     case 'leader': e.leader(color); break;
+    case 'pingpong': e.pingPong(color); break;
     case 'open': e.partyOpen(); break;
     case 'close': e.stop(); break;
     case 'reveal': e.revealCue({ color, machineId: msg.machineId, final: !!msg.final }); break;
     case 'revealEnd': e.revealEnd(); break;
     case 'layout': e.applyLayout(msg.zones || e.zones); e.flush(); break;
+    case 'music': e.setMusic(msg.name || null); break;
     default: break;
   }
 }

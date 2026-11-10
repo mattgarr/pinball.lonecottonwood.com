@@ -417,8 +417,8 @@ export const host = {
   removePlayer: playerId => hostCall('host_remove_player', { p_player_id: playerId }),
   wipe: confirm => hostCall('host_wipe', { p_confirm: confirm }),
   clearScores: confirm => hostCall('host_clear_scores', { p_confirm: confirm }),
-  setLights: ({ enabled = null, dryRun = null, zones = null } = {}) =>
-    hostCall('host_set_lights', { p_enabled: enabled, p_dry_run: dryRun, p_zones: zones }).then(r => { refreshLights(); return r; }),
+  setLights: ({ enabled = null, dryRun = null, zones = null, music = null } = {}) =>
+    hostCall('host_set_lights', { p_enabled: enabled, p_dry_run: dryRun, p_zones: zones, p_music: music }).then(r => { refreshLights(); return r; }),
   saveEvent: ({ id = null, name, startsOn = null, machineIds, makeCurrent = false }) =>
     hostCall('host_save_event', { p_event_id: id, p_name: name, p_starts_on: startsOn || null, p_machine_ids: machineIds, p_make_current: makeCurrent }),
   setCurrentEvent: id => hostCall('host_set_current_event', { p_event_id: id }),

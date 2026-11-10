@@ -85,6 +85,14 @@ export default function LightsPanel({ busy, run }) {
           {house ? 'House lights: ON (tap to end)' : 'House lights'}
         </button>
       </div>
+      <label className="lights-bri">Music mode
+        <select value={settings.music || ''} disabled={busy}
+          onChange={e => { const v = e.target.value; run(() => host.setLights({ music: v }), v ? `Music mode: ${LIGHTS.music[v].label}.` : 'Music mode off: ambient effects rotate.'); }}>
+          <option value="">Off (ambient effects rotate)</option>
+          {Object.entries(LIGHTS.music).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
+        </select>
+      </label>
+      <p className="muted small">Music mode uses the controller's microphone. Score and champion flashes still play on top.</p>
       <label className="lights-bri">Brightness
         <input type="range" min={10} max={255} value={bri} onChange={e => {
           const v = Number(e.target.value); setBri(v);

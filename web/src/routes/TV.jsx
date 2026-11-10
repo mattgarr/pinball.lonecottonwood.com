@@ -21,10 +21,12 @@ export default function TV() {
   const { machines, players, scores, party, ready, standings, event } = useStandings();
   const awards = useAwards(standings, party?.reveal_active ? party.match_digits : null);
   const demo = typeof location !== 'undefined' && new URLSearchParams(location.search).has('demo');
-  const live = useLiveEvents({ standings, scores, players, ready, demo });
   const { lights: lightsSettings } = useParty();
   // Garage lights: only the screen marked as the lights driver (the TV on the Mac) sends anything.
-  const lights = useLightsDirector({ settings: lightsSettings, party, scores, players, standings, ready: ready && !demo });
+  // /tv?lights=sim (the simulator's TV view) drives the simulated strips only, including demo events.
+  const lightsSim = typeof location !== 'undefined' && new URLSearchParams(location.search).get('lights') === 'sim';
+  const lights = useLightsDirector({ settings: lightsSettings, party, scores, players, standings, ready: ready && (!demo || lightsSim), simOnly: lightsSim });
+  const live = useLiveEvents({ standings, scores, players, ready, demo, onDemo: lights.onDemo });
   const [soundOn, setSoundOn] = useState(false);
   const [attract, setAttract] = useState(false);
   const lastEvent = useRef(Date.now());

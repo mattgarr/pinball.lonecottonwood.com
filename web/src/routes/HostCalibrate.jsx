@@ -1,16 +1,18 @@
 // /host/calibrate: line up each machine's light zone with the real machine.
-// Put painter's tape on the wall at the halfway point between each pair of machines, plus the outer
-// edge of the first and last machine (7 marks per run). Here, a single white pixel lights up on the
-// real strip: move it onto each tape mark and tap Mark. After 7 marks the six zones light up in turn
-// to check, then Save stores them and pushes them to the controller.
+// Top run: put painter's tape on the wall at the halfway point between each pair of machines, plus the
+// outer edge of the first and last machine (7 marks). A single white pixel lights up on the real
+// strip: move it onto each tape mark and tap Mark.
+// Curb run: it's a second row under the beam, so each machine gets the same width as on the beam.
+// Mark just one spot, the outer edge of the first machine, and the zones follow.
+// The zones then light up in turn to check, and Save stores them and pushes them to the controller.
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getHostPass, host, useParty } from '../lib/store.js';
-import { LIGHTS, defaultZones } from '../lib/lights/config.js';
+import { LIGHTS, defaultZones, stackUnder } from '../lib/lights/config.js';
 import { publish } from '../lib/lights/mqtt.js';
 
 const P = LIGHTS.pointerSeg;
-const MARKS = LIGHTS.machineOrder.length + 1;
+const TOP_MARKS = LIGHTS.machineOrder.length + 1;
 const ALT = [[255, 0, 170, 0], [0, 229, 255, 0]];
 
 export default function HostCalibrate() {
@@ -24,6 +26,8 @@ export default function HostCalibrate() {
   const nameOf = id => allMachines.find(m => m.id === id)?.name || `#${id}`;
   const firstSeg = run.firstMachineSeg;
   const timers = useRef([]);
+  const MARKS = runKey === 'top' ? TOP_MARKS : 1;
+  const topZones = settings?.zones?.top || defaultZones().top;
 
   // Commands go to the real controller (and the simulator, so it shows there too).
   const send = body => { publish('api', body); publish('sim', body); };
@@ -48,11 +52,15 @@ export default function HostCalibrate() {
     if (marks.length >= MARKS) return;
     if (marks.length && pos <= marks[marks.length - 1]) { setMsg('Each mark must be further along the strip than the last one.'); return; }
     const next = [...marks, pos];
+    if (next.length === MARKS && !fits(next)) { setMsg('⚠ From there the zones would run past the end of the curb strip. Mark further left, or calibrate the top run first.'); return; }
     setMarks(next); setMsg('');
     if (next.length === MARKS) verify(next);
   }
 
-  const zonesFrom = m => LIGHTS.machineOrder.map((id, i) => ({ machineId: id, start: m[i], stop: m[i + 1] }));
+  const zonesFrom = m => (runKey === 'top'
+    ? LIGHTS.machineOrder.map((id, i) => ({ machineId: id, start: m[i], stop: m[i + 1] }))
+    : stackUnder(topZones, m[0]));
+  const fits = m => runKey === 'top' || zonesFrom(m).at(-1).stop <= run.stop;
 
   // Light each zone in turn in alternating colors, then all together.
   function verify(m) {
@@ -70,6 +78,8 @@ export default function HostCalibrate() {
     try {
       const base = settings?.zones || defaultZones();
       const zones = { ...base, [runKey]: zonesFrom(marks) };
+      // New top widths: keep the curb stacked under them (same left edge, same widths).
+      if (runKey === 'top') zones.curb = stackUnder(zones.top, base.curb[0].start);
       await host.setLights({ zones });
       publish('control', { cmd: 'layout', zones, at: Date.now() }); // the TV pushes the new bounds
       setMsg(`Saved the ${runKey === 'top' ? 'top run' : 'curb run'} zones.`);
@@ -80,7 +90,8 @@ export default function HostCalibrate() {
   if (!getHostPass()) return <div className="screen"><p>Unlock the host page first.</p><Link to="/host">← Host</Link></div>;
 
   const nextLabel = marks.length < MARKS
-    ? (marks.length === 0 ? `the outer edge of ${nameOf(LIGHTS.machineOrder[0])}`
+    ? (runKey === 'curb' ? `the outer edge of ${nameOf(LIGHTS.machineOrder[0])}, on the curb (the zones copy the top run's widths)`
+      : marks.length === 0 ? `the outer edge of ${nameOf(LIGHTS.machineOrder[0])}`
       : marks.length === MARKS - 1 ? `the outer edge of ${nameOf(LIGHTS.machineOrder.at(-1))}`
         : `halfway between ${nameOf(LIGHTS.machineOrder[marks.length - 1])} and ${nameOf(LIGHTS.machineOrder[marks.length])}`)
     : null;
@@ -89,7 +100,7 @@ export default function HostCalibrate() {
     <div className="screen calib">
       <Link className="back" to="/host">← Host</Link>
       <h1>Calibrate light zones</h1>
-      <p className="muted small">Tape the wall first: one mark at the outer edge of the first and last machine, and one halfway between each pair (7 marks per run). Then walk the white dot to each mark.</p>
+      <p className="muted small">Do the top run first: tape one mark at the outer edge of the first and last machine and one halfway between each pair (7 marks), then walk the white dot to each. The curb then needs just one mark: the outer edge of the first machine.</p>
 
       <div className="row gap">
         <button type="button" className={runKey === 'top' ? 'primary' : 'secondary'} onClick={() => pickRun('top')}>Top run (loft beam)</button>

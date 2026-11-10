@@ -4,7 +4,7 @@ import { LIGHTS } from './config.js';
 
 const MAG = [255, 0, 170, 0];
 const CYAN = [0, 229, 255, 0];
-// Machine segments by physical position: Whirlwind is 3rd from the left → top 3, curb 10.
+// Machine segments by physical position: Whirlwind is 3rd from the left → top 4, curb 11; Fathom → top 2, curb 9.
 const WHIRLWIND = 3, FATHOM = 2;
 
 let sent, e;
@@ -23,19 +23,19 @@ describe('lights engine', () => {
     e.start();
     expect(sent).toHaveLength(1);
     const segs = sent[0].seg;
-    for (let id = 1; id <= 6; id++) expect(segs.find(s => s.id === id).on).toBe(false);
-    for (let id = 8; id <= 13; id++) expect(segs.find(s => s.id === id).on).toBe(false);
-    expect(segs.find(s => s.id === 0).fx).toBe(LIGHTS.effects.Colorloop);
-    expect(segs.find(s => s.id === 10).start).toBeGreaterThanOrEqual(235); // curb zones on the curb run
+    for (let id = 2; id <= 7; id++) expect(segs.find(s => s.id === id).on).toBe(false);
+    for (let id = 9; id <= 14; id++) expect(segs.find(s => s.id === id).on).toBe(false);
+    for (const id of [0, 1, 8]) expect(segs.find(s => s.id === id).fx).toBe(LIGHTS.effects.Colorwaves);
+    expect(segs.find(s => s.id === 11).start).toBeGreaterThanOrEqual(235); // curb zones on the curb run
   });
 
   it('a score pulses that machine\'s curb zone within 1 s and restores it within 3.5 s', () => {
     e.score(WHIRLWIND, MAG);
     vi.advanceTimersByTime(100);
-    const on = segsFor(10);
-    expect(on[0]).toMatchObject({ id: 10, on: true, fx: LIGHTS.effects.Breathe, col: [MAG, [0, 0, 0, 0]] });
+    const on = segsFor(11);
+    expect(on[0]).toMatchObject({ id: 11, on: true, fx: LIGHTS.effects.Breathe, col: [MAG, [0, 0, 0, 0]] });
     vi.advanceTimersByTime(3300);
-    expect(segsFor(10).at(-1)).toEqual({ id: 10, on: false });
+    expect(segsFor(11).at(-1)).toEqual({ id: 11, on: false });
   });
 
   it('two machines scoring within 1 s both pulse and both restore', () => {
@@ -43,18 +43,18 @@ describe('lights engine', () => {
     vi.advanceTimersByTime(300);
     e.score(FATHOM, CYAN);
     vi.advanceTimersByTime(4000);
-    expect(segsFor(10).filter(s => s.on).length).toBe(1);
-    expect(segsFor(8).filter(s => s.on).length).toBe(1);
-    expect(segsFor(10).at(-1).on).toBe(false);
-    expect(segsFor(8).at(-1).on).toBe(false);
+    expect(segsFor(11).filter(s => s.on).length).toBe(1);
+    expect(segsFor(9).filter(s => s.on).length).toBe(1);
+    expect(segsFor(11).at(-1).on).toBe(false);
+    expect(segsFor(9).at(-1).on).toBe(false);
   });
 
   it('five scores in 2 s on one machine send at most three commands for that segment', () => {
     for (let i = 0; i < 5; i++) { e.score(WHIRLWIND, i % 2 ? MAG : CYAN); vi.advanceTimersByTime(400); }
-    const pulses = segsFor(10).filter(s => s.on);
+    const pulses = segsFor(11).filter(s => s.on);
     expect(pulses.length).toBeLessThanOrEqual(3);
     vi.advanceTimersByTime(4000);
-    expect(segsFor(10).at(-1).on).toBe(false); // still restores
+    expect(segsFor(11).at(-1).on).toBe(false); // still restores
   });
 
   it('nearby changes merge into one message', () => {
@@ -62,21 +62,23 @@ describe('lights engine', () => {
     e.score(FATHOM, CYAN);
     vi.advanceTimersByTime(60);
     expect(sent).toHaveLength(1);
-    expect(sent[0].seg.map(s => s.id).sort((a, b) => a - b)).toEqual([8, 10]);
+    expect(sent[0].seg.map(s => s.id).sort((a, b) => a - b)).toEqual([9, 11]);
   });
 
   it('a champion preempts a score; a score during a champion effect is dropped', () => {
     e.score(WHIRLWIND, MAG);
     vi.advanceTimersByTime(100);
     e.champion(WHIRLWIND, CYAN);
-    vi.advanceTimersByTime(10);
-    expect(segsFor(3).at(-1)).toMatchObject({ on: true, fx: LIGHTS.effects['Chase Rainbow'] });
-    const n = segsFor(10).length;
+    vi.advanceTimersByTime(60);
+    expect(segsFor(4).at(-1)).toMatchObject({ on: true, col: [[0, 0, 0, 255]] }); // white flash first
+    vi.advanceTimersByTime(700);
+    expect(segsFor(4).at(-1)).toMatchObject({ on: true, fx: LIGHTS.effects['Chase Rainbow'] });
+    const n = segsFor(11).length;
     e.score(WHIRLWIND, MAG);
     vi.advanceTimersByTime(200);
-    expect(segsFor(10).length).toBe(n);
+    expect(segsFor(11).length).toBe(n);
     vi.advanceTimersByTime(5000);
-    expect(segsFor(3).at(-1)).toEqual({ id: 3, on: false });
+    expect(segsFor(4).at(-1)).toEqual({ id: 4, on: false });
   });
 
   it('nothing else fires during the reveal', () => {
@@ -111,7 +113,7 @@ describe('lights engine', () => {
     e.stop();
     const last = sent.at(-1);
     expect(last.ps).toBe(1);
-    for (const id of [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]) expect(last.seg.find(s => s.id === id).on).toBe(false);
+    for (const id of [2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14]) expect(last.seg.find(s => s.id === id).on).toBe(false);
     const n = sent.length;
     vi.advanceTimersByTime(10000);
     expect(sent.length).toBe(n); // no stray restores after stop
@@ -135,6 +137,99 @@ describe('lights engine', () => {
     vi.advanceTimersByTime(10000);
     expect(sent.length).toBe(n);
     e.setHouse(false);
-    expect(segsFor(0).at(-1).fx).toBe(LIGHTS.effects.Colorloop);
+    expect(segsFor(0).at(-1).fx).toBe(LIGHTS.effects.Colorwaves);
+  });
+
+  it('the curb stacks under the beam band: same width per machine, band and curb the same length', () => {
+    e.start();
+    const segs = sent[0].seg, get = id => segs.find(s => s.id === id);
+    for (let i = 0; i < 6; i++) {
+      const t = get(2 + i), c = get(9 + i);
+      expect(t.stop - t.start).toBe(c.stop - c.start);
+    }
+    expect(get(1).stop - get(1).start).toBe(get(8).stop - get(8).start); // curb made the beam's length
+    // Shifted by the offset, each curb machine zone sits under its beam zone.
+    for (let i = 0; i < 6; i++) expect(get(2 + i).start - get(1).start).toBe(get(9 + i).start - get(8).start + get(8).of);
+  });
+
+  it('band and curb always change in the same message with the same effect (they stay in sync)', () => {
+    e.start(); e.partyOpen(); e.leader(MAG); e.setHouse(true); e.setHouse(false); e.revealCue({ color: CYAN }); e.revealEnd();
+    vi.advanceTimersByTime(10000);
+    for (const p of sent) {
+      const b = (p.seg || []).find(s => s.id === 1), c = (p.seg || []).find(s => s.id === 8);
+      if (b && b.fx !== undefined) {
+        expect(c).toBeTruthy();
+        expect({ fx: c.fx, col: c.col, sx: c.sx, bri: c.bri }).toEqual({ fx: b.fx, col: b.col, sx: b.sx, bri: b.bri });
+      }
+    }
+  });
+
+  it('music mode: the ambient layers run the sound effect, and flashes still play on top', () => {
+    e.start();
+    e.setMusic('Gravcentric');
+    for (const id of [0, 1, 8]) expect(segsFor(id).at(-1).fx).toBe(LIGHTS.effects.Gravcentric);
+    e.score(WHIRLWIND, MAG);
+    vi.advanceTimersByTime(100);
+    expect(segsFor(11).at(-1)).toMatchObject({ on: true, fx: LIGHTS.effects.Breathe });
+    e.leader(CYAN);
+    vi.advanceTimersByTime(6500);
+    expect(segsFor(8).at(-1).fx).toBe(LIGHTS.effects.Gravcentric); // back to music after the wash
+    e.setMusic(null);
+    expect(segsFor(8).at(-1).fx).toBe(LIGHTS.effects.Colorwaves);
+  });
+
+  it('ambient effects rotate together on all three layers', () => {
+    e.start();
+    const first = segsFor(8).at(-1).fx;
+    vi.advanceTimersByTime(LIGHTS.ambientMinutes * 60000 + 100);
+    const next = sent.at(-1).seg;
+    const fxs = [0, 1, 8].map(id => next.find(s => s.id === id)?.fx);
+    expect(new Set(fxs).size).toBe(1);
+    expect(fxs[0]).not.toBe(first);
+  });
+
+  it('white flashes for a champion and a new leader stay at 3 per second or slower', () => {
+    const times = [];
+    sent = []; e.destroy();
+    e = new LightsEngine({ send: p => sent.push({ t: Date.now(), p }) });
+    const t0 = Date.now();
+    e.champion(WHIRLWIND, MAG);
+    vi.advanceTimersByTime(2000);
+    for (const { t, p } of sent) if ((p.seg || []).some(s => s.id === 4 && s.col?.[0]?.[3] === 255)) times.push(t - t0);
+    expect(times.length).toBe(2);
+    expect(times[1] - times[0]).toBeGreaterThanOrEqual(333);
+    e.leader(CYAN);
+    vi.advanceTimersByTime(100);
+    expect(sent.at(-1).p.seg.find(s => s.id === 1).col).toEqual([[0, 0, 0, 255]]);
+  });
+
+  it('the simulator draws each curb pixel the same color as the beam pixel above it', async () => {
+    const { newModel, applyMessage, renderRange } = await import('./render.js');
+    const { bandOf, defaultZones } = await import('./config.js');
+    globalThis.performance ??= { now: () => Date.now() };
+    for (const fx of ['Plasma', 'Colorwaves', 'Pride 2015']) {
+      const m = newModel();
+      const eng = new LightsEngine({ send: msg => applyMessage(m, msg) });
+      eng.start(); eng.setAmbient(LIGHTS.ambientCycle.findIndex(a => a.fx === fx));
+      const now = performance.now() + 1234;
+      const band = bandOf(defaultZones());
+      const top = renderRange(m, band.start, band.stop, now);
+      const curb = renderRange(m, 235, 320, now);
+      expect(curb).toEqual(top);
+      eng.destroy();
+    }
+  });
+
+  it('top and curb can do different things: the bounce alternates them', () => {
+    e.start(); sent = [];
+    e.pingPong(MAG);
+    const colOf = (id) => sent.at(-1).seg.find(s => s.id === id)?.col?.[0];
+    vi.advanceTimersByTime(60);
+    expect(colOf(1)).toEqual(MAG); expect(colOf(8)).toEqual([0, 0, 0, 0]);
+    vi.advanceTimersByTime(300);
+    expect(colOf(1)).toEqual([0, 0, 0, 0]); expect(colOf(8)).toEqual(MAG);
+    vi.advanceTimersByTime(3000);
+    const fx = [0, 1, 8].map(id => segsFor(id).at(-1).fx);
+    expect(new Set(fx).size).toBe(1); // back to the shared ambient effect
   });
 });
