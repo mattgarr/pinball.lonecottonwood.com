@@ -4,6 +4,8 @@ import { machineArt } from '../lib/machineArt.js';
 import { MIN_TABLES, fmtShort, ordinal } from '../lib/scoring.js';
 import Avatar from '../components/Avatar.jsx';
 import { PhaseNote } from '../components/PhaseNote.jsx';
+import { sealed } from '../lib/schedule.js';
+import { useNow } from '../lib/clock.js';
 
 export default function Home() {
   const { machines, me, standings, party, event } = useStandings();
@@ -11,7 +13,8 @@ export default function Home() {
     player: me, plays: 0, machinesPlayed: 0, perMachine: {}, rating: null, rank: null,
   }) : null;
   const ranked = standings.meta.rankedPlayers;
-  const closed = party?.status === 'closed';
+  // From 15 min before the end until the awards are over, your rank is a secret too (it could give away the podium).
+  const isSealed = sealed(party, useNow(15000));
 
   return (
     <div className="screen home">
@@ -19,9 +22,11 @@ export default function Home() {
         <Link to="/ranks" className="rating-strip" aria-label="My rank">
           <Avatar avatar={me.avatar} emoji={me.emoji} name={me.display_name} color={me.color} size={38} ring />
           <div className="rs-main">
-            <div className="rs-label">{mine.rating != null ? 'Rating' : 'Get ranked'}</div>
+            <div className="rs-label">{isSealed ? 'Results' : mine.rating != null ? 'Rating' : 'Get ranked'}</div>
             <div className="rs-line">
-              {mine.rating != null ? (
+              {isSealed ? (
+                <span className="rs-todo">SEALED · WATCH THE TV</span>
+              ) : mine.rating != null ? (
                 <><span className="rs-num">{mine.rating}</span><span className="rs-rank">{ordinal(mine.rank)} of {ranked}</span></>
               ) : (
                 <span className="rs-todo">
@@ -40,8 +45,7 @@ export default function Home() {
         </Link>
       )}
 
-      {closed && <div className="err">Scoring's closed. Finals on the TV.</div>}
-      {!closed && <PhaseNote compact />}
+      <PhaseNote compact />
 
       <div className="home-head">
         {event && <div className="event-chip">{event.name}</div>}

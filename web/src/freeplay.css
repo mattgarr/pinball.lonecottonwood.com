@@ -4,6 +4,7 @@
   background: #000; color: var(--nes-sky, #3cbcfc); box-shadow: inset 0 0 0 2px var(--nes-sky, #3cbcfc);
 }
 .phase-note.on { color: var(--nes-lime, #58d854); box-shadow: inset 0 0 0 2px var(--nes-lime, #58d854); }
+.phase-note.done { color: var(--nes-yellow, #f8b800); box-shadow: inset 0 0 0 2px var(--nes-yellow, #f8b800); }
 .phase-note.hot { color: #fff; background: #3a0016; box-shadow: inset 0 0 0 2px var(--nes-red, #e40058); }
 .confirm-body .phase-note { text-align: center; }
 

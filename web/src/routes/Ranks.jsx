@@ -1,9 +1,9 @@
 import { Link, useSearchParams } from 'react-router-dom';
-import { useAllTime, useAwards, usePhase, useStandings } from '../lib/store.js';
+import { useAllTime, useEventResults, usePhase, useStandings } from '../lib/store.js';
 import { sealed } from '../lib/schedule.js';
 import { serverNow } from '../lib/clock.js';
 import { SealedCard } from '../components/PhaseNote.jsx';
-import { MIN_TABLES, PODIUM_MIN, fmt, ordinal } from '../lib/scoring.js';
+import { MIN_TABLES, PODIUM_MIN, fmt, ordinal, winnersList } from '../lib/scoring.js';
 import Avatar from '../components/Avatar.jsx';
 import PixelEmoji from '../components/PixelEmoji.jsx';
 
@@ -15,9 +15,10 @@ export default function Ranks() {
   const multiEvent = (events?.length ?? 0) > 1;
   const ever = multiEvent && params.get('t') === 'all';
   const pickedEvId = multiEvent && !ever && params.get('event') ? Number(params.get('event')) : party?.current_event_id;
-  const { machines: eventMachines, standings: eventStandings, event: pickedEvent } = useStandings(pickedEvId);
+  const { machines: eventMachines, standings: liveStandings, event: pickedEvent } = useStandings(pickedEvId);
   const allTime = useAllTime();
-  const awards = useAwards(eventStandings, null);
+  // After tonight's awards: the saved results (same as the TV, The Match included).
+  const { standings: eventStandings, awards, final: awardsFinal } = useEventResults(liveStandings, pickedEvId);
   const view = params.get('m') || 'all';
   const scopeParams = ever ? { t: 'all' } : (pickedEvId && pickedEvId !== party?.current_event_id ? { event: String(pickedEvId) } : {});
   const setView = v => setParams({ ...scopeParams, ...(v === 'all' ? {} : { m: v }) }, { replace: true });
@@ -64,7 +65,7 @@ export default function Ranks() {
         ))}
       </div>
 
-      {view === 'all' ? (isSealed ? <SealedCard /> : <Overall standings={standings} mine={mine} me={me} machines={machines} awards={ever ? null : awards} closed={isFinal} />)
+      {view === 'all' ? (isSealed ? <SealedCard /> : <Overall standings={standings} mine={mine} me={me} machines={machines} awards={ever ? null : awards} closed={isFinal} phase={isCurrent ? phase : 'closed'} winners={!ever && awardsFinal} />)
         : machineEntry ? <MachineBoard entry={machineEntry} me={me} mine={mine} players={players} />
         : <div className="muted">No such machine.</div>}
     </div>
@@ -91,7 +92,13 @@ function YouBar({ me, children }) {
   );
 }
 
-function Overall({ standings, mine, me, machines, awards, closed }) {
+const FINAL_NOTE = {
+  free: 'The tournament is over: these are final. Free play scores don\'t change them.',
+  over: 'The tournament is over: these are final.',
+  closed: "Scoring's closed. These are final.",
+};
+
+function Overall({ standings, mine, me, machines, awards, closed, phase, winners = false }) {
   const ranked = standings.ranked;
   const unranked = [...standings.stats.values()]
     .filter(st => st.rating == null)
@@ -105,7 +112,9 @@ function Overall({ standings, mine, me, machines, awards, closed }) {
           : <>Not ranked yet · <b>{Math.max(0, MIN_TABLES - (mine?.machinesPlayed || 0))} more machine{MIN_TABLES - (mine?.machinesPlayed || 0) === 1 ? '' : 's'}</b> to get ranked</>}
       </YouBar>
 
-      {closed && <div className="note-ok">Scoring's closed. These are final.</div>}
+      {closed && <div className="note-ok">{FINAL_NOTE[phase] || FINAL_NOTE.closed}</div>}
+
+      {winners && awards && <Winners awards={awards} me={me} />}
 
       <section className="panel rk-board">
         <div className="rk-head"><span>#</span><span>Player</span><span>Machines</span><span>Rating</span></div>
@@ -147,8 +156,33 @@ function Overall({ standings, mine, me, machines, awards, closed }) {
         </section>
       )}
 
-      <div className="muted small rk-legend">🏆 There will be prizes! Winners are announced on the TV at the end of the night.</div>
+      {!winners && <div className="muted small rk-legend">🏆 There will be prizes! Winners are announced on the TV at the end of the night.</div>}
     </>
+  );
+}
+
+// After the awards: every prize and who won it (the saved results, the same as the TV's reveal).
+function Winners({ awards, me }) {
+  return (
+    <section className="panel rk-board rk-winners">
+      <h3>Tonight's winners</h3>
+      <ol className="rk-list">
+        {winnersList(awards).map(w => (
+          <li key={w.prize} className={w.player && w.player.id === me?.id ? 'mine' : ''}>
+            <span className="rk-who">
+              {w.player
+                ? <Avatar avatar={w.player.avatar} emoji={w.player.emoji} name={w.player.display_name} color={w.player.color} size={28} />
+                : <span className="rk-win-none" aria-hidden="true">·</span>}
+              <span className="rk-win-text">
+                <span className="rk-win-prize">{w.prize}</span>
+                <span className="rk-name">{w.player ? w.player.display_name : 'No winner'}</span>
+              </span>
+            </span>
+            <span className="rk-val">{w.stat}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 

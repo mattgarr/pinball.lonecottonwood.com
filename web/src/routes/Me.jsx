@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { actions, getHostPass, useAwards, usePhase, useStandings } from '../lib/store.js';
+import { actions, getHostPass, useEventResults, usePhase, useStandings } from '../lib/store.js';
 import { revealedAfterEnd, sealed } from '../lib/schedule.js';
 import { serverNow } from '../lib/clock.js';
 import { PhaseNote, SealedCard } from '../components/PhaseNote.jsx';
@@ -24,8 +24,9 @@ export default function Me() {
   const { party, events } = useStandings();
   const [pickedEvId, setPickedEvId] = useState(null);
   const evId = pickedEvId ?? party?.current_event_id;
-  const { me, machines, players, scores, standings, event, entrantIds } = useStandings(evId);
-  const awards = useAwards(standings, null);
+  const { me, machines, players, scores, standings: liveStandings, event, entrantIds } = useStandings(evId);
+  // After tonight's awards: the saved results (the same as the TV and the email, The Match included).
+  const { standings, awards, final: awardsFinal } = useEventResults(liveStandings, evId);
   const phase = usePhase();
   const [err, setErr] = useState('');
   const [busyId, setBusyId] = useState(null);
@@ -75,8 +76,8 @@ export default function Me() {
     && (s.free_play || !['over', 'reveal', 'free'].includes(phase));
   // From 15 min before the end until the reveal, the podium is a secret (current event only).
   const isSealed = evId === party?.current_event_id && sealed(party, serverNow());
-  const prizesFinal = evId !== party?.current_event_id ? event?.status === 'closed'
-    : phase === 'free' || phase === 'closed' || (phase === 'over' && revealedAfterEnd(party));
+  const prizesFinal = awardsFinal || (evId !== party?.current_event_id ? event?.status === 'closed'
+    : phase === 'free' || phase === 'closed' || (phase === 'over' && revealedAfterEnd(party)));
   // Mine, plus ones I logged for other players (the server lets me undo those too).
   const undoable = scores
     .filter(s => (s.player_id === me.id || s.logged_by === me.id) && fresh(s))
@@ -205,7 +206,7 @@ export default function Me() {
         <section className="panel">
           <h3>{prizesFinal ? (held.length > 1 ? 'Your prizes' : 'Your prize') : "You're leading"}</h3>
           <ul className="held">{held.map(h => <li key={h}>{h}</li>)}</ul>
-          <div className="muted small">{prizesFinal ? 'Final results.' : 'Final when scoring closes.'}</div>
+          <div className="muted small">{prizesFinal ? 'Final results. Congratulations!' : 'Not final yet: prizes are given out at the awards.'}</div>
         </section>
       )}
 

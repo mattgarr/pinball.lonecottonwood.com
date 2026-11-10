@@ -63,6 +63,8 @@ export function clockClip(d) {
   }
   if (d.what === 'start') return 'on';
   if (d.what === 'end') return 'timesup';
+  if (d.what === 'awards') return 'awards';     // the intermission starts: "gather round the TV"
+  if (d.what === 'freeplay') return 'freeplay'; // free play after the awards
   return null;
 }
 
@@ -229,7 +231,7 @@ export class AudioDirector {
     if (d.what === 'tick') return this.tick(Number(d.n));
     if (this.reveal) return;
     const clip = clockClip(d);
-    if (d.what === 'mark') return this.announce(clip, { lead: TIMING.chimeLead, pre: 'chime' });
+    if (d.what === 'mark' || d.what === 'awards' || d.what === 'freeplay') return this.announce(clip, { lead: TIMING.chimeLead, pre: 'chime' });
     if (d.what === 'start') return this.announce(clip, { lead: TIMING.fanfareLead, pre: 'fanfare' });
     if (d.what === 'end') {
       // The BEEEP plays once: from the countdown (after "1") or here if the countdown was missed.

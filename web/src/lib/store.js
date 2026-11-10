@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { computeStandings, computeAwards } from './scoring.js';
-import { nextBoundary, scoreCountsNow, tourneyPhase } from './schedule.js';
+import { awardsDone, nextBoundary, scoreCountsNow, tourneyPhase } from './schedule.js';
 import { serverNow, startClock } from './clock.js';
 import { lightsTopic, setLightsTopic } from './lights/mqtt.js';
 import { fromSnapshot } from './awardsSnapshot.js';
@@ -454,6 +454,17 @@ export function useRevealData() {
     snapLoaded: !!row,
     live: { standings: s.standings, awards: liveAwards },
   };
+}
+
+// Ranks / Me for an event: once tonight's awards are done (the reveal ran and ended), the saved prizes
+// and standings, the same as the TV and the results email (The Match included); before that, the live
+// numbers (no Match yet: it's drawn at the reveal). final: true when showing the saved results.
+export function useEventResults(standings, evId) {
+  const rv = useRevealData();
+  const live = useAwards(standings, null);
+  const current = evId == null || evId === rv.party?.current_event_id;
+  if (current && rv.frozen && awardsDone(rv.party)) return { standings: rv.standings, awards: rv.awards, final: true };
+  return { standings, awards: live, final: false };
 }
 
 export function useAwards(standings, matchDigits) {

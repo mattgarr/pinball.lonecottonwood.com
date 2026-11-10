@@ -1308,3 +1308,36 @@
 /* Top Players: rated on 2 machines, but the podium needs 3. */
 .pr-tables.short { color: var(--nes-yellow, #f8b800) !important; }
 .pr-short-key { color: var(--nes-yellow, #f8b800); font-weight: 400; }
+
+/* Status badge under the logo (PLAY OVER / FINAL RESULTS / RESULTS SEALED / SCORES OFF). */
+.tv-status { margin-top: 6px; }
+.fp-badge.gold { background: var(--nes-yellow); color: #000; }
+.fp-badge.red { background: var(--nes-red); color: #fff; }
+.fp-note.gold { color: var(--nes-yellow); }
+.fp-note.red { color: #ff8aa8; }
+
+/* The intermission: after the end (+3 min to log) until the reveal. Nothing here gives away a winner. */
+.im-stage {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center;
+  background: radial-gradient(60% 70% at 50% 40%, #2a1c00, #000 75%); clip-path: var(--notch);
+  box-shadow: inset 0 0 0 4px var(--nes-yellow), inset 0 0 0 7px #000, inset 0 0 0 9px #5c4000; padding: 24px 40px; overflow: hidden;
+}
+.im-kicker { font-family: var(--px); font-size: var(--t16); color: var(--nes-red); text-transform: uppercase; }
+.im-title { font-family: var(--px); font-size: 52px; line-height: 1.1; color: #fff; text-shadow: 5px 5px 0 #883000; }
+.im-call { font-family: var(--px); font-size: var(--t24); color: var(--nes-yellow); text-transform: uppercase; animation: tk-blink 1.4s steps(2, start) infinite; }
+.im-stats { display: flex; gap: 36px; }
+.im-stat { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 150px; padding: 12px 18px; background: #000;
+  box-shadow: inset 0 0 0 3px #5c4000; }
+.im-stat .im-lab { font-family: var(--px); font-size: var(--t12); color: var(--ink-2, #bbb); text-transform: uppercase; }
+.im-num { font-size: 56px; line-height: 1; }
+.im-label { font-family: var(--px); font-size: var(--t12); color: var(--nes-sky); text-transform: uppercase; }
+.im-wall { list-style: none; margin: -8px 0 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 1300px; }
+.im-wall.dense { gap: 6px; }
+.im-wall li { display: grid; place-items: center; }
+.im-more { font-family: var(--px); font-size: var(--t12); color: var(--ink-2, #bbb); padding: 0 8px; }
+.im-foot { display: flex; flex-direction: column; gap: 10px; font-family: var(--px); font-size: var(--t12); color: #e8e8f0; text-transform: uppercase; }
+.im-fp { color: var(--nes-sky); }
+
+/* Finale: long nicknames wrap to two lines instead of "HIGH SCORE …". */
+.rv-fin-grid li { height: auto; min-height: 216px; }
+.rv-fin-name { white-space: normal; overflow-wrap: anywhere; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }

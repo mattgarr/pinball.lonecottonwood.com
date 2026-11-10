@@ -2886,3 +2886,11 @@ details.ls-log summary { cursor: pointer; color: #9c9cb4; margin-bottom: 8px; }
 
 /* Ranks: rated, but short of the 3 machines the podium needs. */
 .rk-tables.short, .rk-short-key { color: var(--nes-yellow, #f8b800); font-weight: 400; }
+
+/* Ranks after the awards: "Tonight's winners" (prize over name, stat on the right). */
+.rk-winners > .rk-list > li, .ranks .rk-winners > .rk-list > li { grid-template-columns: minmax(0, 1fr) auto !important; }
+.rk-winners h3 { color: var(--nes-yellow, #f8b800); margin: 0 0 8px; }
+.rk-win-text { display: grid; gap: 2px; min-width: 0; }
+.rk-win-prize { font-family: var(--px); font-size: var(--t10); line-height: 1.4; color: var(--nes-yellow, #f8b800); }
+.rk-win-none { display: inline-grid; place-items: center; width: 28px; height: 28px; color: #666; flex: 0 0 auto; }
+.rk-winners .rk-val { font-family: var(--pxbody); font-size: var(--b10); white-space: nowrap; }

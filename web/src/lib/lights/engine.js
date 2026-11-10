@@ -478,6 +478,19 @@ export class LightsEngine {
     }
   }
 
+  // After GAME OVER until the reveal (the intermission): a calm warm glow on the whole room, held like a
+  // reveal cue (score pulses and ambient changes wait). The strips light the garage, so it's never dark.
+  intermission(color = [255, 140, 20, 90]) {
+    this.revealing = true;
+    this.house = false;
+    this.clearAll();
+    for (const id of this.allMachineSegs()) this.queue(this.offState(id));
+    for (const id of this.baseSegs()) {
+      this.effect(id, { fx: this.fx('Breathe'), sx: 40, bri: 230, col: [color, [90, 45, 0, 30]] }, 4, 0, { force: true });
+    }
+    this.flush();
+  }
+
   revealEnd() {
     this.revealing = false;
     this.clearAll();

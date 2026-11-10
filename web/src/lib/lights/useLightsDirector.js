@@ -161,8 +161,9 @@ export function useLightsDirector({ settings, party, scores, players, standings,
   }, []);
 
   // Tournament clock (TV): 'mark' a minute mark (gold bounce), 'start' (white bounces, then a green wash),
-  // 'tick' n = 10…1 (the room pulses brighter as it nears 0), 'gameover' (white strobes, then dark and
-  // held until the reveal), 'resume' (back to the party lights, e.g. the end was pushed back).
+  // 'tick' n = 10…1 (the room pulses brighter as it nears 0), 'gameover' (white strobes, then the warm
+  // intermission glow held until the reveal), 'intermission' (that glow, e.g. after a TV reload),
+  // 'resume' (back to the party lights, e.g. the end was pushed back).
   const onClock = useCallback((what, n = 0) => {
     const e = engineRef.current;
     if (!e) return;
@@ -170,7 +171,12 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     if (what === 'mark') e.milestone();
     else if (what === 'start') e.leader([0, 255, 60, 0]);
     else if (what === 'tick') e.revealTick(n > 6 ? 3 : n > 3 ? 2 : 1, red);
-    else if (what === 'gameover') [0, 500, 1000].forEach(t => setTimeout(() => engineRef.current?.revealTick(1, white), t));
+    // GAME OVER: three white strobes, then the intermission's warm glow until the reveal.
+    else if (what === 'gameover') {
+      [0, 500, 1000].forEach(t => setTimeout(() => engineRef.current?.revealTick(1, white), t));
+      setTimeout(() => engineRef.current?.intermission(), 1600);
+    }
+    else if (what === 'intermission') e.intermission();
     else if (what === 'resume') e.revealEnd();
   }, []);
 

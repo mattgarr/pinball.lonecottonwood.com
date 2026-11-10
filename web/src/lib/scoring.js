@@ -245,6 +245,20 @@ export function prizesFor(awards, playerId) {
   return out;
 }
 
+// Every prize in reveal order with its winner (null: nobody won it), for the phones after the awards.
+export function winnersList(awards = {}) {
+  const row = (prize, x, stat = '') => ({ prize, player: x?.player ?? null, stat: x?.player ? stat : '' });
+  return [
+    row('Grand Champion', awards.champion, awards.champion ? `${awards.champion.rating}/100` : ''),
+    row('2nd Place', awards.second, awards.second ? `${awards.second.rating}/100` : ''),
+    row('3rd Place', awards.third, awards.third ? `${awards.third.rating}/100` : ''),
+    ...(awards.machineChamps ?? []).map(c => row(`${c.machine.name} Champion`, c, c.player ? fmtShort(c.score) : '')),
+    row('The Grinder', awards.grinder, awards.grinder ? `${awards.grinder.plays} games` : ''),
+    row('The Big Whiff', awards.bigWhiff, awards.bigWhiff ? `${awards.bigWhiff.rating}/100` : ''),
+    row('The Match', awards.theMatch, awards.theMatch ? `Match ${String(awards.theMatch.drawn).padStart(2, '0')}` : ''),
+  ];
+}
+
 export const fmt = n => Number(n).toLocaleString();
 export const fmtShort = n => {
   const v = Number(n);

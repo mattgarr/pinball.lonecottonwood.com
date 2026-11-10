@@ -461,7 +461,7 @@ function StartStep({ machine, mineHere, closed, onSwitch, onSnap, onType, onPhot
       </div>
 
       {closed ? (
-        <div className="err">Scoring's closed. Finals are on the TV.</div>
+        note || <div className="err">Scoring's closed. Finals are on the TV.</div>
       ) : (
         <div className="start-actions">
           {note}

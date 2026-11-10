@@ -20,7 +20,8 @@ export const counts = s => !s.voided && !s.free_play;
 // What's happening right now:
 //   'pre'    before the scheduled start (free play)
 //   'on'     the tournament is running
-//   'closed' scores stopped by hand (no schedule, or stopped early)
+//   'closed' scores stopped by hand (no schedule, or stopped early), or the party was closed at the
+//            end of the night (a closed party wins over free play and 'over': nothing can be logged)
 //   'grace'  play is over, but scores logged now still count (3 minutes to snap the last game)
 //   'over'   past the end + grace, before the host starts free play (logging is free play)
 //   'reveal' the winners reveal is on the TV
@@ -28,9 +29,10 @@ export const counts = s => !s.voided && !s.free_play;
 export function tourneyPhase(party, now) {
   if (!party) return 'on';
   if (party.reveal_active) return 'reveal';
-  if (party.free_play) return 'free';
+  if (party.free_play && party.status !== 'closed') return 'free';
   const s = ts(party.tourney_starts_at), e = ts(party.tourney_ends_at);
   if (s && now < s) return 'pre';
+  if (party.status === 'closed' && (party.free_play || (e && now >= e + LOG_GRACE_MS))) return 'closed';
   if (e && now >= e + LOG_GRACE_MS) return 'over';
   if (e && now >= e) return 'grace';
   if (party.status === 'closed') return 'closed';
@@ -54,12 +56,23 @@ export function revealedAfterEnd(party) {
   return !!(e && r && r >= e - SEAL_MS);
 }
 
-// Results sealed: from 15 min before the end until the reveal starts (the TV, Ranks and Me hide who's
-// on the podium so the awards are a surprise).
+// Results sealed: from 15 min before the end until the reveal is over (the TV, Ranks and Me hide who's
+// on the podium so the awards are a surprise). While the reveal is on, phones stay sealed too, so
+// nobody spoils the next prize from their phone; they open up when the host ends the reveal or starts
+// free play.
 export function sealed(party, now) {
-  const e = ts(party?.tourney_ends_at);
-  if (!e || party.reveal_active || party.free_play || revealedAfterEnd(party)) return false;
+  if (!party) return false;
+  if (party.reveal_active) return true;
+  const e = ts(party.tourney_ends_at);
+  if (!e || party.free_play || revealedAfterEnd(party)) return false;
   return now >= e - SEAL_MS;
+}
+
+// The awards are done for tonight: a reveal ran and has ended (free play, final results or closed).
+// Screens then show the saved prizes (the awards snapshot), including The Match.
+export function awardsDone(party) {
+  if (!party || party.reveal_active) return false;
+  return party.tourney_ends_at ? revealedAfterEnd(party) : !!party.revealed_at;
 }
 
 // The countdown chip: { label, ms } or null.

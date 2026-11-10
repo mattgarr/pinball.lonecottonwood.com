@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
-import { fmtShort } from '../../lib/scoring.js';
+import { fmtShort, winnersList } from '../../lib/scoring.js';
 import { machineHighlights } from '../../lib/content.js';
 
 // News-channel crawl along the bottom. Fresh events lead as BREAKING; dynamic party storylines & pro tips fill the rest.
 // freePlay ('pre' before the tournament, 'free' after the awards): high scores and tips instead of
 // the title race. highScores: computeHighScores rows.
-export default function Crawl({ standings, awards, news, machines, freePlay = null, highScores = null, startsAt = null, sealed = false }) {
+// final: tonight's awards are done (or the tournament is over): the winners instead of the title race.
+export default function Crawl({ standings, awards, news, machines, freePlay = null, highScores = null, startsAt = null, sealed = false, final = false }) {
   const items = useMemo(() => {
     const out = [];
     const fresh = news.slice(0, 4).map(n => ({ k: n.id, tag: 'BREAKING', text: n.text, hot: true }));
@@ -13,7 +14,7 @@ export default function Crawl({ standings, awards, news, machines, freePlay = nu
       out.push(freePlay === 'pre'
         ? { tag: 'FREE PLAY', text: `Warm up now: these scores don't count. The tournament starts${startsAt ? ` at ${startsAt}` : ' soon'}!` }
         : { tag: 'FREE PLAY', text: "Just for fun: scores don't change the tournament. Results are final." });
-      if (freePlay === 'free' && awards?.champion) out.push({ tag: 'GRAND CHAMPION', text: `${awards.champion.player.display_name} · ${awards.champion.rating} rating` });
+      if (freePlay === 'free') out.push(...winners(awards, final));
       for (const h of highScores || []) {
         const top = h.top[0];
         out.push(top
@@ -24,10 +25,26 @@ export default function Crawl({ standings, awards, news, machines, freePlay = nu
         const hi = machineHighlights(m.name);
         if (hi.tips[0]) out.push({ tag: `PRO TIP · ${m.name}`, text: hi.tips[0] });
       }
-      out.push({ tag: 'SCAN TO PLAY', text: 'Scan the QR code · snap your score · beat the high scores' });
+      out.push({ tag: 'SCAN TO PLAY', text: "Scan the QR code on a machine · snap your score · beat tonight's high scores" });
       return [...fresh, ...out.map((x, i) => ({ ...x, k: `s${i}` }))];
     }
 
+    if (final && sealed) {
+      // The intermission: it's over, the results are sealed, the awards are next.
+      out.push(
+        { tag: 'GAME OVER', text: 'The results are in!' },
+        { tag: 'RESULTS SEALED', text: 'Who won? Find out at the awards, starting soon. Gather round the TV!' },
+        { tag: 'TONIGHT', text: `${standings.meta.totalPlayers} players · ${standings.meta.totalScores} games logged` },
+        { tag: 'NOT HERE?', text: 'A friend can accept your prize for you.' },
+        { tag: 'FREE PLAY', text: "Keep playing while you wait: scores now are just for fun." },
+      );
+      return [...fresh, ...out.map((x, i) => ({ ...x, k: `s${i}` }))];
+    }
+    if (final && !sealed) {
+      out.push({ tag: 'FINAL RESULTS', text: 'Thanks for playing!' }, ...winners(awards, true));
+      out.push({ tag: 'TONIGHT', text: `${standings.meta.totalPlayers} players · ${standings.meta.totalScores} games logged` });
+      return [...fresh, ...out.map((x, i) => ({ ...x, k: `s${i}` }))];
+    }
     if (sealed) out.push({ tag: 'RESULTS SEALED', text: 'Who won? Find out at the awards!' });
     // 1. Overall leader & tightest top-of-board race (not while results are sealed)
     const lead = sealed ? null : standings.topPlayers[0];
@@ -92,7 +109,7 @@ export default function Crawl({ standings, awards, news, machines, freePlay = nu
 
     out.push({ tag: 'SCAN TO PLAY', text: 'Scan the QR code · snap your score · climb the board' });
     return [...fresh, ...out.map((x, i) => ({ ...x, k: `s${i}` }))];
-  }, [standings, awards, news, machines, freePlay, highScores, startsAt, sealed]);
+  }, [standings, awards, news, machines, freePlay, highScores, startsAt, sealed, final]);
 
   // Speed is constant per character, so long crawls don't race.
   const chars = items.reduce((n, it) => n + it.tag.length + it.text.length + 6, 0);
@@ -114,4 +131,12 @@ export default function Crawl({ standings, awards, news, machines, freePlay = nu
       </div>
     </div>
   );
+}
+
+// The prizes and their winners for the crawl (final: the saved results with The Match; otherwise just
+// the Grand Champion, e.g. free play after an awards night with no saved snapshot).
+function winners(awards, final) {
+  if (!awards) return [];
+  const list = winnersList(awards).filter(w => w.player);
+  return (final ? list : list.slice(0, 1)).map(w => ({ tag: w.prize.toUpperCase(), text: `${w.player.display_name}${w.stat ? ` · ${w.stat}` : ''}` }));
 }

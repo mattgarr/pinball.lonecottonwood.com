@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParty, usePhase } from '../lib/store.js';
 import { useNow } from '../lib/clock.js';
-import { LOG_GRACE_MS, fmtClock, fmtCountdown, sealed } from '../lib/schedule.js';
+import { LOG_GRACE_MS, awardsDone, fmtClock, fmtCountdown, sealed } from '../lib/schedule.js';
 import PixelEmoji from './PixelEmoji.jsx';
 import '../freeplay.css';
 
@@ -16,7 +16,14 @@ export function PhaseNote({ compact = false }) {
   else if (phase === 'free') text = "Free play: just for fun, doesn't change the tournament.";
   else if (phase === 'over') text = "Free play: the tournament is over, so new scores don't count.";
   else if (phase === 'grace') { tone = 'hot'; text = `Play's over! Log your last game now: it still counts for ${fmtCountdown(ends + LOG_GRACE_MS - now)}.`; }
+  else if (phase === 'on' && ends && sealed(party, now)) { tone = 'hot'; text = `Last call! The tournament ends at ${fmtClock(party.tourney_ends_at)}. Results are sealed until the awards.`; }
   else if (phase === 'on' && ends) { tone = 'on'; text = `Tournament on: ends at ${fmtClock(party.tourney_ends_at)}.`; }
+  else if (phase === 'closed') {
+    tone = 'done';
+    text = awardsDone(party) || (ends && now >= ends)
+      ? "Scoring's closed for tonight. Thanks for playing! Final results are in Ranks."
+      : "Scoring's paused for now. Hang tight: watch the TV.";
+  }
   if (!text) return null;
   return <div className={`phase-note ${tone}`} role="status">{text}</div>;
 }

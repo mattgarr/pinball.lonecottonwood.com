@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ensureLightsTopic, getHostPass, host, lastHeard, pollParty, tvHeartbeat, useAwards, useNightStandings, useParty, usePhase, useRevealData, useStandings } from '../lib/store.js';
 import { OFFLINE_MS, TV_BEAT_MS, agoText } from '../lib/tvStatus.js';
 import { serverNow, useNow } from '../lib/clock.js';
-import { SEAL_MS, dueClockMoment, finalSeconds, fmtClock, revealedAfterEnd, sealed } from '../lib/schedule.js';
+import { LOG_GRACE_MS, SEAL_MS, awardsDone, dueClockMoment, finalSeconds, fmtClock, sealed } from '../lib/schedule.js';
 import ClockChip from '../components/tv/ClockChip.jsx';
 import { FinalCountdown } from '../components/tv/Takeover.jsx';
 import { useLightsDirector } from '../lib/lights/useLightsDirector.js';
@@ -22,6 +22,7 @@ import { BOARD_N, useLiveEvents } from '../components/tv/useLiveEvents.js';
 import { sfx, sound } from '../lib/chiptune.js';
 import { CountUp } from '../lib/useCountUp.js';
 import { PODIUM_MIN, computeHighScores, fmtShort } from '../lib/scoring.js';
+import { Intermission, StatusBadge } from '../components/tv/Intermission.jsx';
 import '../tv.css';
 
 export default function TV() {
@@ -63,14 +64,39 @@ export default function TV() {
   const isSealed = sealedParam || (!revealPreview && sealed(party, nowMs));
   const endsMs = party?.tourney_ends_at ? Date.parse(party.tourney_ends_at) : null;
   const lastCall = phase === 'on' && !!endsMs && endsMs - nowMs <= SEAL_MS;
+  // After tonight's awards, the board shows the saved results (the same as the reveal, The Match included).
+  const final = !revealPreview && !party?.reveal_active && awardsDone(party) && !!rv.frozen;
+  const bStandings = final ? rv.standings : standings;
+  const bAwards = final ? rv.awards : awards;
+  // Between the end (+ the 3 minutes to log) and the reveal: the intermission screen ("the results are in").
+  // /tv?intermission previews it.
+  const intermission = ((phase === 'over' && isSealed) || params.has('intermission')) && fpParam == null && !revealPreview;
   const live = useLiveEvents({ standings: fpBoard ? night : standings, scores: fpBoard ? scores : tScores, players, ready, demo, freePlay: fpBoard, sealed: isSealed, lastCall });
   const prevPhase = useRef(phase);
   useEffect(() => {
     const was = prevPhase.current;
     prevPhase.current = phase;
     if ((was === 'grace' || was === 'over') && (phase === 'on' || phase === 'free')) lights.onClock?.('resume');
+    // Free play after the awards: the announcer says so once the music is back up.
+    if (was === 'reveal' && phase === 'free') setTimeout(() => emitClock({ what: 'freeplay' }), 4000);
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The intermission: the lights settle to a warm glow (the strips light the garage, so never dark), and
+  // the announcer calls everyone to the TV once, right when it starts (not after a reload later on).
+  useEffect(() => {
+    if (!intermission || !ready || demo || params.has('intermission')) return;
+    lights.onClock?.('intermission');
+    const at = endsMs ? endsMs + LOG_GRACE_MS : 0;
+    const key = `awards:${endsMs}`;
+    const fired = readFired();
+    if (at && !fired.has(key) && Math.abs(serverNow() - at) < 90000) {
+      fired.add(key); saveFired(fired);
+      emitClock({ what: 'awards' });
+    }
+  }, [intermission, ready]); // eslint-disable-line react-hooks/exhaustive-deps
   const highScores = useMemo(() => computeHighScores({ machines, players, scores, n: FP_ROWS }), [machines, players, scores]);
+  // Sealed: hide every row down to the lowest podium place (with the 3-machine rule, 2nd or 3rd can sit
+  // below rank 3, and the rows around them would give it away).
+  const sealDepth = Math.max(3, ...[awards.champion, awards.second, awards.third].map(x => x?.rank ?? 0));
   // Previews: ?clock=start:5 / end:15 / start:0 / end:0 shows that takeover; ?clock=final the last-10-seconds count;
   // ?chip=start / end shows the countdown chip.
   const clockParam = params.get('clock');
@@ -144,8 +170,8 @@ export default function TV() {
   const [flash, setFlash] = useState({});
   // Top Players: the top 3 stay pinned; everyone else pages through below them, plus up to 3 "1 machine away" players.
   const PINNED = 3, PAGE = BOARD_N - PINNED;
-  const oneAway = [...standings.stats.values()].filter(u => u.machinesPlayed === 1).slice(0, 3).map(u => ({ ...u, isOneAway: true }));
-  const allTopRows = [...standings.ranked, ...oneAway];
+  const oneAway = final ? [] : [...standings.stats.values()].filter(u => u.machinesPlayed === 1).slice(0, 3).map(u => ({ ...u, isOneAway: true }));
+  const allTopRows = [...bStandings.ranked, ...oneAway];
   const restCount = Math.max(0, allTopRows.length - PINNED);
   const pages = Math.max(1, Math.ceil(restCount / PAGE));
   const [page, setPage] = useState(0);
@@ -303,7 +329,7 @@ export default function TV() {
               ))}
             </section>
 
-            <Crawl standings={night} awards={awards} news={live.news} machines={machines} freePlay={phase} highScores={highScores}
+            <Crawl standings={night} awards={bAwards} news={live.news} machines={machines} freePlay={phase} highScores={highScores} final={final}
               startsAt={party?.tourney_starts_at ? fmtClock(party.tourney_starts_at) : null} />
 
             {live.toast && <Toast key={live.toast.id} item={live.toast} onDone={live.nextToast} paused={!!tk} />}
@@ -314,39 +340,55 @@ export default function TV() {
     );
   }
 
+  if (intermission) {
+    return (
+      <div className={`tv-frame tv2-frame${cursor ? ' show-cursor' : ''}${controls && !lightsSim ? ' show-controls' : ''}`} onClick={() => { if (!sound.isOn()) toggleSound(); }}>
+        <div className="tv tv2">
+          <div className="tv2-drift tv2-fp">
+            <Intermission standings={standings} players={players} event={event}
+              ticker={<Ticker scores={scores} players={players} machines={machines} n={8} />} />
+            <Crawl standings={standings} awards={awards} news={live.news} machines={machines} sealed final />
+            {live.toast && <Toast key={live.toast.id} item={live.toast} onDone={live.nextToast} paused={!!tk} />}
+          </div>
+          {overlays}
+        </div>
+      </div>
+    );
+  }
+
+  // The status under the logo: the countdown while it runs, else what's happening (or the event name).
+  const status = phase === 'grace' ? <StatusBadge tone="red" badge="Play over"><ClockChip party={party} preview={chipPreview} /></StatusBadge>
+    : final || phase === 'over' ? <StatusBadge tone="gold" badge="Final results" note="Thanks for playing!" />
+    : phase === 'closed' ? <StatusBadge tone="red" badge="Scores off" note={event?.name || ''} />
+    : null;
   return (
     <div className={`tv-frame tv2-frame${cursor ? ' show-cursor' : ''}${controls && !lightsSim ? ' show-controls' : ''}`} onClick={() => { if (!sound.isOn()) toggleSound(); }}>
       <div className="tv tv2">
         <div className="tv2-drift">
-          {phase === 'grace'
-            ? <div className="tv2-closed grace">Play over · log your last scores now</div>
-            : phase === 'over'
-            ? <div className={`tv2-closed${revealedAfterEnd(party) ? '' : ' sealed'}`}>{revealedAfterEnd(party) ? 'Final results' : 'Results sealed · awards soon'}</div>
-            : phase === 'closed' && <div className="tv2-closed">Scoring closed · final standings</div>}
-
           <header className="tv2-head">
             <div className="tv2-brand">
               <span className="tv2-logo">WOODSIDE <b>PINBALL</b></span>
               {/* Brand on top (same for every event); the current event's own name underneath, or the countdown. */}
-              {(phase === 'on' || phase === 'grace') && (party?.tourney_ends_at || chipPreview)
-                ? <ClockChip party={party} preview={chipPreview} />
-                : <span className="tv2-stats tv2-event">{event?.name || `${standings.meta.totalPlayers} players · ${standings.meta.totalScores} games`}</span>}
+              {status
+                || (phase === 'on' && (party?.tourney_ends_at || chipPreview)
+                  ? <ClockChip party={party} preview={chipPreview} />
+                  : <span className="tv2-stats tv2-event">{event?.name || `${standings.meta.totalPlayers} players · ${standings.meta.totalScores} games`}</span>)}
             </div>
             <Ticker scores={scores} players={players} machines={machines} n={8} />
           </header>
 
           <section className={`tv2-cabs${attract ? ' attract' : ''}`}>
-            {standings.machines.map((entry, i) => (
+            {bStandings.machines.map((entry, i) => (
               <Cabinet key={entry.machine.id} entry={entry} i={i} hot={!!hot[entry.machine.id]} hit={live.hits[entry.machine.id]} />
             ))}
           </section>
 
           <div className="tv2-bottom">
             <div className="pnl pnl-top">
-              <PanelHead icon="crown" title="Top Players" sub={`${standings.meta.rankedPlayers} ranked${pageLabel}`} />
+              <PanelHead icon="crown" title={final ? 'Final Standings' : 'Top Players'} sub={`${bStandings.meta.rankedPlayers} ranked${pageLabel}`} />
               <div className="pb">
                 {boardRows.map((st, i) => {
-                  const hide = isSealed && !st.isOneAway && st.rank <= 3; // the podium is a secret until the awards
+                  const hide = isSealed && !st.isOneAway && st.rank <= sealDepth; // the podium is a secret until the awards
                   return (
                   <div key={i < PINNED ? st.player.id : `${pg}-${st.player.id}`} className={`pr${!st.isOneAway && st.rank <= 3 ? ` p${st.rank}` : ''}${st.isOneAway ? ' one-away' : ''}${i >= PINNED && pages > 1 ? ' paged' : ''}${flash[st.player.id] && !hide ? ' flash' : ''}${hide ? ' sealed' : ''}`}>
                     <span className="pr-rank">{st.isOneAway ? '·' : st.rank}</span>
@@ -369,7 +411,7 @@ export default function TV() {
             <div className="pnl pnl-shame">
               <PanelHead icon="skull" title="Wall of Shame" sub="lowest" />
               <div className="pb">
-                {standings.bottomPlayers.length ? standings.bottomPlayers.map((st, i) => (
+                {bStandings.bottomPlayers.length ? bStandings.bottomPlayers.map((st, i) => (
                   // Sealed: the bottom of the board would give away The Big Whiff.
                   <div key={st.player.id} className={`pr shame${isSealed ? ' sealed' : ''}`}>
                     <span className="pr-rank">{i + 1}</span>
@@ -383,7 +425,7 @@ export default function TV() {
               <div className="pnl-legend">Ranked with love. 💀</div>
             </div>
 
-            <PrizePanel awards={awards} sealed={isSealed} />
+            <PrizePanel awards={bAwards} sealed={isSealed} final={final} />
 
             <section className="pnl pnl-qr">
               <div className="qr-label">SCAN TO PLAY</div>
@@ -392,7 +434,7 @@ export default function TV() {
             </section>
           </div>
 
-          <Crawl standings={standings} awards={awards} news={live.news} machines={machines} sealed={isSealed} />
+          <Crawl standings={bStandings} awards={bAwards} news={live.news} machines={machines} sealed={isSealed} final={final || phase === 'over'} />
 
           {live.toast && <Toast key={live.toast.id} item={live.toast} onDone={live.nextToast} paused={!!tk} />}
         </div>
@@ -416,6 +458,8 @@ const FP_ROWS = 19; // rows per machine on the free-play board
 // and end cards. Each fires once (remembered in this browser) and only near its time, so a TV that
 // slept or reloaded doesn't replay old ones.
 const FIRED_KEY = 'pw.clockFired';
+// Tournament clock hook for sound also carries: { what: 'awards' } (the intermission starts: "gather
+// round") and { what: 'freeplay' } (free play after the awards).
 const readFired = () => { try { return new Set(JSON.parse(localStorage.getItem(FIRED_KEY) || '[]')); } catch { return new Set(); } };
 const saveFired = set => { try { localStorage.setItem(FIRED_KEY, JSON.stringify([...set].slice(-60))); } catch { /* ignore */ } };
 // A small corner flag when this screen hasn't heard from the server for a minute (realtime down and
@@ -467,7 +511,7 @@ function PanelHead({ icon, title, sub }) {
 // The prize panel alternates between two pages: the overall prizes, then a champion for each machine.
 // One prize per person, so a machine's prize can go to the next in line (see computeAwards).
 const PRIZE_PAGE_MS = 8000;
-function PrizePanel({ awards, sealed: isSealed = false }) {
+function PrizePanel({ awards, sealed: isSealed = false, final = false }) {
   const [page, setPage] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setPage(p => 1 - p), PRIZE_PAGE_MS);
@@ -492,7 +536,9 @@ function PrizePanel({ awards, sealed: isSealed = false }) {
           <Prize icon="medal" name="3rd Place" crit="3rd-best rating" who={awards.third?.player} stat={st(awards.third, c => `${c.rating}/100`)} />
           <Prize icon="grind" name="The Grinder" crit="most games" who={awards.grinder?.player} stat={st(awards.grinder, g => `${g.plays} games`)} />
           <Prize icon="burst" name="The Big Whiff" crit="lowest rating, no other prize" who={awards.bigWhiff?.player} stat={st(awards.bigWhiff, w => `${w.rating}/100`)} dim />
-          <Prize icon="ticket" name="The Match" crit="random draw" stat="at the end" pending />
+          {final && awards.theMatch
+            ? <Prize icon="ticket" name="The Match" crit={`Match ${String(awards.theMatch.drawn).padStart(2, '0')}`} who={awards.theMatch.player} stat="" />
+            : <Prize icon="ticket" name="The Match" crit="random draw" stat="at the awards" pending />}
         </> : (awards.machineChamps ?? []).map(c => (
           <Prize key={c.machine.id} icon="crown" name={c.machine.name} crit={c.player && c.rank > 1 ? 'next in line' : 'top score'}
             who={c.player} stat={c.player ? fmtShort(c.score) : ''} />

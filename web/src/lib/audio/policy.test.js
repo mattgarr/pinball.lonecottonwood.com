@@ -79,6 +79,24 @@ describe('tournament clock', () => {
     expect(clockClip({ what: 'mark', side: 'end', minutes: 7 })).toBe(null);
     expect(clockClip({ what: 'start' })).toBe('on');
     expect(clockClip({ what: 'end' })).toBe('timesup');
+    expect(clockClip({ what: 'awards' })).toBe('awards');
+    expect(clockClip({ what: 'freeplay' })).toBe('freeplay');
+  });
+  it('intermission and free play: chime, then "gather round" / "free play is open"; never during the reveal', () => {
+    const { d, last, sounds } = rig();
+    d.clock({ what: 'awards' });
+    expect(sounds()).toEqual(['chime']);
+    vi.advanceTimersByTime(TIMING.chimeLead);
+    expect(last('voice')).toEqual(['voice', 'awards']);
+    vi.advanceTimersByTime(10000);
+    d.clock({ what: 'freeplay' });
+    vi.advanceTimersByTime(TIMING.chimeLead);
+    expect(last('voice')).toEqual(['voice', 'freeplay']);
+    const r = rig();
+    r.d.revealStart();
+    r.d.clock({ what: 'awards' });
+    vi.advanceTimersByTime(5000);
+    expect(r.last('voice')).toBe(undefined);
   });
   it('a minute mark: chime, then the voice, music at 25% until the clip ends', () => {
     const { d, calls, last, sounds } = rig();

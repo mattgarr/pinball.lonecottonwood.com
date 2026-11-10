@@ -84,6 +84,20 @@ describe('lights engine', () => {
     expect(segsFor(4).at(-1)).toMatchObject({ id: 4, on: false });
   });
 
+  it('the intermission (game over → reveal) keeps the room lit with a warm glow and holds it', () => {
+    e.start(); sent = [];
+    e.intermission();
+    vi.advanceTimersByTime(100);
+    for (const id of [0, 1, 8]) expect(segsFor(id).at(-1)).toMatchObject({ on: true, fx: LIGHTS.effects.Breathe, bri: 230 });
+    sent = [];
+    e.score(WHIRLWIND, MAG);
+    vi.advanceTimersByTime(4000);
+    expect(segsFor(0).length).toBe(0); // held: nothing changes the room until the reveal
+    e.revealEnd();
+    vi.advanceTimersByTime(100);
+    expect(segsFor(0).at(-1).fx).toBe(LIGHTS.effects.Colorwaves); // back to the party lights
+  });
+
   it('nothing else fires during the reveal', () => {
     e.revealCue({ color: CYAN, final: false });
     const before = sent.length;

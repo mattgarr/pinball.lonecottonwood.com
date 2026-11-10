@@ -478,7 +478,7 @@ const PHASE_TEXT = {
   on: 'Tournament on: scores count',
   closed: 'Scores are off',
   grace: 'Play is over: scores logged in the next few minutes still count',
-  over: 'Tournament over: new scores are free play',
+  over: 'Tournament over: results sealed until the reveal; new scores are free play',
   reveal: 'The reveal is on the TV',
   free: 'Free play: just for fun',
 };
@@ -598,7 +598,7 @@ function EndOfNight({ party, event, phase, reviewCount = 0, busy, run, reveal, f
         </li>
         <li>
           <b>Reveal the winners on the TV.</b>
-          <div className="muted small">The TV opens on "Awards ceremony" and waits for Next. Then prize by prize, Grand Champion first (the podium needs 3+ machines played). The Match comes last and draws itself (00, 10 … 90, like a real pinball Match), then spins through everyone whose total points tonight end in it (nobody? then everyone left without a prize). The finale shows every winner: group photo, then Start free play. Starting saves the prizes, so late scores can't change them.</div>
+          <div className="muted small">Until you start, the TV shows "The results are in · awards soon" (results sealed). Starting saves the prizes (late scores can't change them), fades the music and opens on "Awards ceremony". Press Next (bottom bar) for each prize: Grand Champion first, The Match last (it draws 00–90 and spins). The podium needs 3+ machines played. The finale shows every winner: group photo, then Start free play.</div>
           {!revealing ? (
             <button className="primary big" type="button" disabled={busy} onClick={() => {
               if (reviewCount && !confirm(`${reviewCount} score${reviewCount === 1 ? '' : 's'} still need${reviewCount === 1 ? 's' : ''} a look (see "Double-check these" above). Start the reveal anyway?`)) return;
@@ -618,7 +618,7 @@ function EndOfNight({ party, event, phase, reviewCount = 0, busy, run, reveal, f
           )}
         </li>
         <li className={freePlay ? 'on' : ''}>
-          <b>Free play.</b> <span className="muted small">After the awards, guests keep logging scores just for fun. The TV shows each machine's high scores of the night. The tournament results stay final.</span>
+          <b>Free play.</b> <span className="muted small">After the awards (the finale's "Start free play" button does this), guests keep logging scores just for fun and the music comes back. The TV shows each machine's high scores of the night. The tournament results stay final.</span>
           <div className="row gap host-fp-row">
             <span className={`host-pill${freePlay ? ' on' : ''}`}>{freePlay ? `On since ${fmtClock(party?.free_play_at)}` : 'Off'}</span>
             {freePlay ? (
@@ -637,8 +637,22 @@ function EndOfNight({ party, event, phase, reviewCount = 0, busy, run, reveal, f
             )}
           </div>
         </li>
+        <li className={isOpen ? '' : 'done'}>
+          <b>Close the party.</b> <span className="muted small">At the very end of the night. Stops free play, new sign-ups and score logging. Everything stays up: the TV shows the final results, and Ranks and Me keep tonight's winners.</span>
+          <div className="row gap host-fp-row">
+            <span className={`host-pill${isOpen ? ' on' : ''}`}>{isOpen ? 'Open' : 'Closed'}</span>
+            {isOpen ? (
+              <button className="secondary" type="button" disabled={busy || !party} onClick={() => {
+                if (!confirm('Close the party? Free play ends and nobody can sign up or log scores after this. The TV and results stay up. You can reopen it.')) return;
+                run(() => (freePlay ? host.freePlay(false) : host.setStatus('closed')), 'The party is closed. Thanks for hosting!');
+              }}>Close the party</button>
+            ) : (
+              <button className="ghost" type="button" disabled={busy || !party} onClick={() => run(() => host.setStatus('open'), 'The party is open again.')}>Reopen</button>
+            )}
+          </div>
+        </li>
         <li>
-          <b>Email everyone their results.</b> <span className="muted small">Only players who ticked "email me results" get one. Free play never shows up in them.</span>
+          <b>Email everyone their results (the next morning).</b> <span className="muted small">Only players who ticked "email me results" get one, with the same prizes as the TV. Free play never shows up in them. Send a sample to yourself first.</span>
           {event?.results_sent_at && <div className="muted small">Already sent {new Date(event.results_sent_at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}.</div>}
           {revealing && <div className="muted small">Uses the saved prizes (the same as the TV).</div>}
           <div className="row gap" style={{ marginTop: 8 }}>
@@ -652,20 +666,6 @@ function EndOfNight({ party, event, phase, reviewCount = 0, busy, run, reveal, f
               if (!to?.trim()) return;
               run(() => emailResults(event.id, { testTo: to.trim() }), `Sample sent to ${to.trim()}.`);
             }}>Send me a sample</button>
-          </div>
-        </li>
-        <li className={isOpen ? '' : 'done'}>
-          <b>Close the party.</b> <span className="muted small">At the very end. Stops new sign-ups and score logging. Everything stays up: the TV, Ranks and Me keep showing tonight's results.</span>
-          <div className="row gap host-fp-row">
-            <span className={`host-pill${isOpen ? ' on' : ''}`}>{isOpen ? 'Open' : 'Closed'}</span>
-            {isOpen ? (
-              <button className="secondary" type="button" disabled={busy || !party} onClick={() => {
-                if (!confirm('Close the party? Nobody can sign up or log scores after this. The TV and results stay up. You can reopen it.')) return;
-                run(() => host.setStatus('closed'), 'The party is closed. Thanks for hosting!');
-              }}>Close the party</button>
-            ) : (
-              <button className="ghost" type="button" disabled={busy || !party} onClick={() => run(() => host.setStatus('open'), 'The party is open again.')}>Reopen</button>
-            )}
           </div>
         </li>
       </ol>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  tourneyPhase, countdown, finalSeconds, dueClockMoment, clockOffset, bestOffset, sealed, scoreCountsNow,
+  tourneyPhase, countdown, finalSeconds, dueClockMoment, clockOffset, bestOffset, sealed, scoreCountsNow, awardsDone,
   nextBoundary, fmtCountdown, pacificToIso, isoToPacific, LOG_GRACE_MS, GRACE_MS,
 } from './schedule.js';
 
@@ -35,6 +35,24 @@ describe('tournament phase', () => {
     expect(tourneyPhase(party({ reveal_active: true }), T1 + 10 * MIN)).toBe('reveal');
     expect(tourneyPhase(party({ free_play: true }), T0 + MIN)).toBe('free');
   });
+  it('closing the party at the end of the night wins over free play and over (nothing can be logged)', () => {
+    const after = T1 + 40 * MIN;
+    expect(tourneyPhase(party({ status: 'closed', free_play: true }), after)).toBe('closed');
+    expect(tourneyPhase(party({ status: 'closed' }), after)).toBe('closed'); // "End free play" closes too
+    expect(tourneyPhase(party({ status: 'closed' }), T1 + MIN)).toBe('grace'); // still the logging window
+    expect(tourneyPhase(party({ status: 'closed' }), T0 - MIN)).toBe('pre');
+    expect(tourneyPhase(party({ status: 'closed', reveal_active: true }), after)).toBe('reveal');
+    expect(tourneyPhase({ status: 'closed', free_play: true }, T0)).toBe('closed');
+  });
+  it('awards done: a reveal ran for this tournament and has ended', () => {
+    const r = new Date(T1 + 10 * MIN).toISOString();
+    expect(awardsDone(party())).toBe(false);
+    expect(awardsDone(party({ reveal_active: true, revealed_at: r }))).toBe(false);
+    expect(awardsDone(party({ revealed_at: r }))).toBe(true);
+    expect(awardsDone(party({ revealed_at: '2026-11-10T15:00:00Z' }))).toBe(false); // an old test reveal
+    expect(awardsDone({ status: 'open', revealed_at: r })).toBe(true); // no schedule
+    expect(awardsDone({ status: 'open' })).toBe(false);
+  });
   it('next boundary: seal, end, grace end', () => {
     const p = party();
     expect(nextBoundary(p, T0 - 5)).toBe(T0);
@@ -46,7 +64,8 @@ describe('tournament phase', () => {
     expect(sealed(party(), T1 - 15 * MIN - 1)).toBe(false);
     expect(sealed(party(), T1 - 15 * MIN)).toBe(true);
     expect(sealed(party(), T1 + 30 * MIN)).toBe(true);
-    expect(sealed(party({ reveal_active: true }), T1 + MIN)).toBe(false);
+    expect(sealed(party({ reveal_active: true }), T1 + MIN)).toBe(true); // phones stay sealed during the reveal
+    expect(sealed(party({ reveal_active: false, revealed_at: new Date(T1 + MIN).toISOString() }), T1 + 9 * MIN)).toBe(false); // reveal ended
     expect(sealed(party({ revealed_at: new Date(T1 + 5 * MIN).toISOString() }), T1 + 30 * MIN)).toBe(false); // the reveal happened
     expect(sealed(party({ match_digits: 50, revealed_at: '2026-11-10T15:00:00Z' }), T1 + MIN)).toBe(true); // an old test reveal doesn't unseal
     expect(sealed({ status: 'open' }, T1)).toBe(false);

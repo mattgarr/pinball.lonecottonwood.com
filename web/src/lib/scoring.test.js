@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeStandings, computeAwards, fmtShort, tieBreakNote, PODIUM_MIN } from './scoring.js';
+import { computeStandings, computeAwards, fmtShort, tieBreakNote, winnersList, PODIUM_MIN } from './scoring.js';
 
 const M = [1, 2, 3].map(id => ({ id, name: `M${id}`, manufacturer: 'X', year: 1990, sort_order: id, active: true }));
 const P = [1, 2, 3, 4].map(id => ({ id, display_name: `P${id}`, color: '#fff', emoji: '🎯' }));
@@ -119,5 +119,18 @@ describe('scoring', () => {
     const standings = computeStandings({ machines: M, players: P, scores });
     expect(standings.ranked.map(st => st.player.id)).toEqual([1, 2]);
     expect(tieBreakNote(standings.ranked[0], standings.ranked[1])).toMatch(/^Tied at \d+ · (more machine crowns|joined first)$/);
+  });
+
+  it('winners list: all 12 prizes in reveal order, empty prizes kept, The Match with its number', () => {
+    const scores = [sc(1, 1, 900), sc(2, 1, 800), sc(1, 2, 100), sc(2, 2, 200), sc(1, 3, 50), sc(2, 3, 40), sc(3, 1, 10), sc(3, 2, 10), sc(3, 3, 1), sc(4, 1, 5)];
+    const standings = computeStandings({ machines: M, players: P, scores });
+    const awards = computeAwards({ machines: M, players: P, scores, standings, matchDigits: 0 });
+    const list = winnersList(awards);
+    expect(list.map(w => w.prize)).toEqual(['Grand Champion', '2nd Place', '3rd Place', 'M1 Champion', 'M2 Champion', 'M3 Champion', 'The Grinder', 'The Big Whiff', 'The Match']);
+    expect(list[0].player.id).toBe(awards.champion.player.id);
+    expect(list[0].stat).toBe(`${awards.champion.rating}/100`);
+    for (const w of list) if (!w.player) expect(w.stat).toBe('');
+    if (awards.theMatch) expect(list.at(-1).stat).toBe('Match 00');
+    expect(winnersList({}).every(w => w.player === null)).toBe(true);
   });
 });
