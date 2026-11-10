@@ -14,6 +14,16 @@ export const LIGHTS = {
   // Physical order, left to right, as machine ids from the machines table.
   // Fathom, Centaur, Whirlwind, Whitewater, Cactus Canyon, Dungeons & Dragons.
   machineOrder: [2, 1, 3, 4, 5, 6],
+  // Each machine's own colors (main color first). Machine effects pick from these: a score breathes
+  // between the player's color and the main color; a champion chase alternates all three.
+  machineThemes: {
+    2: { name: 'Fathom', colors: [[0, 210, 120, 0], [0, 90, 240, 0], [140, 255, 220, 0]] }, // sea green, ocean blue, seafoam
+    1: { name: 'Centaur', colors: [[255, 0, 25, 0], [90, 0, 18, 0], [10, 25, 45, 200]] }, // lipstick red, wine, chrome (W chip)
+    3: { name: 'Whirlwind', colors: [[10, 90, 255, 0], [0, 30, 180, 0], [255, 220, 60, 0]] }, // electric blue, storm navy, lightning yellow
+    4: { name: 'White Water', colors: [[0, 120, 255, 0], [20, 60, 70, 210], [255, 110, 0, 0]] }, // river blue, foam white (W chip), life-jacket orange
+    5: { name: 'Cactus Canyon', colors: [[255, 190, 0, 0], [255, 80, 0, 0], [230, 20, 60, 0]] }, // sunset gold, deep orange, rose red
+    6: { name: 'Dungeons & Dragons', colors: [[120, 0, 255, 0], [230, 0, 170, 0], [200, 150, 255, 0]] }, // purple, magenta, lavender
+  },
 
   // Pixel numbering runs across both outputs: the top run first, then the curb run.
   // These are estimates until the strips are on the wall; the calibration page saves the real zones.

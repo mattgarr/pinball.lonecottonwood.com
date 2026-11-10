@@ -34,7 +34,7 @@ describe('lights engine', () => {
     e.score(WHIRLWIND, MAG);
     vi.advanceTimersByTime(100);
     const on = segsFor(11);
-    expect(on[0]).toMatchObject({ id: 11, on: true, fx: LIGHTS.effects.Breathe, col: [MAG, [0, 0, 0, 0]] });
+    expect(on[0]).toMatchObject({ id: 11, on: true, fx: LIGHTS.effects.Breathe, col: [MAG, LIGHTS.machineThemes[WHIRLWIND].colors[0]] });
     vi.advanceTimersByTime(3300);
     expect(segsFor(11).at(-1)).toEqual({ id: 11, on: false });
   });
@@ -73,7 +73,7 @@ describe('lights engine', () => {
     vi.advanceTimersByTime(60);
     expect(segsFor(4).at(-1)).toMatchObject({ on: true, col: [[0, 0, 0, 255]] }); // white flash first
     vi.advanceTimersByTime(700);
-    expect(segsFor(4).at(-1)).toMatchObject({ on: true, fx: LIGHTS.effects['Chase Rainbow'] });
+    expect(segsFor(4).at(-1)).toMatchObject({ on: true, fx: LIGHTS.effects.Chase, col: LIGHTS.machineThemes[WHIRLWIND].colors });
     const n = segsFor(11).length;
     e.score(WHIRLWIND, MAG);
     vi.advanceTimersByTime(200);

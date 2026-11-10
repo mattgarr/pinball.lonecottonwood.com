@@ -92,7 +92,11 @@ function pixel(model, seg, i, n, t, now) {
     case FX.Wipe: { const cycle = 2200 / speed; const pos = ((t % (cycle * 2)) / cycle) * n; return pos < n ? (i < pos ? c0 : c1) : (i < pos - n ? c1 : c0); }
     case FX.Colorloop: return hsv((t / 40) * speed);
     case FX.Rainbow: return hsv(x * 360 + (t / 20) * speed);
-    case FX.Chase: return Math.floor((i + (t / 60) * speed) / 3) % 3 === 0 ? c0 : c1;
+    case FX.Chase: { // blocks alternating through the segment's colors (three if given)
+      const cols = (seg.col || []).slice(0, 3).map(toRgb);
+      const k = Math.floor((i + (t / 60) * speed) / 3);
+      return cols.length >= 3 ? cols[((k % 3) + 3) % 3] : k % 3 === 0 ? c0 : c1;
+    }
     case FX['Chase Rainbow']: return Math.floor((i + (t / 60) * speed) / 3) % 3 === 0 ? hsv(i * 12 + t / 10) : c0.map(v => v * 0.25);
     case FX.Fade: return mix(c1, c0, 0.5 + 0.5 * Math.sin(t / 900));
     // ambient rotation

@@ -45,6 +45,9 @@ export class LightsEngine {
     this.timers.add(t);
     return t;
   }
+  theme(machineId, fallback) { return this.cfg.machineThemes?.[Number(machineId)]?.colors || [fallback, fallback, fallback]; }
+  // A mirrored chase that alternates the machine's three colors.
+  themeChase(machineId, fallback, sx = 200) { return { fx: this.fx('Chase'), sx, ix: 128, bri: 255, col: this.theme(machineId, fallback) }; }
   machineIndex(machineId) { return this.cfg.machineOrder.indexOf(Number(machineId)); }
   machineSegs(machineId) {
     const i = this.machineIndex(machineId);
@@ -247,7 +250,8 @@ export class LightsEngine {
     if (this.blocked(1)) return;
     const s = this.machineSegs(machineId);
     if (!s) return;
-    const state = { fx: this.fx('Breathe'), sx: 200, ix: 128, bri: 255, col: [color, [0, 0, 0, 0]] };
+    // Breathes between the player's color and the machine's main color.
+    const state = { fx: this.fx('Breathe'), sx: 200, ix: 128, bri: 255, col: [color, this.theme(machineId, [0, 0, 0, 0])[0]] };
     this.effect(s.curb, state, 1, DUR.score);
     if (this.cfg.scoreAlsoOnTop) this.effect(s.top, state, 1, DUR.score);
   }
@@ -277,7 +281,7 @@ export class LightsEngine {
     if (this.blocked(3)) return;
     const s = this.machineSegs(machineId);
     if (!s) return;
-    const top = { fx: this.fx('Chase Rainbow'), sx: 200, ix: 128, bri: 255, col: [color] };
+    const top = this.themeChase(machineId, color); // the machine's own colors, mirrored from its center
     const curb = { fx: this.fx('Solid'), bri: 255, col: [color] };
     if (this.cfg.whiteFlash?.champion) {
       this.sequence([s.top], this.whiteFlashSteps(top), 3, DUR.champion);
@@ -373,7 +377,7 @@ export class LightsEngine {
       for (const id of [top, band, curb]) this.effect(id, glow, 4, 0);
       const s = cue.machineId ? this.machineSegs(cue.machineId) : null;
       if (s) {
-        this.effect(s.top, { fx: this.fx('Chase Rainbow'), sx: 200, bri: 255, col: [c] }, 4, 0);
+        this.effect(s.top, this.themeChase(cue.machineId, c), 4, 0);
         this.effect(s.curb, { fx: this.fx('Solid'), bri: 255, col: [c] }, 4, 0);
       }
       this.flush();
