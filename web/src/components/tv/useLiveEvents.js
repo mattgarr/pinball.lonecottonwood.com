@@ -361,7 +361,9 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
       const value = Math.round((Math.random() * 40 + 1) * 1e5) * 10;
       const k = i++ % 9;
       const t = Date.now();
-      addHit({ id: `demo-hit-${t}`, machine: m.machine, player: p, value, rank: 1 + (k % 3), isPB: k === 3 });
+      // Only events that come from a score flash a cabinet (joins, rankings, spotlights and the Wall
+      // of Shame don't), so the cabinet that lights up is always the one the screen is talking about.
+      if ([0, 2, 3, 4, 7].includes(k)) addHit({ id: `demo-hit-${t}`, machine: m.machine, player: p, value, rank: 1 + (k % 3), isPB: k === 3 });
       if (k === 0) addNews([`${p.display_name}: ${value.toLocaleString()} on ${m.machine.name}`]);
       if (k === 1) { pushToasts([{ kind: 'join', player: q }]); addNews([`${q.display_name} joins`]); }
       if (k === 2) {
