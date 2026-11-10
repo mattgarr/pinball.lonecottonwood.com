@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { LightsEngine } from './engine.js';
 import { LIGHTS, hexToRgbw } from './config.js';
 import { publish, subscribe, lightsTopic, onLightsTopic } from './mqtt.js';
+import { cachedDimmer, followDimmer } from './dimmer.js';
 
 const DRIVER_KEY = 'pw.lightsDriver';
 const HEARTBEAT_MS = 20000;
@@ -45,7 +46,7 @@ export function useLightsDirector({ settings, party, scores, players, standings,
   useEffect(() => {
     if (!active) return undefined;
     const sendTo = simChannel || (dry ? 'sim' : 'api');
-    const engine = new LightsEngine({ send: payload => publish(sendTo, payload), zones: settings?.zones || undefined, music: settings?.music || null });
+    const engine = new LightsEngine({ send: payload => publish(sendTo, payload), zones: settings?.zones || undefined, music: settings?.music || null, dimmer: simOnly ? null : cachedDimmer() });
     engineRef.current = engine;
     // During the party: clean slate, zones pushed, party lights on. Outside it (not open), the room
     // belongs to your WLED preset and the TV only adds moments.
@@ -62,6 +63,8 @@ export function useLightsDirector({ settings, party, scores, players, standings,
       if (last === 'offline' && now === 'online') engine.resync();
       last = now;
     });
+    // The host's master dimmer (retained on the broker): applied now, after reloads and reboots.
+    const unDimmer = simOnly ? () => {} : followDimmer(engine, { dry });
     const bye = () => { engine.stop(); if (!simOnly) publish('director', { at: Date.now(), off: true }, { retain: true }); };
     window.addEventListener('pagehide', bye);
     // Safari can restore this page from its back/forward cache after pagehide: pick the party back up.
@@ -70,6 +73,7 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     return () => {
       clearInterval(iv);
       unStatus();
+      unDimmer();
       window.removeEventListener('pagehide', bye);
       window.removeEventListener('pageshow', back);
       bye();

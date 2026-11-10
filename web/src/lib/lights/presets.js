@@ -4,13 +4,17 @@
 // upload in WLED (Config → Security & Updates → Restore presets).
 //
 //   1 Attract    cycles the cool ambient effects, 3 min each (boot preset)
-//   2 Calm       slow and dim
+//   2 Calm       slow and softer (still real room light)
 //   3 Exciting   fast and bright
 //   4 Music      sound-reactive, from the controller's mic
 //   5 Showcase   each machine glows in its own theme colors, a soft cool glow between them
 //   6 Cozy (warm, dim amber twinkle) · 7 House lights
 //   8 Off · 9 Next mode (cycles 1 → 5; for the controller's button)
 // Presets 1–7 = the remote's seven scene buttons; the remote has its own on/off.
+//
+// Brightness: no preset sets WLED's master brightness ("bri" at the top level), so the host's Dimmer
+// (and the remote's brightness buttons) stay where they are when a preset or the playlist changes.
+// Each look's own level is its segment brightness (seg bri, 255 = full).
 import { LIGHTS, defaultZones } from './config.js';
 import { LightsEngine } from './engine.js';
 
@@ -35,7 +39,8 @@ function layout(zones, state, machine = null) {
   });
 }
 
-const show = (zones, n, bri, state) => ({ n, on: true, bri, transition: 15, seg: layout(zones, { sx: 128, ix: 128, pal: 0, ...state }) });
+// `bri` is the look's segment brightness (not WLED's master brightness: see above).
+const show = (zones, n, bri, state) => ({ n, on: true, transition: 15, seg: layout(zones, { sx: 128, ix: 128, pal: 0, ...state, bri }) });
 const playlist = (n, ps, seconds) => ({ n, on: true, playlist: { ps, dur: ps.map(() => seconds * 10), transition: ps.map(() => 20), repeat: 0 } });
 
 export function buildPresets(zones = defaultZones()) {
@@ -47,33 +52,34 @@ export function buildPresets(zones = defaultZones()) {
   });
   p[1] = playlist('Attract', LIGHTS.ambientCycle.map((_, i) => 11 + i), (LIGHTS.ambientMinutes || 3) * 60);
 
-  // Calm: slow, dim, 5 min each.
-  p[41] = show(zones, 'Calm: ocean', 90, { fx: fx('Pacifica'), sx: 40 });
-  p[42] = show(zones, 'Calm: breathe', 90, { fx: fx('Breathe'), sx: 20, col: cool(['teal', 'purple']) });
-  p[43] = show(zones, 'Calm: aurora', 90, { fx: fx('Aurora'), sx: 50, pal: 4, col: cool(['teal', 'purple', 'blue']) });
+  // Calm: slow and softer (about two thirds of Attract's light), 5 min each.
+  p[41] = show(zones, 'Calm: ocean', 170, { fx: fx('Running'), sx: 20, ix: 32, pal: 4, col: cool(['blue', 'teal', 'turquoise']) });
+  p[42] = show(zones, 'Calm: breathe', 200, { fx: fx('Breathe'), sx: 20, col: cool(['teal', 'purple']) });
+  p[43] = show(zones, 'Calm: aurora', 200, { fx: fx('Aurora'), sx: 25, ix: 255, pal: 4, col: cool(['turquoise', 'purple', 'teal']) });
   p[2] = playlist('Calm', [41, 42, 43], 300);
 
   // Exciting: fast and bright, 1 min each.
-  p[21] = show(zones, 'Exciting: waves', 220, { fx: fx('Colorwaves'), sx: 220, pal: 4, col: cool(['purple', 'pink', 'turquoise']) });
-  p[22] = show(zones, 'Exciting: plasma', 220, { fx: fx('Plasma'), sx: 230, pal: 4, col: cool(['blue', 'pink', 'teal']) });
-  p[23] = show(zones, 'Exciting: flow', 220, { fx: fx('Flow'), sx: 230, pal: 4, col: cool(['pink', 'purple', 'turquoise']) });
-  p[24] = show(zones, 'Exciting: twinkle', 220, { fx: fx('Twinklefox'), sx: 200, ix: 230, pal: 4, col: cool(['pink', 'turquoise', 'purple']) });
-  p[25] = show(zones, 'Exciting: chase', 220, { fx: fx('Chase'), sx: 220, col: cool(['purple', 'turquoise', 'pink']) });
+  p[21] = show(zones, 'Exciting: waves', 255, { fx: fx('Colorwaves'), sx: 220, pal: 4, col: cool(['purple', 'pink', 'turquoise']) });
+  p[22] = show(zones, 'Exciting: plasma', 255, { fx: fx('Plasma'), sx: 230, ix: 255, pal: 4, col: cool(['turquoise', 'pink', 'teal']) });
+  p[23] = show(zones, 'Exciting: flow', 255, { fx: fx('Flow'), sx: 230, pal: 4, col: cool(['pink', 'purple', 'turquoise']) });
+  p[24] = show(zones, 'Exciting: twinkle', 255, { fx: fx('Twinklefox'), sx: 200, ix: 255, pal: 4, col: cool(['pink', 'turquoise', 'purple']) });
+  p[25] = show(zones, 'Exciting: chase', 255, { fx: fx('Chase'), sx: 220, col: cool(['purple', 'turquoise', 'pink']) });
   p[3] = playlist('Exciting', [21, 22, 23, 24, 25], 60);
 
   // Music: the sound-reactive effects, 45 s each.
   Object.entries(LIGHTS.music).forEach(([name, m], i) => {
-    p[31 + i] = show(zones, `Music: ${m.label}`, 220, { fx: fx(name), sx: m.sx, ix: m.ix, pal: 4, col: LIGHTS.partyBase.col });
+    p[31 + i] = show(zones, `Music: ${m.label}`, 255, { fx: fx(name), sx: m.sx, ix: m.ix, pal: 4, col: LIGHTS.partyBase.col });
   });
   p[4] = playlist('Music', Object.keys(LIGHTS.music).map((_, i) => 31 + i), 45);
 
-  // Showcase: every machine in its own colors (slow, mirrored from its center), top and curb together.
+  // Showcase: every machine in its own colors (slow, mirrored from its center), top and curb together,
+  // over a softer (but still lit) cool plasma on the walls and beam.
   p[5] = {
-    n: 'Machine showcase', on: true, bri: 200, transition: 15,
-    seg: layout(zones, { fx: fx('Aurora'), sx: 60, ix: 128, pal: 4, bri: 90, col: cool(['purple', 'blue', 'teal']) },
-      id => ({ fx: fx('Colorwaves'), sx: 60, ix: 128, pal: 4, col: LIGHTS.machineThemes[id]?.colors || LIGHTS.partyBase.col })),
+    n: 'Machine showcase', on: true, transition: 15,
+    seg: layout(zones, { fx: fx('Plasma'), sx: 40, ix: 255, pal: 4, bri: 230, col: cool(['turquoise', 'purple', 'teal']) },
+      id => ({ fx: fx('Colorwaves'), sx: 60, ix: 128, pal: 4, bri: 255, col: LIGHTS.machineThemes[id]?.colors || LIGHTS.partyBase.col })),
   };
-  p[6] = show(zones, 'Cozy', 110, { fx: fx('Twinklefox'), sx: 40, ix: 180, pal: 4, col: [[255, 110, 10, 40], [255, 60, 0, 0], [200, 120, 40, 60]] });
+  p[6] = show(zones, 'Cozy', 230, { fx: fx('Twinklefox'), sx: 40, ix: 255, pal: 4, col: [[255, 110, 10, 40], [255, 60, 0, 0], [200, 120, 40, 60]] });
   p[7] = show(zones, 'House lights', 255, { fx: fx('Solid'), col: [LIGHTS.houseWhite] });
   p[8] = { n: 'Off', on: false };
   p[9] = { n: 'Next mode', ps: '1~5~' }; // each press: Attract → Calm → Exciting → Music → Showcase → Attract

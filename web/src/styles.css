@@ -2874,3 +2874,12 @@ details.ls-log summary { cursor: pointer; color: #9c9cb4; margin-bottom: 8px; }
   .qr-sheet-join { flex-direction: column; align-items: flex-start; }
   .qr-sheet-join canvas { align-self: center; }
 }
+
+/* Host lights card: the master dimmer (WLED's own brightness). */
+.lights-dimmer { margin-top: 12px; padding: 10px 12px 2px; border: 2px solid #33334a; min-width: 0; max-width: 560px; }
+.lights-dimmer-head { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--t12); color: #e9e9f2; }
+.lights-dimmer-val { font-size: var(--t16); color: var(--nes-yellow); }
+.lights-dimmer input[type=range] { display: block; width: 100%; margin: 10px 0 8px; accent-color: var(--nes-yellow); }
+.lights-dimmer-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.lights-dimmer-steps .ghost { width: 100%; margin: 0; }
+.lights-dimmer-steps .ghost.on { border-color: var(--nes-yellow); color: var(--nes-yellow); }

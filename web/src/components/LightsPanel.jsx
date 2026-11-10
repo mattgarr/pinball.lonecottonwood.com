@@ -1,6 +1,6 @@
 // Host: the garage lights card. Shows whether the lights and the TV that drives them are online,
-// turns the lights on/off for the party, and has the manual buttons (ambient, house lights,
-// brightness, a test flash per machine). Commands go to the TV that drives the lights; if no TV is
+// turns the lights on/off for the party, and has the manual buttons (the master dimmer, ambient,
+// house lights, a test flash per machine). Commands go to the TV that drives the lights; if no TV is
 // driving, this page sends them itself.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -10,9 +10,11 @@ import { buildPresets } from '../lib/lights/presets.js';
 import { LightsEngine } from '../lib/lights/engine.js';
 import { runControl } from '../lib/lights/useLightsDirector.js';
 import { publish, subscribe, onConnection, lightsTopic, onLightsTopic } from '../lib/lights/mqtt.js';
+import { DIMMER_DEFAULT, ECHO_MS, cachedDimmer, dimmerPct, saveDimmer, watchDimmer } from '../lib/lights/dimmer.js';
 
 const COLORS = ['#ff5b6e', '#ffb020', '#ffd84d', '#38d39f', '#2ec5e8', '#5b8cff', '#a07bff', '#ff6fd0', '#7ee081', '#ff8a4c', '#4dd4c4', '#c9a0ff'];
 const DRIVER_FRESH_MS = 60000;
+const DIMMER_STEPS = [25, 50, 75, 100]; // % quick picks
 
 export default function LightsPanel({ busy, run }) {
   const { lights: settings, allMachines } = useParty();
@@ -20,10 +22,11 @@ export default function LightsPanel({ busy, run }) {
   const [driver, setDriver] = useState(null); // last heartbeat from the TV
   const [conn, setConn] = useState(false);
   const [house, setHouse] = useState(false);
-  const [bri, setBri] = useState(180);
+  const [dim, setDim] = useState(() => cachedDimmer() ?? DIMMER_DEFAULT); // master dimmer, 1–255
+  const dimTouched = useRef(0);
   const [testColor, setTestColor] = useState(COLORS[0]);
   const [now, setNow] = useState(Date.now());
-  const briTimer = useRef(null);
+  const dimTimer = useRef(null);
 
   const [topic, setTopic] = useState(lightsTopic());
   useEffect(() => { ensureLightsTopic().then(t => setTopic(t)); return onLightsTopic(setTopic); }, []);
@@ -48,6 +51,21 @@ export default function LightsPanel({ busy, run }) {
     if (tvDriving) publish('control', full);
     else runControl(local, full);
   };
+
+  // The dimmer shows the level everyone shares (retained on the broker) and what the controller
+  // reports (the remote's brightness buttons), except right after this page moved it.
+  useEffect(() => watchDimmer((v, src) => {
+    if (Date.now() - dimTouched.current < ECHO_MS) return;
+    if (src === 'wled' && dry) return; // simulator only: the real controller's level isn't the one in use
+    setDim(v);
+  }), [dry]);
+  const changeDimmer = (v, now = false) => {
+    setDim(v); dimTouched.current = Date.now();
+    const go = () => { dimTouched.current = Date.now(); saveDimmer(v); command({ cmd: 'bri', value: v }); };
+    clearTimeout(dimTimer.current);
+    if (now) go(); else dimTimer.current = setTimeout(go, 150);
+  };
+  useEffect(() => () => clearTimeout(dimTimer.current), []);
 
   if (!settings) {
     return (
@@ -85,6 +103,21 @@ export default function LightsPanel({ busy, run }) {
           {dry ? 'Use the real strips' : 'Simulator only'}
         </button>
       </div>
+      <div className="lights-dimmer">
+        <label className="lights-dimmer-head" htmlFor="lights-dimmer">
+          <span>Dimmer</span>
+          <span className="lights-dimmer-val">{dimmerPct(dim)}%</span>
+        </label>
+        <input id="lights-dimmer" type="range" min={13} max={255} value={dim}
+          aria-valuetext={`${dimmerPct(dim)}%`} onChange={e => changeDimmer(Number(e.target.value))} />
+        <div className="lights-dimmer-steps">
+          {DIMMER_STEPS.map(p => {
+            const v = Math.round((p / 100) * 255);
+            return <button key={p} type="button" className={`ghost${dimmerPct(dim) === p ? ' on' : ''}`} onClick={() => changeDimmer(v, true)}>{p}%</button>;
+          })}
+        </div>
+        <p className="muted small">The whole garage's brightness: every look, score flash and the remote's shows. Remembered after a TV reload or a controller restart.{tvDriving ? '' : dry ? ' Simulator only: the real strips aren\'t changed.' : ' No TV open: this page sets the lights directly.'}</p>
+      </div>
       <div className="row gap lights-row">
         <button type="button" className="secondary" onClick={() => { command({ cmd: 'ambient' }); setHouse(false); }}>Back to attract loop</button>
         <button type="button" className={house ? 'primary' : 'secondary'} onClick={() => { command({ cmd: 'house', on: !house }); setHouse(!house); }}>
@@ -99,12 +132,6 @@ export default function LightsPanel({ busy, run }) {
         </select>
       </label>
       <p className="muted small">Music mode uses the controller's microphone. Score and champion flashes still play on top.</p>
-      <label className="lights-bri">Brightness
-        <input type="range" min={10} max={255} value={bri} onChange={e => {
-          const v = Number(e.target.value); setBri(v);
-          clearTimeout(briTimer.current); briTimer.current = setTimeout(() => command({ cmd: 'bri', value: v }), 150);
-        }} />
-      </label>
       <div className="lights-test">
         <div className="muted small">Test a machine's flash:</div>
         <div className="ls-colors">

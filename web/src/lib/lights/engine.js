@@ -19,7 +19,7 @@ const SEG_GAP_MS = 1000;
 export const DUR = { score: 3000, champion: 5000, leader: 4000, open: 4000, ranked: 3500, shame: 4500 };
 
 export class LightsEngine {
-  constructor({ send, cfg = LIGHTS, zones = null, timeScale = 1, music = null, log = () => {} } = {}) {
+  constructor({ send, cfg = LIGHTS, zones = null, timeScale = 1, music = null, dimmer = null, log = () => {} } = {}) {
     this.send = send;
     this.cfg = cfg;
     this.zones = zones || defaultZones(cfg);
@@ -37,6 +37,11 @@ export class LightsEngine {
     this.cycleTimer = null;
     this.bounds = {}; // machine segment id → its real pixels { start, stop }
     this.needsLayout = true; // until zones are pushed, the first effect pushes them (host / simulator engines)
+    // The host's master dimmer (WLED's top-level bri, 1–255), or null = leave WLED's brightness alone.
+    // Re-sent with every full re-push (start, stop, resync) so a reboot or a preset never loses it.
+    this.dimmer = null;
+    this.dimmerSentAt = 0;
+    if (dimmer) this.setDimmer(dimmer, { send: false });
   }
 
   // --- helpers ---------------------------------------------------------------------------------
@@ -182,7 +187,7 @@ export class LightsEngine {
       // After the party closes the room belongs to your preset. Any message to WLED stops a running
       // playlist, so once this effect is over, start the preset again.
       if (!this.isBase(id)) this.queue(this.offState(id));
-      if ([...this.segs.values()].every(x => x.prio === 0)) this.queueExtra({ ps: this.cfg.ambientPreset });
+      if ([...this.segs.values()].every(x => x.prio === 0)) this.queueExtra(this.withDimmer({ ps: this.cfg.ambientPreset }));
       return;
     }
     this.queue(this.restState(id));
@@ -250,7 +255,7 @@ export class LightsEngine {
     this.applyLayout();
     for (const id of this.allMachineSegs()) this.queue(this.offState(id));
     for (const id of this.baseSegs()) this.queue(this.restState(id));
-    this.queueExtra({ on: true });
+    this.queueExtra(this.withDimmer({ on: true }));
     this.flush();
   }
 
@@ -261,9 +266,14 @@ export class LightsEngine {
       // Your preset is playing; leave it alone. (During the reveal the zones still matter: re-lay them
       // before the next cue.)
       this.needsLayout = true;
-      if (!this.revealing) return;
+      if (!this.revealing) {
+        // Brightness alone doesn't stop WLED's playlist, so the dimmer level comes back after a reboot.
+        if (this.dimmer) { this.queueExtra({ bri: this.dimmer }); this.flush(); }
+        return;
+      }
     }
     this.applyLayout();
+    if (this.dimmer) this.queueExtra({ bri: this.dimmer });
     if (this.house) for (const id of this.baseSegs()) this.queue({ id, on: true, fx: this.fx('Solid'), bri: 255, col: [this.cfg.houseWhite] });
     else if (!this.revealing) for (const id of this.baseSegs()) if (this.seg(id).prio === 0) this.queue(this.restState(id));
     this.flush();
@@ -281,7 +291,7 @@ export class LightsEngine {
     this.stopCycle();
     this.house = false; this.revealing = false;
     for (const id of this.allMachineSegs()) this.queue(this.offState(id));
-    this.queueExtra({ ps: this.cfg.ambientPreset });
+    this.queueExtra(this.withDimmer({ ps: this.cfg.ambientPreset }));
     this.flush();
     this.stopKeepOff();
     this.closed = true; // your preset plays; the app only steps in for a moment (see restore)
@@ -392,7 +402,19 @@ export class LightsEngine {
   }
 
   ambient() { this.stop(); }
-  brightness(bri) { this.queueExtra({ bri: Math.max(1, Math.min(255, Math.round(bri))) }); }
+  // Master dimmer: WLED's own brightness, so it scales everything (looks, moments, presets). Effects
+  // only ever set segment brightness, so nothing the app does changes this level.
+  setDimmer(value, { send = true } = {}) {
+    const n = Math.round(Number(value));
+    if (!Number.isFinite(n) || n < 1) return;
+    this.dimmer = Math.min(255, n);
+    if (!send) return;
+    this.dimmerSentAt = Date.now();
+    this.queueExtra({ bri: this.dimmer });
+    this.flush();
+  }
+  brightness(bri) { this.setDimmer(bri); }
+  withDimmer(fields) { return this.dimmer ? { ...fields, bri: this.dimmer } : fields; }
 
   test(machineId, color) { // host Test button: a score pulse that ignores house/reveal blocks
     const s = this.machineSegs(machineId);

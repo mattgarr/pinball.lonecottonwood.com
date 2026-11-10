@@ -394,4 +394,51 @@ describe('lights engine', () => {
     for (const id of [0, 1, 8, 2, 9]) expect(ids).toContain(id);
     expect(sent.flatMap(p => p.seg || []).find(s => s.id === 4 && s.on)?.start).toBeLessThan(320);
   });
+
+  describe('master dimmer', () => {
+    it('sets WLED\'s top-level brightness right away and keeps it on the engine', () => {
+      e.setDimmer(128);
+      expect(sent.at(-1)).toEqual({ bri: 128 });
+      expect(e.dimmer).toBe(128);
+      e.setDimmer(999); expect(e.dimmer).toBe(255);
+      e.setDimmer(0); expect(e.dimmer).toBe(255); // 0 / junk ignored
+    });
+    it('is re-sent on start, close and resync, and app moments never change it', () => {
+      e.setDimmer(90);
+      e.start();
+      expect(sent.at(-1).bri).toBe(90);
+      sent = [];
+      e.score(WHIRLWIND, MAG); e.champion(FATHOM, MAG); e.leader(MAG); e.ranked(MAG); e.milestone(); e.shame();
+      vi.advanceTimersByTime(20000);
+      for (const m of sent) expect(m.bri).toBeUndefined(); // moments use segment brightness only
+      e.resync();
+      expect(sent.at(-1).bri).toBe(90);
+      e.stop();
+      expect(sent.at(-1)).toMatchObject({ ps: LIGHTS.ambientPreset, bri: 90 });
+      sent = [];
+      e.resync(); // closed: the preset keeps playing, only the level is restored
+      expect(sent).toEqual([{ bri: 90 }]);
+    });
+    it('a level learned without sending (from the controller) is not echoed back', () => {
+      e.setDimmer(70, { send: false });
+      expect(sent).toHaveLength(0);
+      e.start();
+      expect(sent.at(-1).bri).toBe(70);
+    });
+    it('the brightness control command goes through the dimmer', async () => {
+      const { runControl } = await import('./useLightsDirector.js');
+      runControl(e, { cmd: 'bri', value: 200, at: Date.now() });
+      expect(e.dimmer).toBe(200);
+      expect(sent.at(-1)).toEqual({ bri: 200 });
+    });
+    it('ambient looks run at full segment brightness (the dimmer sets the room level)', () => {
+      e.start();
+      for (const id of [0, 1, 8]) expect(sent[0].seg.find(s => s.id === id).bri).toBe(255);
+      for (let i = 0; i < LIGHTS.ambientCycle.length; i++) {
+        sent = []; e.setAmbient(i); vi.advanceTimersByTime(100);
+        for (const id of [0, 1, 8]) expect(segsFor(id).at(-1).bri).toBe(255);
+      }
+    });
+  });
 });
+

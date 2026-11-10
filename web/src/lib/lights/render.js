@@ -99,13 +99,30 @@ function pixel(model, seg, i, n, t, now) {
     }
     case FX['Chase Rainbow']: return Math.floor((i + (t / 60) * speed) / 3) % 3 === 0 ? hsv(i * 12 + t / 10) : c0.map(v => v * 0.25);
     case FX.Fade: return mix(c1, c0, 0.5 + 0.5 * Math.sin(t / 900));
-    // ambient rotation
-    case FX.Colorwaves: return palColor(seg, x * 1.5 + Math.sin(t / 3000) * 0.5 + t / 9000).map(v => v * (0.6 + 0.4 * Math.sin(x * 9 - t / 600)));
-    case FX.Plasma: return palColor(seg, 0.5 + 0.25 * Math.sin(x * 7 + t / 1300) + 0.25 * Math.sin(x * 3 - t / 900));
-    case FX.Pacifica: { const w = 0.5 + 0.5 * Math.sin(x * 11 + t / 700) * Math.sin(x * 5 - t / 1100); return mix([0, 20, 60], [40, 180, 200], w); }
-    case FX.Flow: return palColor(seg, x + t / 5000).map(v => v * (Math.floor(x * 12 + t / 400) % 2 ? 1 : 0.35));
-    case FX.Aurora: { const w = Math.max(0, Math.sin(x * 6 + t / 1500)) * Math.max(0, Math.sin(x * 2.3 - t / 2600 + 1)); return palColor(seg, x * 0.6 + t / 12000).map(v => v * (0.15 + 0.85 * w)); }
-    case FX.Twinklefox: { const slot = Math.floor(t / 900 + hash(i) * 7); const k = Math.sin(((t / 900 + hash(i) * 7) % 1) * Math.PI); return palColor(seg, hash(i, slot)).map(v => v * k * (hash(i, slot + 1) > 0.35 ? 1 : 0.1)); }
+    // ambient rotation (modelled on WLED's FX.cpp, so each look's brightness matches the strips)
+    case FX.Colorwaves: { // WLED: brightness swings between (255 - depth) and 255; depth breathes 96..224
+      const depth = (160 + 64 * Math.sin(t / 7000)) / 255;
+      const b = 0.5 + 0.5 * Math.sin(x * 9 - t / 600);
+      return palColor(seg, x * 1.5 + Math.sin(t / 3000) * 0.5 + t / 9000).map(v => v * (1 - depth + depth * b * b));
+    }
+    case FX.Plasma: { // WLED: brightness = color index minus a slow beat (0 .. 128 - ix/2), so ix 255 = brightest
+      const ci = 0.5 + 0.25 * Math.sin(x * 7 + t / 1300) + 0.25 * Math.sin(x * 3 - t / 900);
+      const dip = (0.5 - 0.5 * Math.cos((t / 60000) * 7 * 2 * Math.PI)) * (128 - (seg.ix ?? 128) / 2) / 255;
+      return palColor(seg, ci).map(v => v * Math.max(0, ci - dip));
+    }
+    case FX.Pacifica: { const w = 0.5 + 0.5 * Math.sin(x * 11 + t / 700) * Math.sin(x * 5 - t / 1100); return mix([0, 10, 35], [20, 120, 140], w * w); } // its own deep-ocean palette: dark
+    case FX.Flow: { // WLED: mirrored gradient zones (ix = how many), full brightness
+      let zones = Math.floor(((seg.ix ?? 128) * Math.floor(n / 6)) / 256); if (zones % 2) zones++; zones = Math.max(2, zones);
+      const zl = Math.max(1, Math.floor(n / zones)); const z = Math.floor(i / zl); const k = i % zl;
+      const counter = (t * (((seg.sx ?? 128) >> 2) + 1)) / 256;
+      return palColor(seg, ((z % 2 ? k : zl - 1 - k) * 255 / zl - counter) / 255);
+    }
+    case FX['Running']: { // WLED "Running": a sine blend from color 2 (the background) to the palette color
+      const s = 0.5 + 0.5 * Math.sin(((i * ((seg.ix ?? 128) >> 2) - (t * (seg.sx ?? 128)) / 512) / 256) * 2 * Math.PI);
+      return mix(c1, palColor(seg, x), s);
+    }
+    case FX.Aurora: return aurora(model, seg, i, n, t);
+    case FX.Twinklefox: return twinklefox(seg, i, t);
     case FX['Pride 2015']: return hsv(x * 240 + t / 25, 0.85, 0.55 + 0.45 * Math.sin(x * 4 + t / 800));
     // sound-reactive
     case FX.Gravcentric: { // VU meter from the center out, colored by distance
@@ -126,6 +143,58 @@ function pixel(model, seg, i, n, t, now) {
 const avg = (a, s, e) => { let t = 0; for (let i = s; i <= e; i++) t += a[i] || 0; return t / (e - s + 1); };
 const dominant = A => { let best = 0; (A.bands || []).forEach((v, i) => { if (v > (A.bands[best] || 0)) best = i; }); return best; };
 
+// WLED's Aurora: map(ix, 2..20) soft waves (width 5–17% of the segment each way, linear falloff), each
+// fading in and out over 500–1500 frames, drifting at speed, gone when it leaves the segment; added up
+// over black. Stepped frame by frame (WLED runs ~42 fps), shared by segments with the same look.
+const FRAME_MS = 24;
+function aurora(model, seg, i, n, t) {
+  const key = `au:${n}:${seg.since}:${seg.sx}:${seg.ix}:${JSON.stringify(seg.col)}:${seg.pal}`;
+  const count = Math.round(2 + ((seg.ix ?? 128) * 18) / 255);
+  let st = model.hist[key];
+  if (!st || st.waves.length !== count) st = model.hist[key] = { frame: 0, seed: 1, waves: Array.from({ length: count }, () => ({ alive: false })) };
+  const target = Math.floor(t / FRAME_MS);
+  if (target < st.frame) { st.frame = 0; st.waves.forEach(w => { w.alive = false; }); }
+  const rnd = () => { st.seed = (st.seed * 16807) % 2147483647; return st.seed / 2147483647; };
+  for (let f = st.frame; f < target && f < st.frame + 3000; f++) {
+    for (const w of st.waves) {
+      if (w.alive) {
+        w.center += (w.left ? -1 : 1) * w.sf * (seg.sx ?? 128); w.age++;
+        if (w.age > w.ttl || (w.left ? w.center < -w.width : w.center > n + w.width)) w.alive = false;
+      }
+      if (!w.alive) Object.assign(w, { alive: true, age: 0, ttl: 500 + rnd() * 1000, alpha: 0.6 + rnd() * 0.4,
+        width: n / 20 + rnd() * (n / 6 - n / 20) + 1, center: rnd() * n, left: rnd() < 0.5, sf: ((10 + rnd() * 20) * 6) / (100 * 255), col: palColor(seg, rnd()) });
+    }
+  }
+  st.frame = Math.max(st.frame, target);
+  const out = [0, 0, 0];
+  for (const w of st.waves) {
+    const d = Math.abs(i - w.center);
+    if (!w.alive || d > w.width) continue;
+    const age = w.age < w.ttl / 2 ? w.age / (w.ttl / 2) : (w.ttl - w.age) / (w.ttl / 2);
+    const k = (1 - d / w.width) * age * w.alpha;
+    for (let j = 0; j < 3; j++) out[j] = Math.min(255, out[j] + w.col[j] * k);
+  }
+  return out;
+}
+
+// WLED's Twinklefox: every pixel twinkles on its own clock (fast attack, slow decay); ix sets how many
+// are lit at once ((ix >> 5) + 1 out of 8), over color 2 dimmed to about a third.
+const ginv = v => Math.pow(Math.max(0, v), 1 / 2.8); // WLED's inverse gamma (the strips apply gamma 2.8)
+function twinklefox(seg, i, t) {
+  const sx = seg.sx ?? 128;
+  const tick = sx > 100 ? 3 + ((255 - sx) >> 3) : 22 + ((100 - sx) >> 1);
+  const clock = (t * (1 + hash(i, 9) * 1.875)) / tick + hash(i, 5) * 65536;
+  const slow = Math.floor(clock / 256);
+  const density = (((seg.ix ?? 128) >> 5) + 1) / 8;
+  const ph = (clock % 256) / 255;
+  const bright = hash(i, slow) < density ? (ph < 86 / 255 ? ph * 3 : 1 - (ph - 86 / 255) * 1.5) : 0;
+  const c = palColor(seg, hash(slow, i)).map(v => v * ginv(bright));
+  const bg = toRgb(seg.col?.[1] || [0, 0, 0, 0]).map(v => v * ginv(1 / 16));
+  const lum = a => (a[0] + a[1] + a[2]) / 3;
+  const delta = lum(c) - lum(bg);
+  return delta >= 32 || !lum(bg) ? c : delta > 0 ? mix(bg, c, Math.min(1, (delta * 8) / 255)) : bg;
+}
+
 const AMBIENT = (i, n, t) => { // stand-in for Matt's Arcade Attract playlist: purple/pink/turquoise drift
   const hues = [270, 320, 175];
   return hsv(hues[Math.floor(t / 4000) % 3], 0.9, 0.55 + 0.45 * Math.sin(i / 6 + t / 500));
@@ -136,7 +205,9 @@ export function renderRange(model, from, to, now, timeScale = 1) {
   const out = [];
   // Like WLED: every segment with pixels draws, and a switched-off one paints black over those below.
   const segs = Object.values(model.segs).filter(s => s.start !== undefined && s.stop > s.start).sort((a, b) => a.id - b.id);
-  const g = model.on ? (model.bri ?? 255) / 255 : 0;
+  // WLED's master brightness scales the light output itself (after the gamma 2.8 the strips apply), so
+  // on the wall half brightness looks like ~78%: draw it the same way.
+  const g = model.on ? ginv((model.bri ?? 255) / 255) : 0;
   for (let p = from; p < to; p++) {
     let top = null;
     for (const s of segs) if (p >= s.start && p < s.stop) top = s; // higher ids draw on top

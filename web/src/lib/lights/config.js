@@ -51,24 +51,29 @@ export const LIGHTS = {
   machineSpanPx: 84,
 
   // The state the ambient layers (walls, beam band, curb) return to after an effect (and on party open).
-  partyBase: { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, bri: 170, col: [[140, 40, 255, 0], [255, 40, 170, 0], [0, 230, 210, 0]] },
+  partyBase: { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, bri: 255, col: [[140, 40, 255, 0], [255, 40, 170, 0], [0, 230, 210, 0]] },
   // ...and it rotates through these so the room doesn't get repetitive (all layers switch together).
   // A cool palette only (purple, blue, pink, teal, turquoise), no rainbows: pal 4 is WLED's
   // "Color Gradient", which blends the segment's three colors, so each effect gets its own mix.
   ambientCycle: [
-    { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, col: ['purple', 'pink', 'turquoise'] },
-    { fx: 'Plasma', pal: 4, sx: 70, ix: 128, col: ['blue', 'pink', 'teal'] },
-    { fx: 'Pacifica', sx: 100, ix: 128 }, // its own ocean blues and teals
+    // Brightness (Nov 10): the strips are the garage's main light, so every look must light the room.
+    // Each one's intensity (ix) is set where WLED draws it brightest, and the colors lead with the
+    // brighter cool shades (turquoise, teal, pink) (measured numbers in HANDOFF.md).
+    { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, col: ['teal', 'pink', 'turquoise'] },
+    { fx: 'Plasma', pal: 4, sx: 70, ix: 255, col: ['turquoise', 'pink', 'teal'] }, // ix 255: no dark dips
+    { fx: 'Running', pal: 4, sx: 50, ix: 40, col: ['blue', 'teal', 'turquoise'] }, // ocean swells over turquoise (was Pacifica: deep-ocean dark)
     { fx: 'Flow', pal: 4, sx: 80, ix: 128, col: ['pink', 'purple', 'turquoise'] },
-    { fx: 'Aurora', pal: 4, sx: 90, ix: 128, col: ['teal', 'purple', 'blue'] },
-    { fx: 'Twinklefox', pal: 4, sx: 100, ix: 160, col: ['pink', 'turquoise', 'purple'] },
+    { fx: 'Aurora', pal: 4, sx: 40, ix: 255, col: ['turquoise', 'purple', 'teal'] }, // 20 long-lived waves (ix 255, slower) instead of ~11 sparse ones
+    { fx: 'Twinklefox', pal: 4, sx: 100, ix: 255, col: ['pink', 'turquoise', 'purple'] }, // ix 255: every pixel twinkles
   ],
   coolColors: {
     purple: [140, 40, 255, 0], blue: [30, 70, 255, 0], pink: [255, 40, 170, 0],
     teal: [0, 170, 150, 0], turquoise: [0, 230, 210, 0],
   },
   ambientMinutes: 3, // how long each ambient effect runs
-  ambientBri: 170,
+  // Ambient layers run at full segment brightness; the host's Dimmer (WLED's master brightness) sets
+  // the room level for everything, so nothing in the app ever lowers it on its own.
+  ambientBri: 255,
   // Full flashes on the strips' dedicated white chip for exciting moments (never faster than 3/s).
   whiteFlash: { champion: true, leader: true },
   milestoneGold: [255, 170, 0, 0],
@@ -83,7 +88,7 @@ export const LIGHTS = {
 
   // WLED keeps effect IDs fixed across versions; MQTT can't fetch the list, so they're named here.
   // IDs checked against WLED's FX.h (same in 0.14 and 0.15).
-  effects: { Solid: 0, Blink: 1, Breathe: 2, Wipe: 3, Sweep: 6, Colorloop: 8, Rainbow: 9, Fade: 12, Chase: 28, 'Chase Rainbow': 30,
+  effects: { Solid: 0, Blink: 1, Breathe: 2, Wipe: 3, Sweep: 6, Running: 15, Colorloop: 8, Rainbow: 9, Fade: 12, Chase: 28, 'Chase Rainbow': 30,
     Aurora: 38, 'Pride 2015': 63, Colorwaves: 67, Twinklefox: 80, Plasma: 97, Pacifica: 101, Flow: 110,
     // Sound-reactive (need the AudioReactive usermod and the Gledopto's mic turned on)
     Gravcentric: 157, Gravimeter: 132, Waterfall: 140, Freqwave: 137, 'DJ Light': 159, Puddlepeak: 144, Pixelwave: 129 },
