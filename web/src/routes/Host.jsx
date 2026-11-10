@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getHostPass, host, photoUrl, setHostPass, useAwards, useParty, usePhase, useStandings } from '../lib/store.js';
+import { currentEventData, getHostPass, getState, host, loadAwardsSnap, photoUrl, refreshAll, setHostPass, useParty, usePhase, useRevealData } from '../lib/store.js';
+import { fromSnapshot, makeSnapshot, planChanges } from '../lib/awardsSnapshot.js';
+import { stepName, tvStatus, tvStatusText } from '../lib/tvStatus.js';
 import { fmtClock, isoToPacific, pacificToIso, revealedAfterEnd } from '../lib/schedule.js';
 import { serverNow } from '../lib/clock.js';
-import { revealPlan } from '../components/Reveal.jsx';
+import { FINALE_STEP, PRIZE_COUNT, revealPlan } from '../components/Reveal.jsx';
 import { fmt } from '../lib/scoring.js';
 import { emailResults } from '../lib/emailResults.js';
 import Avatar from '../components/Avatar.jsx';
@@ -64,6 +66,11 @@ function HostPanel({ onLogout }) {
     for (const s of scores) if (!s.voided) c.set(s.player_id, (c.get(s.player_id) || 0) + 1);
     return c;
   }, [scores]);
+  const freePlays = useMemo(() => {
+    const c = new Map();
+    for (const s of scores) if (!s.voided && s.free_play) c.set(s.player_id, (c.get(s.player_id) || 0) + 1);
+    return c;
+  }, [scores]);
   const allPlays = useMemo(() => {
     const c = new Map();
     for (const s of allScores) if (!s.voided) c.set(s.player_id, (c.get(s.player_id) || 0) + 1);
@@ -81,7 +88,7 @@ function HostPanel({ onLogout }) {
     try { const res = await fn(); if (done) flash(typeof done === 'function' ? done(res) : done); return res; }
     catch (e) {
       if (/passcode/i.test(e.message)) { onLogout(); return; }
-      flash(/fetch|load failed|network/i.test(e.message) ? '⚠ No connection. Nothing changed. Try again.' : `⚠ ${e.message}`, 7000);
+      flash(/fetch|load failed|network|timed? ?out|abort/i.test(e.message) ? '⚠ No connection (or it timed out). Tap again: it\'s safe to retry.' : `⚠ ${e.message}`, 7000);
     }
     finally { setBusy(false); }
   }
@@ -108,9 +115,10 @@ function HostPanel({ onLogout }) {
   const phase = usePhase();
   const liveScores = scores.filter(s => !s.voided).length;
   const reviewCount = scores.filter(s => s.needs_review && !s.voided && !s.free_play).length;
+  const reveal = useRevealHost(party, run);
 
   return (
-    <div className="screen host">
+    <div className={`screen host${party?.reveal_active ? ' host-revealing' : ''}`}>
       <div className="row spread">
         <div>
           <h1>Host</h1>
@@ -198,6 +206,8 @@ function HostPanel({ onLogout }) {
 
       <AddScore players={players} machines={machines} busy={busy} run={run} />
 
+      <AddPlayer busy={busy} run={run} />
+
       <section id="sec-scores" className="card">
         <div className="host-card-head">
           <div>
@@ -249,7 +259,7 @@ function HostPanel({ onLogout }) {
             <h2>Players ({shownPlayers.length})</h2>
             <p className="muted small">
               Player accounts are permanent across all events (nickname, 8-bit portrait, and PIN carry over).
-              Someone forgot their PIN? Tap Reset PIN.
+              Someone forgot their PIN? Tap Reset PIN. Rude or confusing nickname? Tap Rename.
             </p>
           </div>
           <div className="host-filter-bar">
@@ -277,6 +287,7 @@ function HostPanel({ onLogout }) {
         <div className="host-players host-scroll-box">
           {shownPlayers.map(p => {
             const n = plays.get(p.id) || 0;
+            const fp = freePlays.get(p.id) || 0;
             const tot = allPlays.get(p.id) || 0;
             const inEv = inCurrentEvent.has(p.id);
             return (
@@ -289,7 +300,7 @@ function HostPanel({ onLogout }) {
                       {p.first_timer && <span className="player-ft">NEW</span>}
                     </span>
                     <span className="muted small">
-                      {n} game{n === 1 ? '' : 's'}{tot > n ? ` (${tot} all-time)` : ''}
+                      {n} game{n === 1 ? '' : 's'}{fp ? ` (${n - fp} count, ${fp} free play)` : ''}{tot > n ? ` · ${tot} all-time` : ''}
                       {playerScope === 'all' && !inEv ? ' · not in active event' : ''}
                     </span>
                   </div>
@@ -300,6 +311,11 @@ function HostPanel({ onLogout }) {
                       + Add to event
                     </button>
                   )}
+                  <button className="ghost" type="button" disabled={busy} onClick={() => {
+                    const name = prompt(`New nickname for ${p.display_name} (up to 24 characters):`, p.display_name);
+                    if (name == null || !name.trim() || name.trim() === p.display_name) return;
+                    run(() => host.renamePlayer(p.id, name.trim()), `Renamed to ${name.trim()}.`);
+                  }}>Rename</button>
                   <button className="ghost" type="button" disabled={busy} onClick={() => {
                     const pin = prompt(`New 4-digit PIN for ${p.display_name} (numbers only):`);
                     if (pin == null) return;
@@ -321,7 +337,7 @@ function HostPanel({ onLogout }) {
       <ScheduleCard party={party} phase={phase} busy={busy} run={run} />
 
       <h2 id="sec-end" className="host-section">End of the night</h2>
-      <EndOfNight party={party} event={event} phase={phase} reviewCount={reviewCount} busy={busy} run={run} />
+      <EndOfNight party={party} event={event} phase={phase} reviewCount={reviewCount} busy={busy} run={run} reveal={reveal} flash={flash} />
 
       <h2 id="sec-setup" className="host-section">Setup (before the party)</h2>
       <section className="card">
@@ -331,6 +347,7 @@ function HostPanel({ onLogout }) {
       </section>
       <CleanupCard players={players} scores={scores} event={event} busy={busy} run={run} />
 
+      {party?.reveal_active && <RevealBar reveal={reveal} busy={busy} run={run} />}
       {toast && <div className={`host-toast${toast.startsWith('⚠') ? ' err' : ''}`} onClick={() => setToast('')}>{toast}</div>}
     </div>
   );
@@ -355,26 +372,103 @@ function GuestsCard({ eventId, eventName }) {
   );
 }
 
-// During the reveal: step through the prizes. Each Next shows the next prize's name and a 3-2-1 on
-// the TV, then the winner, and the TV waits there.
-function RevealControls({ party, busy, run }) {
-  const { standings } = useStandings();
-  const awards = useAwards(standings, party?.match_digits ?? null);
-  const plan = revealPlan({ standings, awards });
-  // Optimistic: the next press uses the step we just asked for, even before the update echoes back.
+// The reveal on the host page: the plan (from the awards snapshot once the reveal has started), the
+// current step (optimistic: the next press uses the step we just asked for), and the TV's heartbeat.
+function useRevealHost(party, run) {
+  const rv = useRevealData();
+  const plan = useMemo(() => revealPlan({ standings: rv.standings, awards: rv.awards }), [rv.standings, rv.awards]);
+  const livePlan = useMemo(
+    () => (rv.frozen ? revealPlan({ standings: rv.live.standings, awards: rv.live.awards }) : plan),
+    [rv.frozen, rv.live.standings, rv.live.awards, plan],
+  );
+  const changes = useMemo(() => (rv.frozen ? planChanges(plan, livePlan) : []), [rv.frozen, plan, livePlan]);
   const [asked, setAsked] = useState(null);
   useEffect(() => { setAsked(null); }, [party?.reveal_step]);
   const step = Math.min(asked ?? party?.reveal_step ?? 0, Math.max(0, plan.length - 1));
+  // host_reveal_step sets an absolute step, so a retried tap can't skip a prize.
   const goTo = (n, msg) => { setAsked(n); run(() => host.revealStep(n).catch(e => { setAsked(null); throw e; }), msg); };
+  const tv = useTvStatus(!!party?.reveal_active, party?.reveal_step ?? 0);
+  return { rv, plan, livePlan, changes, step, goTo, tv };
+}
+
+// The TV's heartbeat, read every 3 s while the reveal is on (host page only).
+function useTvStatus(active, partyStep) {
+  const [row, setRow] = useState(null);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!active) return undefined;
+    let alive = true;
+    const read = () => host.tvStatus().then(r => { if (alive) setRow(r); }).catch(() => {});
+    read();
+    const iv = setInterval(read, 3000);
+    const t = setInterval(() => tick(x => x + 1), 1000);
+    return () => { alive = false; clearInterval(iv); clearInterval(t); };
+  }, [active]);
+  return tvStatus(row, serverNow(), partyStep);
+}
+
+const stepTitle = (s, i) => (!s ? '' : s.kind === 'intro' ? 'Intro: Awards ceremony' : s.kind === 'finale' ? 'Finale: all the winners' : `${i}/${PRIZE_COUNT} ${s.label}`);
+
+// Sticky at the bottom of the host page while the reveal is on: Back / Next, what's on the TV now, and
+// who wins next (host-only screen). Back shows the previous winner straight away; Next plays the full
+// build-up. On the finale, Next becomes "Start free play".
+function RevealBar({ reveal, busy, run }) {
+  const { plan, step, goTo, tv } = reveal;
   const cur = plan[step], next = plan[step + 1];
+  const finale = cur?.kind === 'finale';
+  return (
+    <div className="host-reveal-bar" role="region" aria-label="Reveal controls">
+      <div className="hrb-text">
+        <div className="hrb-now">{stepTitle(cur, step)}{cur?.winner ? ` · ${cur.winner}` : ''}</div>
+        <div className="hrb-next">{next ? `Next: ${next.kind === 'finale' ? 'the finale' : next.label}${next.winner ? ` → ${next.winner}` : next.kind === 'prize' ? ' → no winner' : ''}` : 'Last slide: start free play when you\'re ready'}</div>
+      </div>
+      <div className="hrb-row">
+        <button className="secondary" type="button" disabled={busy || step === 0} onClick={() => goTo(step - 1, `Back to ${stepName(step - 1)}.`)}>◀ Back</button>
+        <div className={`hrb-tv${tv.ok && !tv.behind && tv.mode === 'reveal' ? ' tv-good' : ' tv-bad'}`}>{tvStatusText(tv, PRIZE_COUNT)}</div>
+        {finale
+          ? <button className="primary" type="button" disabled={busy} onClick={() => run(() => host.freePlay(true), 'Free play is on. The TV shows the high score board.')}>Start free play ▶</button>
+          : <button className="primary" type="button" disabled={busy || !next} onClick={() => goTo(step + 1, `Next: ${next?.label ?? ''}.`)}>Next ▶</button>}
+      </div>
+    </div>
+  );
+}
+
+// In the End of night card while the reveal is on: the whole plan (all 14 slides with winner names),
+// the TV's heartbeat, when the prizes were saved, and anything the live scores would change.
+function RevealPlanCard({ reveal, party, busy, run }) {
+  const { plan, step, tv, rv, changes } = reveal;
+  const recompute = () => {
+    if (!confirm(`Recompute every prize from the latest scores?${changes.length ? `\n\nThis changes:\n${changes.map(c => `• ${c.label}: ${c.saved || 'no winner'} → ${c.live || 'no winner'}`).join('\n')}` : '\n\nRight now nothing would change.'}\n\nThe TV switches to the new results right away.`)) return;
+    run(async () => {
+      await refreshAll();
+      const d = currentEventData();
+      await host.saveAwards(makeSnapshot({ ...d, matchDigits: getState().party?.match_digits ?? null }), true);
+    }, 'Prizes recomputed from the latest scores. The TV uses them now.');
+  };
   return (
     <div className="reveal-controls">
-      <div className="muted small">Prize {step + 1} of {plan.length}{cur ? `: ${cur.label}, ${cur.title}` : ''}</div>
-      <div className="row gap">
-        <button className="secondary" type="button" disabled={busy || step === 0} onClick={() => goTo(step - 1, 'Back one prize.')}>◀ Back</button>
-        <button className="primary" type="button" disabled={busy || !next} onClick={() => goTo(step + 1, `Next: ${next.label}.`)}>{next ? `Next prize: ${next.label} ▶` : 'That was the last prize'}</button>
+      <div className={`hrb-tv${tv.ok && !tv.behind && tv.mode === 'reveal' ? ' tv-good' : ' tv-bad'}`}>{tvStatusText(tv, PRIZE_COUNT)}</div>
+      <div className="muted small">
+        {rv.frozen ? `Prizes saved at ${fmtClock(rv.frozen.savedAt)}: late scores and fixes don't change them.` : 'Prizes follow the live scores (no saved snapshot).'}
+        {' '}Use the bar at the bottom: Back / Next. On the TV Mac: Shift + arrow keys.
       </div>
-      <div className="muted small">On the TV Mac (with this host page unlocked there) you can also click, or press Space or the arrow keys.</div>
+      {changes.length > 0 && (
+        <div className="host-plan-warn">
+          ⚠ The live scores now give a different result for {changes.map(c => `${c.label} (${c.live || 'no winner'})`).join(', ')}. Tap Recompute prizes only if that's a real fix.
+        </div>
+      )}
+      <ol className="host-plan">
+        {plan.map((s, i) => (
+          <li key={i} className={`${i === step ? 'on' : i < step ? 'done' : ''}${changes.some(c => c.step === i) ? ' changed' : ''}`}>
+            <span className="hp-n">{s.kind === 'intro' ? 'Intro' : s.kind === 'finale' ? 'End' : i}</span>
+            <span className="hp-label">{s.kind === 'finale' ? 'Finale · group photo' : s.label}</span>
+            <span className="hp-who">{s.kind === 'prize' ? (s.winner || 'no winner') : ''}{s.tie ? <small>{s.tie}</small> : null}</span>
+          </li>
+        ))}
+      </ol>
+      <div className="row gap">
+        <button className="ghost" type="button" disabled={busy || !party} onClick={recompute}>Recompute prizes</button>
+      </div>
     </div>
   );
 }
@@ -448,9 +542,41 @@ function ScheduleCard({ party, phase, busy, run }) {
   );
 }
 
-function EndOfNight({ party, event, phase, reviewCount = 0, busy, run }) {
+// Start the reveal: freeze the awards (snapshot) first, then switch the TV over. A snapshot saved
+// earlier (a restart mid-ceremony, or a rehearsal) is kept when the latest scores give the same prizes;
+// if they'd change anything, the host chooses.
+async function startReveal({ running, stopTournament, flash }) {
+  if (running) await stopTournament();
+  await refreshAll();
+  await loadAwardsSnap();
+  const st = getState();
+  const savedRow = st.awardsSnap?.event_id === st.party?.current_event_id ? st.awardsSnap : null;
+  const saved = savedRow?.snapshot || null;
+  // Draw once: starting the reveal again keeps the same number, so The Match winner never changes.
+  const drawn = saved?.match_digits ?? st.party?.match_digits ?? (crypto.getRandomValues(new Uint32Array(1))[0] % 10) * 10; // 00, 10 … 90
+  const fresh = makeSnapshot({ ...currentEventData(), matchDigits: drawn });
+  let keep = false;
+  if (saved) {
+    const ctx = { allMachines: st.allMachines, allPlayers: st.players, liveScores: st.scores };
+    const a = fromSnapshot(saved, ctx), b = fromSnapshot(fresh, ctx);
+    const ch = a && b ? planChanges(revealPlan(a), revealPlan(b)) : [{ label: '?' }];
+    keep = !ch.length || !confirm(`Prizes were saved at ${fmtClock(saved.saved_at)}. With the latest scores ${ch.length} prize${ch.length === 1 ? '' : 's'} change${ch.length === 1 ? 's' : ''}:\n${ch.map(c => `• ${c.label}: ${c.saved || 'no winner'} → ${c.live || 'no winner'}`).join('\n')}\n\nOK = use the latest scores (normal). Cancel = keep the saved prizes.`);
+  }
+  if (!keep) {
+    try { await host.saveAwards(fresh, true); }
+    catch (e) {
+      // Before migration 0040 the reveal still works, just from live scores.
+      if (!/could not find the function|schema cache|does not exist/i.test(e.message)) throw e;
+      flash?.('⚠ Prizes not frozen (server update missing): the reveal follows live scores.', 7000);
+    }
+  }
+  await host.reveal(true, drawn);
+}
+
+function EndOfNight({ party, event, phase, reviewCount = 0, busy, run, reveal, flash }) {
   const revealing = !!party?.reveal_active;
   const freePlay = !!party?.free_play;
+  const isOpen = party?.status === 'open';
   const running = phase === 'on' || phase === 'pre';
   const endsAt = party?.tourney_ends_at || null;
   // End the tournament by setting its end to now: logging and sign-ups stay open (as free play).
@@ -472,23 +598,18 @@ function EndOfNight({ party, event, phase, reviewCount = 0, busy, run }) {
         </li>
         <li>
           <b>Reveal the winners on the TV.</b>
-          <div className="muted small">The TV goes prize by prize, Grand Champion first. The Match comes last and draws itself (00, 10 … 90, like a real pinball Match), then spins through everyone whose total points tonight end in it (nobody? then everyone left without a prize).</div>
+          <div className="muted small">The TV opens on "Awards ceremony" and waits for Next. Then prize by prize, Grand Champion first (the podium needs 3+ machines played). The Match comes last and draws itself (00, 10 … 90, like a real pinball Match), then spins through everyone whose total points tonight end in it (nobody? then everyone left without a prize). The finale shows every winner: group photo, then Start free play. Starting saves the prizes, so late scores can't change them.</div>
           {!revealing ? (
             <button className="primary big" type="button" disabled={busy} onClick={() => {
               if (reviewCount && !confirm(`${reviewCount} score${reviewCount === 1 ? '' : 's'} still need${reviewCount === 1 ? 's' : ''} a look (see "Double-check these" above). Start the reveal anyway?`)) return;
               if (running && !confirm('The tournament is still running. End it and start the reveal?')) return;
               if (phase === 'grace' && !confirm('Guests can still log their last scores for a couple of minutes. Start the reveal anyway?')) return;
               if (!running && freePlay && !confirm('Free play is on. Start the reveal again? The TV switches to the reveal; free play comes back when you end it.')) return;
-              run(async () => {
-                if (running) await stopTournament();
-                // Draw once: starting the reveal again keeps the same number, so The Match winner never changes.
-                const drawn = party?.match_digits ?? (crypto.getRandomValues(new Uint32Array(1))[0] % 10) * 10; // 00, 10 … 90
-                await host.reveal(true, drawn);
-              }, 'The reveal is playing on the TV.');
+              run(() => startReveal({ running, stopTournament, flash }), 'The reveal is on the TV: the intro waits for Next (bottom bar).');
             }}>🎉 Start the reveal</button>
           ) : (
             <>
-              <RevealControls party={party} busy={busy} run={run} />
+              <RevealPlanCard reveal={reveal} party={party} busy={busy} run={run} />
               <button className="secondary big" type="button" disabled={busy} onClick={() => {
                 if (!confirm('End the reveal? The TV goes back to the leaderboard (starting again begins at the first prize).')) return;
                 run(() => host.reveal(false), 'TV is back to the leaderboard.');
@@ -519,17 +640,32 @@ function EndOfNight({ party, event, phase, reviewCount = 0, busy, run }) {
         <li>
           <b>Email everyone their results.</b> <span className="muted small">Only players who ticked "email me results" get one. Free play never shows up in them.</span>
           {event?.results_sent_at && <div className="muted small">Already sent {new Date(event.results_sent_at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}.</div>}
+          {revealing && <div className="muted small">Uses the saved prizes (the same as the TV).</div>}
           <div className="row gap" style={{ marginTop: 8 }}>
             <button className="ghost" type="button" disabled={busy || running || phase === 'grace' || !event} onClick={() => {
               if (event.results_sent_at && !confirm('Results were ALREADY emailed once. Send them again to everyone?')) return;
               if (!event.results_sent_at && !confirm('Email final results now to every player who asked for them?')) return;
               run(() => emailResults(event.id), r => `Results emailed to ${r?.sent ?? 0} player${r?.sent === 1 ? '' : 's'}${r?.skipped ? ` (${r.skipped} didn't want email)` : ''}.`);
-            }}>{running ? 'End the tournament first' : 'Email results'}</button>
+            }}>{running ? 'End the tournament first' : phase === 'grace' ? 'Wait for the last scores' : 'Email results'}</button>
             <button className="ghost" type="button" disabled={busy || !event} onClick={() => {
               const to = prompt('Send a sample to which email? (Uses the current #1 player\'s results. No guest gets anything.)');
               if (!to?.trim()) return;
               run(() => emailResults(event.id, { testTo: to.trim() }), `Sample sent to ${to.trim()}.`);
             }}>Send me a sample</button>
+          </div>
+        </li>
+        <li className={isOpen ? '' : 'done'}>
+          <b>Close the party.</b> <span className="muted small">At the very end. Stops new sign-ups and score logging. Everything stays up: the TV, Ranks and Me keep showing tonight's results.</span>
+          <div className="row gap host-fp-row">
+            <span className={`host-pill${isOpen ? ' on' : ''}`}>{isOpen ? 'Open' : 'Closed'}</span>
+            {isOpen ? (
+              <button className="secondary" type="button" disabled={busy || !party} onClick={() => {
+                if (!confirm('Close the party? Nobody can sign up or log scores after this. The TV and results stay up. You can reopen it.')) return;
+                run(() => host.setStatus('closed'), 'The party is closed. Thanks for hosting!');
+              }}>Close the party</button>
+            ) : (
+              <button className="ghost" type="button" disabled={busy || !party} onClick={() => run(() => host.setStatus('open'), 'The party is open again.')}>Reopen</button>
+            )}
           </div>
         </li>
       </ol>
@@ -613,6 +749,29 @@ function AddScore({ players, machines, busy, run }) {
         </select>
         <button className="primary" type="button" disabled={busy || !ok}
           onClick={() => run(async () => { await host.addScore(Number(pid), Number(mid), Number(val), counts === '' ? null : counts === 'yes'); setVal(''); }, 'Score added.')}>Add</button>
+      </div>
+    </section>
+  );
+}
+
+// A player without a phone (kids, guests whose phone died): name + emoji, no PIN. The host logs their
+// scores in "Add or fix a score". Reset PIN later lets them sign in on a phone if they get one.
+const KID_EMOJIS = ['👾', '🧙', '🥷', '🤖', '🦖', '👽', '🦸', '🧚', '🐉', '👻', '🤠', '🧞'];
+function AddPlayer({ busy, run }) {
+  const [name, setName] = useState('');
+  const [emoji, setEmoji] = useState(KID_EMOJIS[0]);
+  const ok = name.trim().length >= 1 && name.trim().length <= 24;
+  return (
+    <section className="card">
+      <h2>Add a player without a phone</h2>
+      <p className="muted small">For kids or anyone without a phone. No PIN needed: you log their scores above. They show on the TV like everyone else.</p>
+      <div className="host-add host-add-player">
+        <input value={name} maxLength={24} onChange={e => setName(e.target.value)} placeholder="nickname" aria-label="Nickname" />
+        <select value={emoji} onChange={e => setEmoji(e.target.value)} aria-label="Emoji">
+          {KID_EMOJIS.map(e => <option key={e} value={e}>{e}</option>)}
+        </select>
+        <button className="primary" type="button" disabled={busy || !ok}
+          onClick={() => run(async () => { await host.addPlayer(name.trim(), emoji); const n = name.trim(); setName(''); return n; }, n => `Added ${n}. Log their scores in "Add or fix a score".`)}>Add player</button>
       </div>
     </section>
   );

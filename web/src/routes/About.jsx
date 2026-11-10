@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { aboutMarkdown } from '../lib/content.js';
 import { useParty } from '../lib/store.js';
-import { MIN_TABLES } from '../lib/scoring.js';
+import { MIN_TABLES, PODIUM_MIN } from '../lib/scoring.js';
 
 export default function About() {
   const { machines } = useParty();
@@ -30,7 +30,7 @@ function HowItWorks({ n }) {
         </li>
         <li>
           <strong>Play {MIN_TABLES}+ machines to get ranked.</strong> 1st place on a machine = 100 pts;
-          your rating is your average across the machines you play. Highest rating wins.
+          your rating is your average across the machines you play. Highest rating wins. The podium (Grand Champion, 2nd, 3rd) needs {PODIUM_MIN}+ machines.
         </li>
         <li><strong>Win prizes.</strong> Winners are announced on the TV at the end of the night.</li>
       </ol>

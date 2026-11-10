@@ -130,7 +130,8 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     const hex = slide.hero?.color || slide.list?.[0]?.player?.color || slide.accent;
     if (phase === 'count') e.revealTick(n, hexToRgbw(slide.accent || hex));
     else if (slide.empty) e.revealCue({ color: [40, 40, 70, 0] }); // no winner for this prize: a quiet, dim glow
-    else e.revealCue({ color: hexToRgbw(hex), machineId: slide.machine?.id, final: slide.label === 'GRAND CHAMPION' });
+    // The finale (every winner on screen, free play next) gets the full show: burst, white flashes, chase.
+    else e.revealCue({ color: hexToRgbw(hex), machineId: slide.machine?.id, final: !!slide.finale });
   }, []);
 
   // The lights follow what the TV puts on screen, at the moment it appears (live and demo alike):

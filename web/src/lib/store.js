@@ -4,15 +4,46 @@ import { computeStandings, computeAwards } from './scoring.js';
 import { nextBoundary, scoreCountsNow, tourneyPhase } from './schedule.js';
 import { serverNow, startClock } from './clock.js';
 import { lightsTopic, setLightsTopic } from './lights/mqtt.js';
+import { fromSnapshot } from './awardsSnapshot.js';
 
 // Public project settings. The publishable key is designed to live in the browser:
 // the database only allows reads, and every write goes through checked server functions.
 export const SUPABASE_URL = 'https://llmggdjxiffkwnjuogxf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_7oGSOVFpRFVnJ5SeRcjYsQ_a6EQyojv';
 
+// Every request gives up after 12 s (database calls; 45 s for anything else), so a hung request on
+// garage Wi-Fi can't freeze a host button or a guest's Submit: it fails with "No connection" and the
+// person can tap again. Retries are safe: a re-sent score merges with the first (same player, machine
+// and value within 45 min, server side), host score adds merge the same way (10 min), and reveal steps,
+// schedule, status and free play all set absolute values.
+export const REQUEST_TIMEOUT_MS = 12_000;
+export function timedFetch(input, init = {}) {
+  const url = typeof input === 'string' ? input : input?.url || String(input || '');
+  const ms = url.includes('/rest/v1/') ? REQUEST_TIMEOUT_MS : 45_000;
+  const ctl = new AbortController();
+  const t = setTimeout(() => {
+    let reason;
+    try { reason = new DOMException('Request timed out', 'TimeoutError'); } catch { reason = new Error('Request timed out'); }
+    ctl.abort(reason);
+  }, ms);
+  const outer = init?.signal;
+  if (outer) {
+    if (outer.aborted) ctl.abort(outer.reason);
+    else outer.addEventListener('abort', () => ctl.abort(outer.reason), { once: true });
+  }
+  return fetch(input, { ...init, signal: ctl.signal }).finally(() => clearTimeout(t));
+}
+
 export const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
+  global: { fetch: timedFetch },
 });
+
+// When this browser last heard from the server (any successful read, write or realtime message).
+// The TV shows "offline" when it's been over a minute.
+let heardAt = Date.now();
+export const markHeard = () => { heardAt = Date.now(); };
+export const lastHeard = () => heardAt;
 
 const TOKEN_KEY = 'pw.token';
 const HOST_KEY = 'pw.host';
@@ -61,6 +92,7 @@ let state = {
   players: [],     // the permanent player database
   party: null,     // live state of the current event (party.current_event_id)
   lights: null,    // garage lights settings (lights_settings row): enabled, dry_run, zones
+  awardsSnap: null, // the current event's awards snapshot row ({ event_id, snapshot, saved_at }), once asked for
   // derived for the current event (see derive): event, machines, scores, entrantIds
   me: null,          // the player row for this phone, or null
   meChecked: false,  // finished checking the saved token
@@ -91,6 +123,11 @@ function set(patch) {
 const subscribe = l => { listeners.add(l); return () => listeners.delete(l); };
 
 const PLAYER_COLS = 'id, display_name, emoji, color, avatar, first_timer, created_at';
+// The periodic list leaves out the portraits (~11 KB each); they're fetched only for new or changed
+// players (avatar_updated_at, migration 0040) and kept in memory.
+const PLAYER_LIST_COLS = 'id, display_name, emoji, color, first_timer, created_at, avatar_updated_at';
+const avatarCache = new Map(); // playerId -> { at, avatar }
+let lightList = true; // false: the server doesn't have avatar_updated_at yet; use the old full list
 const SCORE_COLS = 'id, player_id, machine_id, value, voided, created_at, logged_by, photo_path, needs_review, event_id, free_play';
 
 async function fetchAllScores() {
@@ -104,9 +141,48 @@ async function fetchAllScores() {
 }
 
 async function fetchPlayers() {
+  if (lightList) {
+    const { data, error } = await sb.from('players').select(PLAYER_LIST_COLS).order('id');
+    if (error && /avatar_updated_at/.test(error.message || '')) lightList = false;
+    else if (error) throw error;
+    else {
+      const need = data.filter(p => avatarCache.get(p.id)?.at !== (p.avatar_updated_at ?? null)).map(p => p.id);
+      for (let i = 0; i < need.length; i += 80) {
+        const { data: av, error: e2 } = await sb.from('players').select('id, avatar, avatar_updated_at').in('id', need.slice(i, i + 80));
+        if (e2) break; // keep what we had; the next refresh tries again
+        for (const a of av) avatarCache.set(a.id, { at: a.avatar_updated_at ?? null, avatar: a.avatar ?? null });
+      }
+      const prev = new Map(state.players.map(p => [p.id, p.avatar]));
+      return data.map(p => ({ ...p, avatar: avatarCache.has(p.id) ? avatarCache.get(p.id).avatar : prev.get(p.id) ?? null }));
+    }
+  }
   const { data, error } = await sb.from('players').select(PLAYER_COLS).order('id');
   if (error) throw error;
   return data;
+}
+
+// The awards snapshot is read only by screens that need it (the TV, the host page, the results email).
+let snapWanted = false, snapLoading = null;
+export function loadAwardsSnap() {
+  const evId = state.party?.current_event_id;
+  if (evId == null) return Promise.resolve(null);
+  if (snapLoading) return snapLoading;
+  snapLoading = sb.from('award_snapshots').select('event_id, snapshot, saved_at').eq('event_id', evId).maybeSingle()
+    .then(({ data, error }) => {
+      if (error) return state.awardsSnap;
+      markHeard();
+      const row = data ? { ...data, awards_at: state.party?.awards_at ?? null } : { event_id: evId, snapshot: null, saved_at: null, awards_at: state.party?.awards_at ?? null };
+      set({ awardsSnap: row });
+      return row;
+    })
+    .catch(() => state.awardsSnap)
+    .finally(() => { snapLoading = null; });
+  return snapLoading;
+}
+function maybeReloadSnap() {
+  if (!snapWanted) return;
+  const a = state.awardsSnap;
+  if (!a || a.event_id !== state.party?.current_event_id || (a.awards_at ?? null) !== (state.party?.awards_at ?? null)) loadAwardsSnap();
 }
 
 let loading = null;
@@ -136,8 +212,10 @@ export function refreshAll() {
         ready: true, error: null, allMachines: m.data, players, allScores: newer.length ? [...scores, ...newer] : scores, party: p.data, me,
         events: ev.data || [], eventMachines: em.data || [], entries: en.data || [],
       });
+      markHeard();
       if ((state.me && !found) || (getToken() && !state.me && !checking)) checkMe();
       refreshLights();
+      maybeReloadSnap();
     } catch (e) {
       set({ error: e.message || String(e) });
     } finally {
@@ -190,6 +268,7 @@ function start() {
   let wasDown = false;
   sb.channel('party-live')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'scores' }, ev => {
+      markHeard();
       if (ev.eventType === 'INSERT') {
         if (!state.allScores.some(s => s.id === ev.new.id)) set({ allScores: [...state.allScores, ev.new] });
       } else if (ev.eventType === 'UPDATE') {
@@ -211,11 +290,8 @@ function start() {
       }, 1500);
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'party' }, ev => {
-      if (ev.new && ev.new.id === 1) {
-        const switched = ev.new.current_event_id !== state.party?.current_event_id;
-        set({ party: ev.new });
-        if (switched) refreshAll();
-      }
+      markHeard();
+      if (ev.new && ev.new.id === 1) applyParty(ev.new);
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'lights_settings' }, ev => { if (ev.new) set({ lights: ev.new }); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => refreshAll())
@@ -226,7 +302,7 @@ function start() {
       } else if (ev.eventType !== 'INSERT') refreshAll();
     })
     .subscribe(status => {
-      if (status === 'SUBSCRIBED') { if (wasDown) refreshAll(); wasDown = false; }
+      if (status === 'SUBSCRIBED') { markHeard(); if (wasDown) refreshAll(); wasDown = false; }
       else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') wasDown = true;
     });
 
@@ -235,6 +311,32 @@ function start() {
   window.addEventListener('online', () => refreshAll());
   // Belt and braces for the always-on TV.
   setInterval(() => { if (!document.hidden) refreshAll(); }, 60_000);
+}
+
+function applyParty(row) {
+  const switched = row.current_event_id !== state.party?.current_event_id;
+  set({ party: row });
+  if (switched) refreshAll();
+  else maybeReloadSnap();
+}
+
+// The TV during the reveal: re-read the party row every 2 s as well as realtime, so it never misses
+// the host's Next. Only applies a row that actually changed.
+export async function pollParty() {
+  const { data, error } = await sb.from('party').select('*').eq('id', 1).single();
+  if (error || !data) return false;
+  markHeard();
+  const p = state.party;
+  if (!p || p.updated_at !== data.updated_at || p.reveal_step !== data.reveal_step || p.reveal_active !== data.reveal_active
+      || p.awards_at !== data.awards_at || p.current_event_id !== data.current_event_id) applyParty(data);
+  return true;
+}
+
+// The TV's heartbeat: which reveal step it's showing (mode 'reveal') or that it's on the board.
+export async function tvHeartbeat(step, mode) {
+  const { error } = await sb.rpc('tv_heartbeat', { p_step: step ?? 0, p_mode: mode });
+  if (!error) markHeard();
+  return !error;
 }
 
 // Read-only snapshot for non-React helpers (e.g. building the results email).
@@ -268,6 +370,12 @@ export function useStandings(targetEventId = null) {
     const evPlayers = playersForEvent(s.players, entrantIds, scores, false);
     return { ...s, event, machines, scores, entrantIds, eventPlayers: evPlayers, standings: computeStandings({ machines, players: evPlayers, scores }) };
   }, [s, targetEventId]);
+}
+
+// The current event right now, outside React (for the awards snapshot at "Start the reveal").
+export function currentEventData() {
+  const s = state;
+  return { eventId: s.party?.current_event_id ?? null, machines: s.machines, scores: s.scores, players: playersForEvent(s.players, s.entrantIds, s.scores, true) };
 }
 
 // Every event together: all machines, all scores, everyone.
@@ -319,6 +427,33 @@ export function usePhase() {
     return () => { clearInterval(iv); clearTimeout(t); };
   }, [party]);
   return tourneyPhase(party, serverNow());
+}
+
+// The reveal's numbers: once a reveal has started and the host saved an awards snapshot, the frozen
+// standings + prizes (see lib/awardsSnapshot.js); otherwise (or before migration 0040) the live ones.
+// live: always the live standings + awards, so the host page can show what would change.
+export function useRevealData() {
+  const s = useStandings();
+  snapWanted = true;
+  const evId = s.party?.current_event_id ?? null;
+  useEffect(() => { maybeReloadSnap(); }, [evId, s.party?.awards_at]);
+  const liveAwards = useAwards(s.standings, s.party?.match_digits ?? null);
+  const row = s.awardsSnap?.event_id === evId ? s.awardsSnap : null;
+  const started = !!(s.party?.reveal_active || s.event?.revealed_at || s.party?.revealed_at);
+  const frozen = useMemo(
+    () => (row?.snapshot ? fromSnapshot(row.snapshot, { allMachines: s.allMachines, allPlayers: s.players, liveScores: s.scores }) : null),
+    [row, s.allMachines, s.players, s.scores],
+  );
+  const use = started && frozen;
+  return {
+    ...s,
+    standings: use ? frozen.standings : s.standings,
+    awards: use ? frozen.awards : liveAwards,
+    frozen: use ? frozen : null,
+    savedSnap: frozen, // the saved snapshot whether or not a reveal has started (host: "prizes saved at…")
+    snapLoaded: !!row,
+    live: { standings: s.standings, awards: liveAwards },
+  };
 }
 
 export function useAwards(standings, matchDigits) {
@@ -463,6 +598,7 @@ export function findLoggedScore(scores, { playerId = null, machineId, value }) {
 
 function patchAvatar(playerId, avatar) {
   if (!playerId) return;
+  if (avatarCache.has(playerId)) avatarCache.set(playerId, { ...avatarCache.get(playerId), avatar });
   set({
     players: state.players.map(p => (p.id === playerId ? { ...p, avatar } : p)),
     ...(state.me?.id === playerId ? { me: { ...state.me, avatar } } : {}),
@@ -488,6 +624,21 @@ export const host = {
   setSchedule: (startsAt, endsAt) => hostCall('host_set_schedule', { p_starts: startsAt || null, p_ends: endsAt || null }),
   reveal: (active, matchDigits = null) => hostCall('host_reveal', { p_active: active, p_match_digits: matchDigits }),
   revealStep: step => hostCall('host_reveal_step', { p_step: step }),
+  // Save the awards snapshot (see lib/awardsSnapshot.js). force = false keeps one already saved.
+  saveAwards: async (snapshot, force = false) => {
+    const r = await hostCall('host_save_awards', { p_snapshot: snapshot, p_force: !!force });
+    await loadAwardsSnap();
+    return r;
+  },
+  // The TV's last heartbeat ({ seen_at, step, mode }), or null.
+  tvStatus: async () => {
+    const { data, error } = await sb.from('tv_status').select('seen_at, step, mode').eq('id', 1).maybeSingle();
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  renamePlayer: (playerId, name) => hostCall('host_rename_player', { p_player_id: playerId, p_name: name }).then(r => { refreshAll(); return r; }),
+  // A player without a phone (kids, guests without one): name + emoji, no PIN. The host logs their scores.
+  addPlayer: (name, emoji) => hostCall('host_add_player', { p_name: name, p_emoji: emoji || '🎯' }).then(r => { refreshAll(); return r; }),
   voidScore: (id, voided) => hostCall('host_void', { p_score_id: id, p_voided: voided }),
   markReviewed: id => hostCall('host_review', { p_score_id: id }),
   logScanTest: t => hostCall('host_log_scan_test', {

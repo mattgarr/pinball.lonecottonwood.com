@@ -2883,3 +2883,6 @@ details.ls-log summary { cursor: pointer; color: #9c9cb4; margin-bottom: 8px; }
 .lights-dimmer-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .lights-dimmer-steps .ghost { width: 100%; margin: 0; }
 .lights-dimmer-steps .ghost.on { border-color: var(--nes-yellow); color: var(--nes-yellow); }
+
+/* Ranks: rated, but short of the 3 machines the podium needs. */
+.rk-tables.short, .rk-short-key { color: var(--nes-yellow, #f8b800); font-weight: 400; }

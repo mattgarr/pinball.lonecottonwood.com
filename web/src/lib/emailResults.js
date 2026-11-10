@@ -3,6 +3,7 @@
 // email addresses, renders and sends via Resend, then stamps events.results_sent_at.
 import { SUPABASE_URL, SUPABASE_KEY, getHostPass, getState } from './store.js';
 import { computeStandings, computeAwards, ordinal, prizesFor } from './scoring.js';
+import { fromSnapshot } from './awardsSnapshot.js';
 
 // testTo: send one sample (the top player's results) to that address only; nothing is stamped as sent.
 export async function emailResults(eventId, { testTo } = {}) {
@@ -10,15 +11,23 @@ export async function emailResults(eventId, { testTo } = {}) {
   const event = s.events.find(e => e.id === eventId);
   const mids = new Set(s.eventMachines.filter(x => x.event_id === eventId).map(x => x.machine_id));
   // Same as the TV: an event with no machines attached uses all of them.
-  const machines = mids.size ? s.allMachines.filter(m => mids.has(m.id)) : s.allMachines;
+  const machinesLive = mids.size ? s.allMachines.filter(m => mids.has(m.id)) : s.allMachines;
   const isCurrent = eventId === s.party?.current_event_id;
-  // Tournament games only: free play never shows up in results.
-  const scores = s.allScores.filter(x => (x.event_id === eventId || (isCurrent && x.event_id == null)) && !x.free_play);
-  const entrants = new Set(s.entries.filter(x => x.event_id === eventId).map(x => x.player_id));
-  for (const x of scores) entrants.add(x.player_id);
-  const players = s.players.filter(p => entrants.has(p.id));
-  const standings = computeStandings({ machines, players, scores });
-  const awards = computeAwards({ machines, players, scores, standings, matchDigits: event?.match_digits ?? null });
+  // Once the reveal has started, the results are the saved awards snapshot (same as the TV showed).
+  const snapRow = s.awardsSnap?.event_id === eventId && (event?.revealed_at || (isCurrent && s.party?.reveal_active)) ? s.awardsSnap : null;
+  const frozen = snapRow?.snapshot ? fromSnapshot(snapRow.snapshot, { allMachines: s.allMachines, allPlayers: s.players, liveScores: s.allScores }) : null;
+  let machines = machinesLive, scores, players, standings, awards;
+  if (frozen) {
+    ({ machines, scores, players, standings, awards } = frozen);
+  } else {
+    // Tournament games only: free play never shows up in results.
+    scores = s.allScores.filter(x => (x.event_id === eventId || (isCurrent && x.event_id == null)) && !x.free_play);
+    const entrants = new Set(s.entries.filter(x => x.event_id === eventId).map(x => x.player_id));
+    for (const x of scores) entrants.add(x.player_id);
+    players = s.players.filter(p => entrants.has(p.id));
+    standings = computeStandings({ machines, players, scores });
+    awards = computeAwards({ machines, players, scores, standings, matchDigits: event?.match_digits ?? null });
+  }
 
 
   const byMachine = new Map();

@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { computeStandings, computeAwards, computeHighScores } from './scoring.js';
 
-const M = [1, 2].map(id => ({ id, name: `M${id}` }));
+const M = [1, 2, 3].map(id => ({ id, name: `M${id}` }));
 const P = [1, 2, 3, 4, 5].map(id => ({ id, display_name: `P${id}` }));
 let sid = 1;
 const sc = (player_id, machine_id, value, free_play = false) => ({ id: sid++, player_id, machine_id, value, voided: false, free_play });
 
 describe('free play never counts for the tournament', () => {
-  const tourney = [sc(1, 1, 500), sc(1, 2, 500), sc(2, 1, 400), sc(2, 2, 400), sc(3, 1, 10), sc(4, 1, 20), sc(4, 2, 20), sc(5, 1, 1), sc(5, 1, 2), sc(5, 1, 3)];
+  const tourney = [sc(1, 1, 500), sc(1, 2, 500), sc(1, 3, 500), sc(2, 1, 400), sc(2, 2, 400), sc(3, 1, 10), sc(4, 1, 20), sc(4, 2, 20), sc(5, 1, 1), sc(5, 1, 2), sc(5, 1, 3)];
   const fp = [sc(2, 1, 9999, true), sc(2, 2, 9999, true), sc(3, 2, 9999, true), sc(3, 2, 1, true), ...[1, 2, 3, 4, 5, 6].map(v => sc(4, 2, v, true))];
 
   it('standings and awards are the same with or without free-play scores', () => {

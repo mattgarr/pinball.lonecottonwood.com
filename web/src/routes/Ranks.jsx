@@ -3,7 +3,7 @@ import { useAllTime, useAwards, usePhase, useStandings } from '../lib/store.js';
 import { sealed } from '../lib/schedule.js';
 import { serverNow } from '../lib/clock.js';
 import { SealedCard } from '../components/PhaseNote.jsx';
-import { MIN_TABLES, fmt, ordinal } from '../lib/scoring.js';
+import { MIN_TABLES, PODIUM_MIN, fmt, ordinal } from '../lib/scoring.js';
 import Avatar from '../components/Avatar.jsx';
 import PixelEmoji from '../components/PixelEmoji.jsx';
 
@@ -101,7 +101,7 @@ function Overall({ standings, mine, me, machines, awards, closed }) {
     <>
       <YouBar me={me}>
         {mine?.rating != null
-          ? <><b>{ordinal(mine.rank)}</b> of {ranked.length} · rating <b>{mine.rating}</b></>
+          ? <><b>{ordinal(mine.rank)}</b> of {ranked.length} · rating <b>{mine.rating}</b>{mine.machinesPlayed < PODIUM_MIN ? <> · <b className="rk-short-key">{PODIUM_MIN - mine.machinesPlayed} more machine</b> for the podium</> : null}</>
           : <>Not ranked yet · <b>{Math.max(0, MIN_TABLES - (mine?.machinesPlayed || 0))} more machine{MIN_TABLES - (mine?.machinesPlayed || 0) === 1 ? '' : 's'}</b> to get ranked</>}
       </YouBar>
 
@@ -117,7 +117,7 @@ function Overall({ standings, mine, me, machines, awards, closed }) {
                 <Avatar avatar={st.player.avatar} emoji={st.player.emoji} name={st.player.display_name} color={st.player.color} size={28} />
                 <span className="rk-name">{st.player.display_name}{st.crowns > 0 && <span className="rk-crowns"><PixelEmoji e="👑" size={14} grid={12} />{st.crowns > 1 ? `×${st.crowns}` : ''}</span>}</span>
               </span>
-              <span className="rk-tables">{st.machinesPlayed}/{machines.length}</span>
+              <span className={`rk-tables${st.machinesPlayed < PODIUM_MIN ? ' short' : ''}`}>{st.machinesPlayed}/{machines.length}</span>
               <span className="rk-val">{st.rating}</span>
             </li>
           ))}
@@ -125,6 +125,7 @@ function Overall({ standings, mine, me, machines, awards, closed }) {
         </ol>
         <div className="muted small rk-legend">
           Rating = your average points across machines (1st = 100 pts). Play {MIN_TABLES}+ machines to rank.
+          {' '}<b className="rk-short-key">Grand Champion, 2nd and 3rd need {PODIUM_MIN}+ machines</b> (machines in yellow aren't there yet).
         </div>
       </section>
 

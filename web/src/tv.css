@@ -1278,3 +1278,33 @@
 .pr.sealed .pr-name, .pr.sealed .pr-val { color: var(--nes-yellow, #f8b800) !important; letter-spacing: 4px !important; }
 .fp-key { display: inline-block; width: 6px; height: 12px; background: var(--nes-sky); vertical-align: -1px; }
 .fp-badge { animation: none; }
+
+/* Reveal: walk stamp for a rated player short of the podium's machine count (blue, not "taken" red). */
+.rv-walk-row.needs { opacity: 0.6; }
+.rv-walk-row.needs .rv-walk-won { color: #5bc8ff; }
+.rv-walk-row.needs .rv-walk-name { text-decoration: none; }
+/* A podium place decided by a tie-break on the shown rating. */
+.rv-tie { font-family: var(--px); font-size: var(--t16); color: #fff; background: rgba(0, 0, 0, 0.55); padding: 10px 16px; box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--accent) 60%, #000); line-height: 1.4; }
+
+/* Reveal intro (held until Next) and finale (every winner, group photo, free play). */
+.rv-intro .rv-stage { gap: 34px; }
+.rv-intro .rv-title { font-size: 64px; }
+.rv-intro .rv-footer { color: #fff; }
+.rv-fin { position: absolute; inset: 40px 50px 64px; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; text-align: center; animation: stage-in 700ms cubic-bezier(.2, .8, .2, 1.05) both; }
+.rv-fin-title { font-family: var(--px); font-size: 48px; color: #fff; text-shadow: 5px 5px 0 color-mix(in srgb, var(--accent) 55%, #000); }
+.rv-fin-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, 220px); gap: 14px; justify-content: center; }
+.rv-fin-grid li { height: 216px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 10px 8px;
+  background: rgba(0, 0, 0, 0.6); clip-path: var(--notch); box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--c, var(--accent)) 70%, #000); min-width: 0; }
+.rv-fin-grid li.none { opacity: 0.45; }
+.rv-fin-empty { width: 96px; height: 96px; display: grid; place-items: center; font-size: var(--t24); color: var(--ink-3, #777); }
+.rv-fin-name { font-family: var(--px); font-size: var(--t16); color: #fff; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-fin-prize { font-family: var(--px); font-size: var(--t10); line-height: 1.4; min-height: 2.8em; color: color-mix(in srgb, var(--c, var(--accent)) 75%, #fff); max-width: 100%; text-align: center; overflow-wrap: anywhere; }
+.rv-fin-photo { font-family: var(--px); font-size: var(--t24); color: var(--accent); animation: tk-blink 1.2s steps(2, start) infinite; }
+.rv-fin-free { font-family: var(--px); font-size: var(--t24); color: #fff; background: #0a3d18; padding: 10px 18px; box-shadow: inset 0 0 0 3px #58d854; }
+
+/* Corner flag: this screen hasn't heard from the server for a minute. */
+.tv-offline { position: fixed; top: 12px; right: 12px; z-index: 200; font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 16px; line-height: 1.4;
+  color: #fff; background: #a00028; padding: 8px 12px; box-shadow: 0 0 0 3px #000, 0 0 0 5px #ff5b5b; pointer-events: none; }
+/* Top Players: rated on 2 machines, but the podium needs 3. */
+.pr-tables.short { color: var(--nes-yellow, #f8b800) !important; }
+.pr-short-key { color: var(--nes-yellow, #f8b800); font-weight: 400; }

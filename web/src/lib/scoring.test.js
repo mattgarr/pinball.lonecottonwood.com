@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeStandings, computeAwards, fmtShort } from './scoring.js';
+import { computeStandings, computeAwards, fmtShort, tieBreakNote, PODIUM_MIN } from './scoring.js';
 
 const M = [1, 2, 3].map(id => ({ id, name: `M${id}`, manufacturer: 'X', year: 1990, sort_order: id, active: true }));
 const P = [1, 2, 3, 4].map(id => ({ id, display_name: `P${id}`, color: '#fff', emoji: '🎯' }));
@@ -9,7 +9,7 @@ const sc = (player_id, machine_id, value) => ({ id: sid++, player_id, machine_id
 describe('scoring', () => {
   it('ranks always follow the prize order, so a tie never shows two #1s', () => {
     // P1 and P2 end up with the same rating; P1 holds more crowns.
-    const scores = [sc(1, 1, 900), sc(2, 1, 800), sc(1, 2, 100), sc(2, 2, 200), sc(3, 1, 10), sc(3, 2, 10), sc(4, 1, 5), sc(4, 2, 5)];
+    const scores = [sc(1, 1, 900), sc(2, 1, 800), sc(1, 2, 100), sc(2, 2, 200), sc(1, 3, 50), sc(2, 3, 50), sc(3, 1, 10), sc(3, 2, 10), sc(3, 3, 1), sc(4, 1, 5), sc(4, 2, 5), sc(4, 3, 1)];
     const standings = computeStandings({ machines: M, players: P, scores });
     const ranks = standings.ranked.map(st => st.rank);
     expect(new Set(ranks).size).toBe(ranks.length); // no shared ranks
@@ -59,5 +59,65 @@ describe('scoring', () => {
     expect(fmtShort(1_040_000_000)).toBe('1.04B');
     expect(fmtShort(1_010_000_000)).toBe('1.01B');
     expect(fmtShort(2_000_000_000)).toBe('2B');
+  });
+
+  it('the podium needs 3+ machines: a 2-machine leader is rated and ranked, but skipped for the podium', () => {
+    // P1 tops two machines (rating 100) but plays only 2; P2, P3, P4 play all 3.
+    const scores = [sc(1, 1, 999), sc(1, 2, 999),
+      sc(2, 1, 500), sc(2, 2, 500), sc(2, 3, 500),
+      sc(3, 1, 400), sc(3, 2, 400), sc(3, 3, 400),
+      sc(4, 1, 300), sc(4, 2, 300), sc(4, 3, 300)];
+    const standings = computeStandings({ machines: M, players: P, scores });
+    expect(PODIUM_MIN).toBe(3);
+    expect(standings.ranked[0].player.id).toBe(1); // still #1 on the board
+    expect(standings.ranked[0].rating).toBe(100);
+    const a = computeAwards({ machines: M, players: P, scores, standings });
+    expect([a.champion.player.id, a.second.player.id, a.third.player.id]).toEqual([2, 3, 4]);
+    // P1 still wins something else: a machine champion (their top scores).
+    expect(a.machineChamps.some(c => c.player?.id === 1)).toBe(true);
+  });
+
+  it('nobody with 3 machines: no podium winners, but everyone is still rated', () => {
+    const scores = [sc(1, 1, 9), sc(1, 2, 9), sc(2, 1, 5), sc(2, 2, 5)];
+    const standings = computeStandings({ machines: M, players: P, scores });
+    expect(standings.ranked.length).toBe(2);
+    const a = computeAwards({ machines: M, players: P, scores, standings });
+    expect(a.champion).toBeNull();
+    expect(a.second).toBeNull();
+  });
+
+  it('ranks sort on the unrounded rating; the tie-break note explains a shared shown rating', () => {
+    // 3 machines with 3, 3 and 7 players: standings 100/67/33 and 100/86/71/57/43/29/14 (exact).
+    const PP = Array.from({ length: 9 }, (_, i) => ({ id: i + 1, display_name: `P${i + 1}`, color: '#fff', emoji: '🎯' }));
+    const exactOf = (st) => st.exact;
+    const scores = [];
+    // Machine 1 (3 players): A=P1 1st, B=P2 2nd, P3 3rd
+    scores.push(sc(1, 1, 300), sc(2, 1, 200), sc(3, 1, 100));
+    // Machine 2 (3 players): B 1st, A 2nd
+    scores.push(sc(2, 2, 300), sc(1, 2, 200), sc(3, 2, 100));
+    // Machine 3 (7 players): A 3rd (71.4), B 4th (57.1)
+    scores.push(sc(4, 3, 700), sc(5, 3, 600), sc(1, 3, 500), sc(2, 3, 400), sc(6, 3, 300), sc(7, 3, 200), sc(8, 3, 100));
+    const standings = computeStandings({ machines: M, players: PP, scores });
+    const A = standings.stats.get(1), B = standings.stats.get(2);
+    // A: (100 + 66.67 + 71.43) / 3 = 79.37; B: (66.67 + 100 + 57.14) / 3 = 74.6
+    expect(exactOf(A)).toBeCloseTo(79.365, 2);
+    expect(A.rating).toBe(79);
+    expect(standings.ranked.indexOf(A)).toBeLessThan(standings.ranked.indexOf(B));
+    // Two made-up stats rows with the same shown rating:
+    const mk = (id, exact, crowns = 0, machinesPlayed = 3) => ({ player: { id }, rating: Math.round(exact), exact, crowns, machinesPlayed });
+    expect(tieBreakNote(mk(1, 87.4), mk(2, 87.1))).toBe('Tied at 87 · 87.4 vs 87.1 before rounding');
+    expect(tieBreakNote(mk(1, 87.04), mk(2, 87.01))).toBe('Tied at 87 · 87.04 vs 87.01 before rounding');
+    expect(tieBreakNote(mk(1, 87, 2), mk(2, 87, 1))).toBe('Tied at 87 · more machine crowns');
+    expect(tieBreakNote(mk(1, 87, 1, 4), mk(2, 87, 1, 3))).toBe('Tied at 87 · more machines played');
+    expect(tieBreakNote(mk(1, 87), mk(2, 87))).toBe('Tied at 87 · joined first');
+    expect(tieBreakNote(mk(1, 88), mk(2, 87))).toBeNull();
+  });
+
+  it('exactly equal ratings fall back to crowns, then machines, then who joined first', () => {
+    // P1 and P2 split two 2-player machines and tie the third: equal exact ratings and one crown each... P1 joined first.
+    const scores = [sc(1, 1, 9), sc(2, 1, 1), sc(2, 2, 9), sc(1, 2, 1), sc(1, 3, 5), sc(2, 3, 5)];
+    const standings = computeStandings({ machines: M, players: P, scores });
+    expect(standings.ranked.map(st => st.player.id)).toEqual([1, 2]);
+    expect(tieBreakNote(standings.ranked[0], standings.ranked[1])).toMatch(/^Tied at \d+ · (more machine crowns|joined first)$/);
   });
 });

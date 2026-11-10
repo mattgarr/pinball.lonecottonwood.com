@@ -6,8 +6,13 @@
 //     round(100 * (N - rank + 1) / N)   → 1st = 100, last ≈ 100/N, ties share a rank.
 //   RATING = the plain average of your standings across the machines you played.
 //     You need MIN_TABLES machines to get a rating (and appear on the boards).
+//   The podium (Grand Champion, 2nd, 3rd) needs PODIUM_MIN machines (Matt, Nov 10): someone on 2
+//   machines is rated and on the boards, but the podium skips them (the reveal stamps "NEEDS 3 MACHINES").
+//   Ranking sorts on the exact (unrounded) average; the board shows it rounded.
 
 export const MIN_TABLES = 2;
+export const PODIUM_MIN = 3;
+export const podiumOk = st => !!st && st.rating != null && st.machinesPlayed >= PODIUM_MIN;
 
 // Free-play scores (before the start, after the end, after the awards) never count for the
 // tournament. includeFreePlay: every game tonight (the free-play board and its live moments).
@@ -29,13 +34,38 @@ function rankRows(rows) {
   return rows;
 }
 
+// Best first: exact average, then machine crowns, then machines played, then who joined first.
+const EPS = 1e-9;
+export function byRank(a, b) {
+  const d = (b.exact ?? b.rating) - (a.exact ?? a.rating);
+  return (Math.abs(d) > EPS ? d : 0) || b.crowns - a.crowns || b.machinesPlayed - a.machinesPlayed || a.player.id - b.player.id;
+}
+
+// Why `a` is ahead of `b` when both show the same rounded rating (null when the ratings differ):
+// "Tied at 87 · 87.4 vs 87.1 before rounding" / "· more machine crowns" / "· more machines played" / "· joined first".
+export function tieBreakNote(a, b) {
+  if (!a || !b || a.rating == null || a.rating !== b.rating) return null;
+  const head = `Tied at ${a.rating}`;
+  const ea = a.exact ?? a.rating, eb = b.exact ?? b.rating;
+  if (Math.abs(ea - eb) > EPS) {
+    for (const d of [1, 2, 3]) {
+      const x = ea.toFixed(d), y = eb.toFixed(d);
+      if (x !== y) return `${head} · ${x} vs ${y} before rounding`;
+    }
+    return `${head} · a hair ahead before rounding`;
+  }
+  if (a.crowns !== b.crowns) return `${head} · more machine crowns`;
+  if (a.machinesPlayed !== b.machinesPlayed) return `${head} · more machines played`;
+  return `${head} · joined first`;
+}
+
 export function computeStandings({ machines = [], players = [], scores = [], includeFreePlay = false }) {
   const live = liveScores(scores, includeFreePlay);
   const playerById = new Map(players.map(p => [p.id, p]));
 
   const stats = new Map(players.map(p => [p.id, {
-    player: p, plays: 0, machinesPlayed: 0, standingSum: 0,
-    perMachine: {}, crowns: 0, worst: null, best: null, rating: null, avg: null, rank: null,
+    player: p, plays: 0, machinesPlayed: 0, standingSum: 0, exactSum: 0,
+    perMachine: {}, crowns: 0, worst: null, best: null, rating: null, avg: null, exact: null, rank: null,
   }]));
 
   // best score per player per machine
@@ -56,6 +86,7 @@ export function computeStandings({ machines = [], players = [], scores = [], inc
       st.perMachine[m.id] = { best: r.best, rank: r.rank, N: r.N, standing: r.standing };
       st.machinesPlayed++;
       st.standingSum += r.standing;
+      st.exactSum += (100 * (r.N - r.rank + 1)) / r.N; // the standing before rounding
       if (r.rank === 1) st.crowns++;
       if (!st.worst || r.standing < st.worst.standing) st.worst = { machineId: m.id, machineName: m.name, rank: r.rank, N: r.N, standing: r.standing };
       if (!st.best || r.standing > st.best.standing) st.best = { machineId: m.id, machineName: m.name, rank: r.rank, N: r.N, standing: r.standing };
@@ -65,21 +96,24 @@ export function computeStandings({ machines = [], players = [], scores = [], inc
   });
 
   for (const st of stats.values()) {
-    if (st.machinesPlayed) st.avg = Math.round(st.standingSum / st.machinesPlayed);
+    if (st.machinesPlayed) {
+      st.exact = st.exactSum / st.machinesPlayed;
+      st.avg = Math.round(st.exact);
+    }
     if (st.machinesPlayed >= MIN_TABLES) st.rating = st.avg;
   }
 
   const eligible = [...stats.values()]
     .filter(st => st.rating != null)
-    .sort((a, b) => b.rating - a.rating || b.crowns - a.crowns || b.machinesPlayed - a.machinesPlayed || a.player.id - b.player.id);
-  // Ranks follow exactly this order (rating, then crowns, then machines played), so the board, the
-  // Ranks page, the emails and the prizes always agree on who is #1, #2 and #3: no shared ranks.
+    .sort(byRank);
+  // Ranks follow exactly this order (exact rating, then crowns, then machines played, then who joined
+  // first), so the board, the Ranks page, the emails and the prizes agree: no shared ranks.
   eligible.forEach((st, i) => { st.rank = i + 1; });
 
   const topPlayers = eligible.slice(0, 10);
-  // Wall of Shame: lowest ratings. It skips only the top 3 (not the whole Top Players board)
+  // Wall of Shame: lowest ratings. It skips only the podium (not the whole Top Players board)
   // so it fills up early in the night too.
-  const podium = new Set(eligible.slice(0, 3).map(st => st.player.id));
+  const podium = new Set(eligible.filter(podiumOk).slice(0, 3).map(st => st.player.id));
   const bottomPlayers = eligible
     .filter(st => !podium.has(st.player.id))
     .sort((a, b) => a.rating - b.rating || b.machinesPlayed - a.machinesPlayed)
@@ -112,8 +146,8 @@ export function computeAwards({ machines = [], players = [], scores = [], standi
   const free = p => !!p && !(ONE_PRIZE_EACH && taken.has(p.id));
   const claim = (x, p) => { if (x && p) taken.add(p.id); return x ?? null; };
 
-  // Grand Champion, 2nd and 3rd: the best overall ratings (2+ machines played).
-  const nextRanked = () => { const st = standings.ranked.find(x => free(x.player)); return claim(st, st?.player); };
+  // Grand Champion, 2nd and 3rd: the best overall ratings among players with PODIUM_MIN+ machines.
+  const nextRanked = () => { const st = standings.ranked.find(x => podiumOk(x) && free(x.player)); return claim(st, st?.player); };
   const champion = nextRanked();
   const second = nextRanked();
   const third = nextRanked();

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Avatar from './Avatar.jsx';
 import Confetti from './Confetti.jsx';
 import Icon from './Icon.jsx';
@@ -6,21 +6,29 @@ import Backbox from './tv/Backbox.jsx';
 import Dmd from './tv/Dmd.jsx';
 import { artFallback, machineArt, machineGlow } from './tv/theme.js';
 import { useRamp } from './tv/Takeover.jsx';
+import { PODIUM_MIN, podiumOk, tieBreakNote } from '../lib/scoring.js';
 import '../tv.css';
 
 const fmt = n => Number(n).toLocaleString();
 const COUNT_MS = 1000; // each number of the 3-2-1
 const ordinal = n => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
 
-// The reveal, one prize at a time, in the order prizes are decided: Grand Champion, 2nd, 3rd, the
-// machine champions, The Grinder, The Big Whiff, The Match. Each prize: its standings walked from the
-// top to the highest person without a prize (The Match: a draw and a slot-machine spin), then the winner, then it waits for the
-// host (`step` from the party, via the host page's Next / Back) or a click / Space / arrow key here.
-export default function Reveal({ standings, awards, onSlide, step = 0, onStep, preview = false }) {
+// The reveal, one slide at a time (`step`, from party.reveal_step): 0 = the intro ("AWARDS CEREMONY",
+// held until Next), 1–12 = the prizes in the order they're decided (Grand Champion, 2nd, 3rd, the machine
+// champions, The Grinder, The Big Whiff, The Match), 13 = the finale (every winner, group photo, free
+// play). Each prize: its build-up (3-2-1 and/or a walk down its standings; The Match: a draw and a
+// slot-machine spin), then the winner, then it waits for the host's Next / Back.
+// Going Back shows that slide's winner at once (no replayed build-up); going forward plays it in full.
+// Keys on the TV (safety, Nov 10): in the live reveal only Shift + → / Space / Enter / PageDown (next) or
+// Shift + ← / PageUp / Backspace (back) move it, and clicks do nothing, so a cat on the keyboard or a
+// guest bumping the mouse can't skip a prize. The local preview (/tv?reveal) takes plain keys and clicks.
+// Sound hook: every phase change dispatches window event `pw:reveal` (see emitReveal); no sounds here.
+export default function Reveal({ standings, awards, onSlide, step = 0, onStep, onShown, preview = false }) {
   const slides = buildSlides({ standings, awards });
   const last = Math.max(0, slides.length - 1);
   const [idx, setIdx] = useState(Math.min(step, last));
   useEffect(() => { setIdx(Math.min(step, last)); }, [step, last]);
+  useEffect(() => { onShown?.(idx); }, [idx]); // eslint-disable-line react-hooks/exhaustive-deps
   // Only a screen that can move the whole party's reveal (host unlocked) or a local preview advances,
   // so the TV and the host page never disagree about which prize is up.
   const canAdvance = preview || !!onStep;
@@ -31,9 +39,11 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, p
     setIdx(next);
     onStep?.(next);
   };
+  const click = preview ? () => go(idx + 1) : undefined;
   useEffect(() => {
     const key = e => {
       if (e.repeat) return; // holding a key must not skip prizes
+      if (!preview && !e.shiftKey) return; // live: Shift + key only
       if (['ArrowRight', ' ', 'Enter', 'PageDown'].includes(e.key)) { e.preventDefault(); go(idx + 1); }
       else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); go(idx - 1); }
     };
@@ -46,16 +56,33 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, p
   // spin. The lights get 3, 2, 1 and the reveal on the same timeline.
   const cur = slides[idx] ?? slides[0];
   const cueKey = cur ? `${idx}:${cur.label}:${cur.title || ''}` : '';
-  const mode = modeOf(cur);
-  const first = mode === 'walk' ? 'walk' : mode === 'spin' ? 'spin' : 3;
+  // Back: this slide shows its winner straight away. Forward (or a fresh load): the full build-up.
+  const prevIdx = useRef(idx);
+  const instantKeys = useRef(new Set());
+  if (prevIdx.current !== idx) {
+    if (idx < prevIdx.current) instantKeys.current.add(cueKey); else instantKeys.current.delete(cueKey);
+    prevIdx.current = idx;
+  }
+  const instant = instantKeys.current.has(cueKey);
+  const mode = instant ? 'hold' : modeOf(cur);
+  const first = mode === 'walk' ? 'walk' : mode === 'spin' ? 'spin' : mode === 'hold' ? 0 : 3;
   // The phase belongs to one prize: a new prize starts at its first phase on its very first frame (no
   // flash of the winner before the build-up).
   const [cd, setCd] = useState({ k: cueKey, n: first });
-  const phase = cd.k === cueKey ? cd.n : first;
+  const phase = cd.k === cueKey && !instant ? cd.n : first;
   useEffect(() => {
     if (!cur) return undefined;
     const set = n => setCd({ k: cueKey, n });
-    const ts = [setTimeout(() => onSlide?.(cur, 'count', 3), 0)]; // after the lights engine is up
+    const base = { step: idx, label: cur.label, preview };
+    if (mode === 'hold') {
+      // The intro and the finale wait for Next; Back lands on the winner directly.
+      const t = setTimeout(() => {
+        onSlide?.(cur, 'show');
+        emitReveal({ ...base, what: cur.intro ? 'intro' : cur.finale ? 'finale' : 'show', back: instant });
+      }, 0);
+      return () => clearTimeout(t);
+    }
+    const ts = [setTimeout(() => { onSlide?.(cur, 'count', 3); emitReveal({ ...base, what: mode === 'spin' ? 'spin' : mode === 'walk' ? 'walk' : 'count', n: 3 }); }, 0)]; // after the lights engine is up
     const at = (ms, f) => ts.push(setTimeout(f, ms));
     let show;
     if (mode === 'spin' || mode === 'walk') {
@@ -64,15 +91,15 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, p
       at(t.at[2], () => onSlide?.(cur, 'count', 1));
       show = t.show;
     } else {
-      at(COUNT_MS, () => { set(2); onSlide?.(cur, 'count', 2); });
-      at(COUNT_MS * 2, () => { set(1); onSlide?.(cur, 'count', 1); });
+      at(COUNT_MS, () => { set(2); onSlide?.(cur, 'count', 2); emitReveal({ ...base, what: 'count', n: 2 }); });
+      at(COUNT_MS * 2, () => { set(1); onSlide?.(cur, 'count', 1); emitReveal({ ...base, what: 'count', n: 1 }); });
       show = COUNT_MS * 3;
       if (mode === 'countwalk') {
-        at(show, () => set('walk'));
+        at(show, () => { set('walk'); emitReveal({ ...base, what: 'walk' }); });
         show += Math.max(1500, walkTimes(cur.walk).land + WALK_HOLD);
       }
     }
-    at(show, () => { set(0); onSlide?.(cur, 'show'); });
+    at(show, () => { set(0); onSlide?.(cur, 'show'); emitReveal({ ...base, what: 'show', empty: !!cur.empty }); });
     return () => ts.forEach(clearTimeout);
   }, [cueKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const count = typeof phase === 'number' ? phase : 0;
@@ -85,7 +112,7 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, p
 
   if (phase === 'spin') {
     return (
-      <div className="reveal-tv rv rv-counting" style={{ '--accent': accent }} onClick={() => go(idx + 1)}>
+      <div className="reveal-tv rv rv-counting" style={{ '--accent': accent }} onClick={click}>
         <div className="rv-shade" />
         <div className="rv-top" key={`top${idx}`}><div className="rv-pill">{slide.label}</div></div>
         <MatchSpin key={cueKey} spin={slide.spin} />
@@ -96,7 +123,7 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, p
 
   if (phase === 'walk') {
     return (
-      <div className="reveal-tv rv rv-counting" style={{ '--accent': accent }} onClick={() => go(idx + 1)}>
+      <div className="reveal-tv rv rv-counting" style={{ '--accent': accent }} onClick={click}>
         {slide.machine && <img key={`bg${idx}`} className="rv-bg" src={machineArt(slide.machine.name)} alt="" onError={e => artFallback(e, slide.machine.name)} />}
         <div className="rv-shade" />
         <div className="rv-top" key={`top${idx}`}><div className="rv-pill">{slide.label}</div></div>
@@ -108,7 +135,7 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, p
 
   if (count > 0) {
     return (
-      <div className="reveal-tv rv rv-counting" style={{ '--accent': accent, '--slide-ms': `${COUNT_MS * 3}ms` }} onClick={() => go(idx + 1)}>
+      <div className="reveal-tv rv rv-counting" style={{ '--accent': accent, '--slide-ms': `${COUNT_MS * 3}ms` }} onClick={click}>
         {slide.machine && <img key={`bg${idx}`} className="rv-bg" src={machineArt(slide.machine.name)} alt="" onError={e => artFallback(e, slide.machine.name)} />}
         <div className="rv-shade" />
         <div className="rv-top" key={`top${idx}`}><div className="rv-pill">{slide.label}</div></div>
@@ -121,8 +148,51 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, p
     );
   }
 
+  if (slide.intro) {
+    return (
+      <div className="reveal-tv rv rv-intro" style={{ '--accent': accent, '--slide-ms': '1ms' }} onClick={click}>
+        <div className="rv-glow" />
+        <div className="rv-rays" />
+        <div className="rv-stage" key={`s${idx}`}>
+          <div className="rv-trophy"><Icon name="trophy" size={110} stroke={1.6} /></div>
+          <div className="rv-title">AWARDS CEREMONY</div>
+          <div className="rv-sub">{slide.count} prizes · gather round!</div>
+          <div className="rv-footer">Not here? A friend can accept for you.</div>
+        </div>
+        <Dots slides={slides} idx={idx} />
+      </div>
+    );
+  }
+
+  if (slide.finale) {
+    return (
+      <div className="reveal-tv rv rv-finale" style={{ '--accent': accent, '--slide-ms': '1ms' }} onClick={click}>
+        <div className="rv-glow" />
+        <div className="rv-rays" />
+        <Confetti key={`c${idx}`} count={160} seed={idx} />
+        <div className="rv-fin" key={`s${idx}`}>
+          <div className="rv-fin-title">THANKS FOR PLAYING</div>
+          <ul className="rv-fin-grid">
+            {slide.winners.map((w, k) => (
+              <li key={k} className={w.player ? '' : 'none'} style={{ '--c': w.accent }}>
+                {w.player
+                  ? <Avatar avatar={w.player.avatar} emoji={w.player.emoji} name={w.player.display_name} color={w.player.color} size={96} />
+                  : <span className="rv-fin-empty">—</span>}
+                <span className="rv-fin-name">{w.player ? w.player.display_name : 'No winner'}</span>
+                <span className="rv-fin-prize">{w.prize}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="rv-fin-photo">📸 Winners up front · GROUP PHOTO!</div>
+          <div className="rv-fin-free">FREE PLAY IS ON · keep playing!</div>
+        </div>
+        <Dots slides={slides} idx={idx} />
+      </div>
+    );
+  }
+
   return (
-    <div className="reveal-tv rv" style={{ '--accent': accent, '--slide-ms': '1ms' }} onClick={() => go(idx + 1)}>
+    <div className="reveal-tv rv" style={{ '--accent': accent, '--slide-ms': '1ms' }} onClick={click}>
       {slide.machine && <img key={`bg${idx}`} className="rv-bg" src={machineArt(slide.machine.name)} alt="" onError={e => artFallback(e, slide.machine.name)} />}
       {slide.machine && <div className="rv-shade" />}
       <div className="rv-glow" />
@@ -157,6 +227,7 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, p
             </Dmd>
           )}
           {slide.footer && <div className="rv-footer">{slide.footer}</div>}
+          {slide.tie && <div className="rv-tie">{slide.tie}</div>}
         </div>
       </div>
 
@@ -227,6 +298,7 @@ function MatchSpin({ spin }) {
 const WALK_IN = 1100, WALK_HOLD = 1400, ROW_H = 92, ROWS_SHOWN = 6;
 function modeOf(slide) {
   if (!slide) return 'count';
+  if (slide.hold) return 'hold';
   if (slide.spin) return 'spin';
   if (!slide.walk?.rows.length) return 'count';
   return slide.walkOnly ? 'walk' : 'countwalk';
@@ -259,19 +331,19 @@ function WalkList({ walk }) {
           {walk.rows.map((r, k) => {
             const passed = k < cur || (k === cur && landed && walk.win < 0);
             const here = k === cur && !(landed && walk.win < 0);
-            const cls = `rv-walk-row${here ? ' here' : ''}${here && landed ? ' win' : ''}${passed && r.won ? ' taken' : ''}`;
+            const cls = `rv-walk-row${here ? ' here' : ''}${here && landed ? ' win' : ''}${passed && r.won ? ' taken' : ''}${passed && r.won === NEEDS ? ' needs' : ''}`;
             return (
               <li key={k} className={cls}>
                 <span className="rv-walk-rank">{k + 1}</span>
                 <Avatar avatar={r.player.avatar} emoji={r.player.emoji} name={r.player.display_name} color={r.player.color} size={60} />
                 <span className="rv-walk-name">{r.player.display_name}</span>
-                {passed && r.won ? <span className="rv-walk-won">WON {r.won}</span> : <span className="rv-walk-val">{r.value}</span>}
+                {passed && r.won ? <span className="rv-walk-won">{r.won === NEEDS ? `NEEDS ${PODIUM_MIN} MACHINES` : `WON ${r.won}`}</span> : <span className="rv-walk-val">{r.value}</span>}
               </li>
             );
           })}
         </ol>
       </div>
-      <div className={`rv-walk-note${landed ? ' on' : ''}`}>{walk.win >= 0 ? 'Highest without a prize…' : 'Everyone here already has a prize!'}</div>
+      <div className={`rv-walk-note${landed ? ' on' : ''}`}>{walk.win >= 0 ? (walk.podium ? `Highest with ${PODIUM_MIN}+ machines and no prize…` : 'Highest without a prize…') : walk.podium ? `Nobody left with ${PODIUM_MIN}+ machines!` : 'Everyone here already has a prize!'}</div>
     </div>
   );
 }
@@ -284,12 +356,26 @@ function Dots({ slides, idx }) {
   );
 }
 
-// For the host page: what each step of the reveal shows.
+// For the host page (and tests): what each step of the reveal shows. kind: 'intro' | 'prize' | 'finale'.
+// winner: the winner's name (null for no winner / the intro / the finale).
 export function revealPlan({ standings, awards }) {
   return buildSlides({ standings, awards }).map(s => ({
+    kind: s.intro ? 'intro' : s.finale ? 'finale' : 'prize',
     label: s.label, title: s.title,
+    winner: s.intro || s.finale || s.empty ? null : s.title,
+    playerId: s.winnerId ?? null,
+    tie: s.tie || null,
+    winners: s.winners ? s.winners.map(w => w.player?.display_name ?? null) : undefined,
     walk: s.walk && { stopsOn: s.walk.rows[s.walk.win]?.player.display_name ?? null, above: s.walk.rows.slice(0, s.walk.win < 0 ? undefined : s.walk.win).map(r => r.won) },
   }));
+}
+export const PRIZE_COUNT = 12;
+export const FINALE_STEP = PRIZE_COUNT + 1; // 0 intro, 1–12 prizes, 13 finale
+
+// Sound / extras hook: the TV announces each reveal moment (the audio module listens; nothing plays here).
+// detail: { what: 'intro' | 'count' (n: 3, 2, 1) | 'walk' | 'spin' | 'show' | 'finale', step, label, preview, back?, empty? }
+function emitReveal(detail) {
+  try { window.dispatchEvent(new CustomEvent('pw:reveal', { detail })); } catch { /* old browser */ }
 }
 
 function Ramp({ value }) {
@@ -297,12 +383,14 @@ function Ramp({ value }) {
 }
 
 const hero = p => p && { avatar: p.avatar, emoji: p.emoji, name: p.display_name, color: p.color };
+const NEEDS = '__needs'; // walk stamp: rated, but short of PODIUM_MIN machines for the podium
 
-// All 12 prizes in the order they're decided (one prize each, best prize first): Grand Champion, 2nd,
-// 3rd, the six machine champions, The Grinder, The Big Whiff, The Match. Before each winner, the TV
-// shows that prize's standings and walks down from the top: anyone who already won a prize is marked
-// and skipped, and it stops on the highest person still without one. A prize nobody can win still gets
-// its slide (the walk runs off the end), so the reveal never skips one.
+// The intro, then all 12 prizes in the order they're decided (one prize each, best prize first): Grand
+// Champion, 2nd, 3rd, the six machine champions, The Grinder, The Big Whiff, The Match, then the finale.
+// Before each winner, the TV shows that prize's standings and walks down from the top: anyone who already
+// won a prize (or, for the podium, has fewer than PODIUM_MIN machines) is stamped and skipped, and it stops
+// on the highest person still in the running. A prize nobody can win still gets its slide (the walk runs
+// off the end), so the reveal never skips one.
 const noWinner = (label, accent, why, extra = {}) => ({
   label, empty: true, title: 'No winner tonight', subtitle: why, accent, confetti: false, ...extra,
 });
@@ -325,31 +413,46 @@ function buildSlides({ standings, awards }) {
   const playerOf = id => standings?.stats?.get(id)?.player;
   const won = new Map(); // playerId -> the prize they won on an earlier slide
   // A walk: the standings rows for this prize, and where it stops (-1: nobody left).
-  const walk = (lead, rows, winner) => {
+  // blocked(row): a stamp for someone who can't win this prize for another reason (NEEDS).
+  const walk = (lead, rows, winner, blocked = () => null) => {
     const list = rows.filter(r => r.player);
     const win = winner ? list.findIndex(r => r.player.id === winner.id) : -1;
-    return { lead, rows: list.map(r => ({ ...r, won: won.get(r.player.id) || null })), win };
+    return { lead, rows: list.map(r => ({ ...r, won: won.get(r.player.id) || blocked(r) || null })), win };
   };
-  const push = (slide, winner) => { slides.push(slide); if (winner) won.set(winner.id, slide.label); };
+  const push = (slide, winner) => {
+    slides.push(winner ? { ...slide, winnerId: winner.id } : slide);
+    if (winner) won.set(winner.id, slide.label);
+  };
 
-  // The podium.
+  slides.push({ label: 'AWARDS CEREMONY', intro: true, hold: true, accent: '#ffcc33', count: PRIZE_COUNT });
+
+  // The podium: PODIUM_MIN+ machines.
   const ranked = standings?.ranked ?? [];
-  const byRating = ranked.map(st => ({ player: st.player, value: `${st.rating}/100` }));
+  const byRating = ranked.map(st => ({ player: st.player, value: `${st.rating}/100`, st }));
+  const needs = r => (podiumOk(r.st) ? null : NEEDS);
+  const short = `nobody has played ${PODIUM_MIN}+ machines yet`;
   const podium = [
-    [awards?.champion, 'GRAND CHAMPION', '#ffcc33', '🎉 Woodside Pinball 2026 🎉', 'nobody has played 2+ machines yet'],
-    [awards?.second, '2ND PLACE', '#c0c7d4', '🥈', 'not enough ranked players (2+ machines each)'],
-    [awards?.third, '3RD PLACE', '#cd7f32', '🥉', 'not enough ranked players (2+ machines each)'],
+    [awards?.champion, 'GRAND CHAMPION', '#ffcc33', '🎉 Woodside Pinball 2026 🎉', short],
+    [awards?.second, '2ND PLACE', '#c0c7d4', '🥈', `not enough players with ${PODIUM_MIN}+ machines`],
+    [awards?.third, '3RD PLACE', '#cd7f32', '🥉', `not enough players with ${PODIUM_MIN}+ machines`],
   ];
   for (const [st, label, accent, footer, why] of podium) {
     const grand = label === 'GRAND CHAMPION';
-    // The Grand Champion is just the top of the list: a 3-2-1, no walk. 2nd and 3rd walk the ratings.
-    const w = grand ? null : { ...walk('Overall rating', byRating, st?.player) };
-    if (!st) { push(noWinner(label, accent, why, { walk: w, walkOnly: true })); continue; }
+    const w = { ...walk('Overall rating', byRating, st?.player, needs), podium: true };
+    // The Grand Champion is just the top of the list: a 3-2-1, no walk, unless someone above them on
+    // the board is short of machines (then 3-2-1, then the walk shows why they're skipped).
+    // 2nd and 3rd walk the ratings.
+    const skipsShort = grand && w.rows.slice(0, w.win < 0 ? undefined : w.win).some(r => r.won === NEEDS);
+    const gw = grand ? (skipsShort ? w : null) : w;
+    if (!st) { push(noWinner(label, accent, why, { walk: gw, walkOnly: !grand })); continue; }
+    // The next person in line for this place: when they show the same rating, say how it was decided.
+    const next = ranked.find(x => x !== st && podiumOk(x) && !won.has(x.player.id) && ranked.indexOf(x) > ranked.indexOf(st));
     push({
-      label, confetti: true, hero: hero(st.player), title: st.player.display_name, accent, footer, walk: w, walkOnly: true,
+      label, confetti: true, hero: hero(st.player), title: st.player.display_name, accent, footer, walk: gw, walkOnly: !grand,
       trophy: grand, rays: grand,
       subtitle: grand ? `The Pinball Wizard · ${st.crowns} crown${st.crowns === 1 ? '' : 's'}` : `${st.machinesPlayed} machines played`,
       score: `${st.rating}/100`,
+      tie: tieBreakNote(st, next),
     }, st.player);
   }
 
@@ -409,5 +512,12 @@ function buildSlides({ standings, awards }) {
       spin: matchSpin(t),
     }
     : noWinner('THE MATCH', '#29d4d4', awards?.matchDrawn ? NOBODY : 'no number was drawn tonight'), t?.player);
+
+  // The finale: every winner, then free play.
+  const prizes = slides.filter(x => !x.intro);
+  slides.push({
+    label: 'THANK YOU', finale: true, hold: true, accent: '#ffcc33', confetti: true,
+    winners: prizes.map(x => ({ prize: x.label, accent: x.accent, player: x.empty ? null : playerOf(x.winnerId) || (x.hero && { display_name: x.hero.name, avatar: x.hero.avatar, emoji: x.hero.emoji, color: x.hero.color }) })),
+  });
   return slides;
 }

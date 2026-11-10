@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ensureLightsTopic, getHostPass, host, useAwards, useNightStandings, useParty, usePhase, useStandings } from '../lib/store.js';
+import { ensureLightsTopic, getHostPass, host, lastHeard, pollParty, tvHeartbeat, useAwards, useNightStandings, useParty, usePhase, useRevealData, useStandings } from '../lib/store.js';
+import { OFFLINE_MS, TV_BEAT_MS, agoText } from '../lib/tvStatus.js';
 import { serverNow, useNow } from '../lib/clock.js';
 import { SEAL_MS, dueClockMoment, finalSeconds, fmtClock, revealedAfterEnd, sealed } from '../lib/schedule.js';
 import ClockChip from '../components/tv/ClockChip.jsx';
@@ -20,7 +21,7 @@ import Crawl from '../components/tv/Crawl.jsx';
 import { BOARD_N, useLiveEvents } from '../components/tv/useLiveEvents.js';
 import { sfx, sound } from '../lib/chiptune.js';
 import { CountUp } from '../lib/useCountUp.js';
-import { computeHighScores, fmtShort } from '../lib/scoring.js';
+import { PODIUM_MIN, computeHighScores, fmtShort } from '../lib/scoring.js';
 import '../tv.css';
 
 export default function TV() {
@@ -28,11 +29,15 @@ export default function TV() {
   const demo = typeof location !== 'undefined' && new URLSearchParams(location.search).has('demo');
   const revealPreview = typeof location !== 'undefined' && new URLSearchParams(location.search).has('reveal');
   // A preview (/tv?reveal, or ?reveal=40) draws its own Match number; the real reveal uses the host's draw.
+  // /tv?reveal&step=13 opens the preview at that slide (0 intro … 13 finale).
+  const [previewStep] = useState(() => Math.max(0, Number(new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('step')) || 0));
   const [previewDraw] = useState(() => {
     const v = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('reveal') : '';
     return /^\d{1,2}$/.test(v || '') ? Number(v) : Math.floor(Math.random() * 10) * 10;
   });
   const awards = useAwards(standings, party?.reveal_active ? party.match_digits : revealPreview ? previewDraw : null);
+  // The live reveal uses the awards snapshot the host saved at "Start the reveal" (live numbers as a fallback).
+  const rv = useRevealData();
   const { lights: lightsSettings } = useParty();
   useEffect(() => { ensureLightsTopic(); }, []); // learns the lights channel if this browser has the host unlock
   // Garage lights: only the screen marked as the lights driver (the TV on the Mac) sends anything.
@@ -100,6 +105,23 @@ export default function TV() {
       lights.onHit(h);
     }
   }, [live.hits]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Reveal reliability: while the reveal is on, re-read the party row every 2 s on top of realtime,
+  // and tell the host page which step this screen is showing (every 10 s, and right after a change).
+  const realTV = !demo && !revealPreview && !lightsSim && fpParam == null && !clockParam && !sealedParam;
+  const revealOn = !!party?.reveal_active;
+  useEffect(() => {
+    if (!revealOn || revealPreview) return undefined;
+    const iv = setInterval(() => { pollParty().catch(() => {}); }, 2000);
+    return () => clearInterval(iv);
+  }, [revealOn, revealPreview]);
+  const [shownStep, setShownStep] = useState(null);
+  useEffect(() => {
+    if (!realTV || !ready) return undefined;
+    const beat = () => { tvHeartbeat(revealOn ? shownStep ?? 0 : 0, revealOn ? 'reveal' : 'board').catch(() => {}); };
+    beat();
+    const iv = setInterval(beat, TV_BEAT_MS);
+    return () => clearInterval(iv);
+  }, [realTV, ready, revealOn, shownStep]);
   const [soundOn, setSoundOn] = useState(false);
   const [attract, setAttract] = useState(false);
   const lastEvent = useRef(Date.now());
@@ -220,13 +242,15 @@ export default function TV() {
   // The reveal: one prize at a time, advanced by hand (host page Next / Back, or a click, Space or the
   // arrow keys here). /tv?reveal previews it locally without touching the party.
   if (party?.reveal_active || revealPreview) {
-    // Clicks / keys here move the party's reveal only on a Mac with the host page unlocked.
+    // Shift + arrow keys here move the party's reveal, only on a Mac with the host page unlocked (see Reveal).
     const onStep = !revealPreview && getHostPass() ? n => { host.revealStep(n).catch(() => {}); } : null;
+    const useSnap = !revealPreview && !!rv.frozen;
     return (
       <div className={`tv-frame tv2-frame${cursor ? ' show-cursor' : ''}`}>
-        <Reveal standings={standings} awards={awards} onSlide={lights.onRevealSlide}
-          step={revealPreview ? 0 : party?.reveal_step || 0} onStep={onStep} preview={revealPreview} />
+        <Reveal standings={useSnap ? rv.standings : standings} awards={useSnap ? rv.awards : awards} onSlide={lights.onRevealSlide}
+          step={revealPreview ? previewStep : party?.reveal_step || 0} onStep={onStep} onShown={setShownStep} preview={revealPreview} />
         <TvAudio reveal />
+        {realTV && <OfflineFlag />}
       </div>
     );
   }
@@ -237,6 +261,7 @@ export default function TV() {
     <>
       {tk && <Takeover key={tk.id} item={tk} queued={live.queued} onDone={live.nextTakeover} />}
       <TvAudio />
+      {realTV && <OfflineFlag />}
       <FinalLayer party={party} preview={clockParam === 'final'} onTick={n => { lights.onClock?.('tick', n); emitClock({ what: 'tick', side: 'end', n }); }} />
       <button type="button" className={`tv-sound${soundOn ? ' on' : ''}`} onClick={e => { e.stopPropagation(); toggleSound(); }}>
         {soundOn ? '⚙ Sound effects: on (click to mute)' : '⚙ Sound effects: off (click to turn on)'}
@@ -328,7 +353,7 @@ export default function TV() {
                     {hide ? <span /> : <Avatar avatar={st.player.avatar} emoji={st.player.emoji} name={st.player.display_name} color={st.player.color} size={24} />}
                     <span className="pr-name">{hide ? '? ? ?' : st.player.display_name}{!hide && st.player.first_timer && <span className="pr-ft">NEW</span>}</span>
                     <span className="pr-crowns">{!hide && st.crowns > 0 && <><Icon name="crown" size={15} stroke={2.2} />{st.crowns > 1 ? <span>×{st.crowns}</span> : null}</>}</span>
-                    <span className="pr-tables">{hide ? '' : `${st.machinesPlayed}/${machines.length}`}</span>
+                    <span className={`pr-tables${!hide && !st.isOneAway && st.machinesPlayed < PODIUM_MIN ? ' short' : ''}`}>{hide ? '' : `${st.machinesPlayed}/${machines.length}`}</span>
                     {st.isOneAway
                       ? <span className="pr-nudge">1 MORE</span>
                       : hide ? <Dmd className="pr-val">??</Dmd>
@@ -338,7 +363,7 @@ export default function TV() {
                 })}
                 {boardRows.length === 0 && <div className="pnl-empty">Play 2 machines to rank</div>}
               </div>
-              <div className="pnl-legend">Avg finish · 2+ machines to rank</div>
+              <div className="pnl-legend">Avg finish · 2+ machines to rank · <b className="pr-short-key">{PODIUM_MIN}+</b> for the podium</div>
             </div>
 
             <div className="pnl pnl-shame">
@@ -393,6 +418,18 @@ const FP_ROWS = 19; // rows per machine on the free-play board
 const FIRED_KEY = 'pw.clockFired';
 const readFired = () => { try { return new Set(JSON.parse(localStorage.getItem(FIRED_KEY) || '[]')); } catch { return new Set(); } };
 const saveFired = set => { try { localStorage.setItem(FIRED_KEY, JSON.stringify([...set].slice(-60))); } catch { /* ignore */ } };
+// A small corner flag when this screen hasn't heard from the server for a minute (realtime down and
+// refreshes failing): "⚠ offline · updated 2 min ago". It clears itself on the next good contact.
+function OfflineFlag() {
+  const [since, setSince] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setSince(Date.now() - lastHeard()), 5000);
+    return () => clearInterval(iv);
+  }, []);
+  if (since < OFFLINE_MS) return null;
+  return <div className="tv-offline" role="status">⚠ offline · updated {agoText(since)} ago</div>;
+}
+
 function useClockMoments({ party, ready, push }) {
   const partyRef = useRef(party);
   partyRef.current = party;

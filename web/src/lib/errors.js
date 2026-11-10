@@ -2,7 +2,7 @@
 // forFriend: the action was logging a score for someone else.
 export function friendlyError(e, forFriend = false) {
   const m = String(e?.message || e || '');
-  if (/failed to fetch|load failed|networkerror|network request|timeout|timed out/i.test(m)) {
+  if (/failed to fetch|load failed|networkerror|network request|timeout|timed out|abort/i.test(m)) {
     return 'No connection — nothing was saved. Check Wi-Fi and try again.';
   }
   if (/does not exist|could not find the function|schema cache/i.test(m)) {
