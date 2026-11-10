@@ -256,14 +256,28 @@ export default function LightsSim() {
         </div>
         <div className="ls-row ls-buttons">
           <button type="button" onClick={() => fire('score')}>Score</button>
-          <button type="button" onClick={() => fire('champion')}>Machine champion</button>
-          <button type="button" onClick={() => fire('leader')}>New leader</button>
-          <button type="button" onClick={() => fire('pingpong')}>Top / curb bounce</button>
+          <button type="button" onClick={() => fire('champion')}>Machine record</button>
+          <button type="button" onClick={() => fire('leader')}>New #1</button>
+          <button type="button" onClick={() => fire('ranked')}>Player ranked</button>
+          <button type="button" onClick={() => fire('milestone')}>Games milestone</button>
+          <button type="button" onClick={() => fire('shame')}>Wall of Shame</button>
           <button type="button" onClick={() => { fire('open'); setAmbientLabel(engine.ambientName()); }}>Party open</button>
           <button type="button" onClick={() => fire('close')}>Party close</button>
           <button type="button" onClick={revealDemo}>Winner reveal</button>
           <button type="button" onClick={() => { fire('house', { on: !house }); setHouse(!house); }}>{house ? 'House lights off' : 'House lights'}</button>
         </div>
+        <dl className="ls-legend">
+          <dt>Score on a cabinet</dt><dd>that machine breathes, player color ↔ machine color (top and curb)</dd>
+          <dt>Machine record</dt><dd>white flashes, then the machine's colors chase out from its center</dd>
+          <dt>New #1</dt><dd>white bounces top ↔ curb, then the room washes in their color</dd>
+          <dt>Player ranked</dt><dd>the room breathes once in their color</dd>
+          <dt>Games milestone</dt><dd>gold bounces top ↔ curb</dd>
+          <dt>Wall of Shame</dt><dd>the room sags to a slow, dim red</dd>
+          <dt>Party open</dt><dd>a sweep, then the ambient effects start</dd>
+          <dt>Party close</dt><dd>machines off, back to your WLED attract preset</dd>
+          <dt>Winner reveal</dt><dd>follows each reveal slide; the grand champion gets a build, a burst and three white flashes</dd>
+          <dt>Joins, PBs, climbs, spotlights</dt><dd>no extra effect</dd>
+        </dl>
       </div>
 
       <div className="ls-log">

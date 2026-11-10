@@ -137,7 +137,7 @@ The lighting plan is the Claude Doc "Pinball Garage Lighting Plan". Its spec ass
   - The WLED controller (Gledopto) subscribes to `broker.hivemq.com:1883`, topic `woodsidepinball/0574bee021207a68cb` (see `web/src/lib/lights/config.js`).
   - The **TV page on the Mac** drives the lights: it watches scores, machine champions, leader changes, party open/close and the reveal, and publishes WLED JSON state to `<topic>/api` over secure WebSockets (`wss://broker.hivemq.com:8884/mqtt`).
   - Only a screen marked as the lights driver sends anything: move the mouse on the TV and click "Lights: … drive the garage lights from this screen", or open `/tv?lights=1`. It's stored in that browser.
-- **Code:** `web/src/lib/lights/` (`config.js` zones/topic/effects; `engine.js` priorities, restore timers, merging, throttle, reveal choreography; `useLightsDirector.js` the TV driver; `mqtt.js`; `render.js` for the simulator). Tests: `cd web && npm test` (23 engine tests).
+- **Code:** `web/src/lib/lights/` (`config.js` zones/topic/effects; `engine.js` priorities, restore timers, merging, throttle, reveal choreography; `useLightsDirector.js` the TV driver; `mqtt.js`; `render.js` for the simulator). Tests: `cd web && npm test` (24 engine tests).
 - **Pages:**
   - `/host` "Garage lights" card: on/off, simulator-only vs real strips, attract loop, house lights, brightness, a test flash per machine, status dots.
   - `/lights-sim`: live simulator with event buttons.
@@ -148,6 +148,10 @@ The lighting plan is the Claude Doc "Pinball Garage Lighting Plan". Its spec ass
   - The curb is still its own segment, so it can also do different things: `pingPong()` bounces top ↔ curb (used for a new leader; "Top / curb bounce" in the simulator; `control` cmd `pingpong`).
 - **Effects:** ambient effects rotate every 3 min (`ambientCycle`), in a cool palette only (purple, blue, pink, teal, turquoise via WLED palette 4 "Color Gradient" and `coolColors`; no rainbow effects).
   - Machine theme colors (`machineThemes`, chosen with Matt Nov 9): Fathom sea green / ocean blue / seafoam; Centaur lipstick red / wine / chrome; Whirlwind electric blue / storm navy / lightning yellow; White Water river blue / foam white / life-jacket orange; Cactus Canyon sunset gold / deep orange / rose red; D&D purple / magenta / lavender. A score breathes between the player's color and the machine's first color; a champion gets white flashes, then a mirrored chase of the machine's three colors on the top (player color on the curb).
+  - **The lights follow the TV screen** (`onHit` / `onTakeover` / `onToast` in `useLightsDirector`, called from `TV.jsx` as things appear): cabinet score → machine breathes; record takeover → champion; new #1 → leader bounce + wash; ranked takeover → room breathes in the player's color; games milestone → gold top/curb bounce; Wall of Shame → slow dim red sag. Joins, PBs, climbs and spotlights get no extra effect. The simulator lists this mapping under its buttons.
+  - The TV uses the same machine colors (`machineColors` in `components/tv/theme.js` reads `machineThemes`): a cabinet hit breathes player color ↔ machine color, and a record cycles the machine's three colors.
+  - Machine highlights light the top and curb zones together (`scoreAlsoOnTop: true`).
+  - The TV's sound and lights buttons appear only while the mouse is in the bottom-right corner (never in the simulator's TV view).
   - Machine-zone effects are always symmetric (`mi` + `rev`, mirrored from the machine's center); nothing scrolls one way across a machine.
   - Stuck-light safety: `destroy()` returns anything mid-flash to rest, and the driver re-sends "off" to idle machine zones every 5 s (a dropped MQTT message can't leave a machine lit).
   - The simulator's TV view publishes on a private channel (`sim/<random>`), so open simulators and test runs don't light each other up. Only the real TV in simulator-only mode uses the shared `sim` topic.

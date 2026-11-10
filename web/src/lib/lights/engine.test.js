@@ -63,7 +63,7 @@ describe('lights engine', () => {
     e.score(FATHOM, CYAN);
     vi.advanceTimersByTime(60);
     expect(sent).toHaveLength(1);
-    expect(sent[0].seg.map(s => s.id).sort((a, b) => a - b)).toEqual([9, 11]);
+    expect(sent[0].seg.map(s => s.id).sort((a, b) => a - b)).toEqual([2, 4, 9, 11]) // top + curb zones of both machines, in one message;
   });
 
   it('a champion preempts a score; a score during a champion effect is dropped', () => {
@@ -280,6 +280,23 @@ describe('lights engine', () => {
     for (const a of LIGHTS.ambientCycle) {
       expect(['Pride 2015', 'Colorloop', 'Rainbow']).not.toContain(a.fx);
       for (const n of a.col || []) expect(LIGHTS.coolColors[n]).toBeTruthy();
+    }
+  });
+
+  it('TV moments: ranked breathes the room, milestone bounces gold, shame sags to dim red; all recover', () => {
+    for (const [fn, check] of [
+      [() => e.ranked(CYAN), s => s.fx === LIGHTS.effects.Breathe && JSON.stringify(s.col[0]) === JSON.stringify(CYAN)],
+      [() => e.milestone(), s => s.col?.[0]?.[0] === 255 && s.col[0][1] === 170],
+      [() => e.shame(), s => s.fx === LIGHTS.effects.Breathe && s.bri === 110],
+    ]) {
+      e.start(); sent = [];
+      fn();
+      vi.advanceTimersByTime(60);
+      const segs = sent.flatMap(p => p.seg || []);
+      expect(segs.some(s => [0, 1, 8].includes(s.id) && check(s))).toBe(true);
+      vi.advanceTimersByTime(8000);
+      const fx = [0, 1, 8].map(id => segsFor(id).at(-1).fx);
+      expect(new Set(fx).size).toBe(1); // back to the shared ambient effect
     }
   });
 });

@@ -28,18 +28,36 @@ export default function TV() {
   // The simulator's TV view passes its own private channel (?ch=…), so test pages don't light up each other.
   const simCh = lightsSim ? (new URLSearchParams(location.search).get('ch') || '').replace(/[^a-z0-9]/gi, '').slice(0, 16) : '';
   const lights = useLightsDirector({ settings: lightsSettings, party, scores, players, standings, ready: ready && (!demo || lightsSim), simOnly: lightsSim, simChannel: simCh ? `sim/${simCh}` : null });
-  const live = useLiveEvents({ standings, scores, players, ready, demo, onDemo: lights.onDemo });
+  const live = useLiveEvents({ standings, scores, players, ready, demo });
+  // The garage lights follow what's on screen, as it appears.
+  useEffect(() => { if (live.takeover) lights.onTakeover(live.takeover); }, [live.takeover?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (live.toast) lights.onToast(live.toast); }, [live.toast?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const litHits = useRef(new Set());
+  useEffect(() => {
+    for (const h of Object.values(live.hits)) {
+      if (litHits.current.has(h.id)) continue;
+      litHits.current.add(h.id);
+      lights.onHit(h);
+    }
+  }, [live.hits]); // eslint-disable-line react-hooks/exhaustive-deps
   const [soundOn, setSoundOn] = useState(false);
   const [attract, setAttract] = useState(false);
   const lastEvent = useRef(Date.now());
   // Show the mouse cursor while it moves; hide it after 3 s of stillness.
+  // The sound / lights buttons appear only while the mouse is in the bottom-right corner.
   const [cursor, setCursor] = useState(false);
+  const [controls, setControls] = useState(false);
   useEffect(() => {
-    let t;
-    const move = () => { setCursor(true); clearTimeout(t); t = setTimeout(() => setCursor(false), 3000); };
+    let t, tc;
+    const move = ev => {
+      setCursor(true); clearTimeout(t); t = setTimeout(() => setCursor(false), 3000);
+      if (ev.clientX > window.innerWidth - 480 && ev.clientY > window.innerHeight - 220) {
+        setControls(true); clearTimeout(tc); tc = setTimeout(() => setControls(false), 3000);
+      }
+    };
     window.addEventListener('mousemove', move);
     window.addEventListener('mousedown', move);
-    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mousedown', move); clearTimeout(t); };
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mousedown', move); clearTimeout(t); clearTimeout(tc); };
   }, []);
   const [flash, setFlash] = useState({});
   // Top Players: the top 3 stay pinned; everyone else pages through below them, plus up to 3 "1 machine away" players.
@@ -145,7 +163,7 @@ export default function TV() {
   const champ = awards.champion;
 
   return (
-    <div className={`tv-frame tv2-frame${cursor ? ' show-cursor' : ''}`} onClick={() => { if (!sound.isOn()) toggleSound(); }}>
+    <div className={`tv-frame tv2-frame${cursor ? ' show-cursor' : ''}${controls && !lightsSim ? ' show-controls' : ''}`} onClick={() => { if (!sound.isOn()) toggleSound(); }}>
       <div className="tv tv2">
         <div className="tv2-drift">
           {party?.status === 'closed' && <div className="tv2-closed">Scoring closed · final standings</div>}

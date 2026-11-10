@@ -16,7 +16,7 @@ const MERGE_MS = 50;
 const KEEP_OFF_MS = 5000;
 const SEG_GAP_MS = 1000;
 
-export const DUR = { score: 3000, champion: 5000, leader: 4000, open: 4000 };
+export const DUR = { score: 3000, champion: 5000, leader: 4000, open: 4000, ranked: 3500, shame: 4500 };
 
 export class LightsEngine {
   constructor({ send, cfg = LIGHTS, zones = null, timeScale = 1, music = null, log = () => {} } = {}) {
@@ -277,19 +277,34 @@ export class LightsEngine {
     return steps;
   }
 
-  champion(machineId, color) { // a new high score: white flashes on that machine, then rainbow + their color
+  champion(machineId, color) { // a new high score: white flashes, then the machine's colors chase out from its center
     if (this.blocked(3)) return;
     const s = this.machineSegs(machineId);
     if (!s) return;
-    const top = this.themeChase(machineId, color); // the machine's own colors, mirrored from its center
-    const curb = { fx: this.fx('Solid'), bri: 255, col: [color] };
-    if (this.cfg.whiteFlash?.champion) {
-      this.sequence([s.top], this.whiteFlashSteps(top), 3, DUR.champion);
-      this.sequence([s.curb], this.whiteFlashSteps(curb), 3, DUR.champion);
-    } else {
-      this.effect(s.top, top, 3, DUR.champion);
-      this.effect(s.curb, curb, 3, DUR.champion);
-    }
+    const chase = this.themeChase(machineId, color); // top and curb together: one tall column of light
+    if (this.cfg.whiteFlash?.champion) this.sequence([s.top, s.curb], this.whiteFlashSteps(chase), 3, DUR.champion);
+    else for (const id of [s.top, s.curb]) this.effect(id, chase, 3, DUR.champion);
+  }
+
+  // A player unlocks their overall ranking: the room breathes once in their color.
+  ranked(color) {
+    if (this.blocked(2)) return;
+    const glow = { fx: this.fx('Breathe'), sx: 150, ix: 128, bri: 255, col: [color, [0, 0, 0, 0]] };
+    for (const id of this.baseSegs()) this.effect(id, glow, 2, DUR.ranked);
+  }
+
+  // A games-played milestone (e.g. 50 games tonight): the room celebrates, top and curb bouncing
+  // in gold, then back to ambient.
+  milestone() {
+    this.pingPong(this.cfg.milestoneGold, { times: 6, prio: 2 });
+  }
+
+  // Someone new hits the bottom of the Wall of Shame: a "sad trombone" — the room sags to a dim,
+  // slow red breath for a few seconds, then recovers.
+  shame() {
+    if (this.blocked(2)) return;
+    const droop = { fx: this.fx('Breathe'), sx: 40, ix: 128, bri: 110, col: [[150, 0, 0, 0], [0, 0, 0, 0]] };
+    for (const id of this.baseSegs()) this.effect(id, droop, 2, DUR.shame);
   }
 
   leader(color) { // a new #1: white bounces top ↔ bottom, then the whole room washes in their color
@@ -377,8 +392,7 @@ export class LightsEngine {
       for (const id of [top, band, curb]) this.effect(id, glow, 4, 0);
       const s = cue.machineId ? this.machineSegs(cue.machineId) : null;
       if (s) {
-        this.effect(s.top, this.themeChase(cue.machineId, c), 4, 0);
-        this.effect(s.curb, { fx: this.fx('Solid'), bri: 255, col: [c] }, 4, 0);
+        for (const id of [s.top, s.curb]) this.effect(id, this.themeChase(cue.machineId, c), 4, 0);
       }
       this.flush();
     }

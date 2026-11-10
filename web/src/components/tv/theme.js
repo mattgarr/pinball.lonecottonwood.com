@@ -1,15 +1,13 @@
 import { machineArt, machineSlug } from '../../lib/machineArt.js';
+import { LIGHTS } from '../../lib/lights/config.js';
 
-// Backbox "lamp" colour per machine — tuned to each backglass's dominant palette.
-const GLOW = {
-  'centaur': '#ff3b2f',
-  'fathom': '#18c6ff',
-  'whirlwind': '#4f9dff',
-  'white-water': '#22e0c2',
-  'cactus-canyon': '#ff9a1f',
-  'dungeons-dragons': '#b356ff',
-};
-export const machineGlow = name => GLOW[machineSlug(name)] || '#ffb02e';
+// Each machine's colors come from the garage lights' theme (lib/lights/config.js), so a machine
+// lighting up looks the same on the TV and on the wall. RGBW → screen: the white chip adds white.
+const hex = ([r, g, b, w = 0]) => '#' + [r + w, g + w, b + w].map(v => Math.min(255, v).toString(16).padStart(2, '0')).join('');
+const THEMES = Object.fromEntries(Object.values(LIGHTS.machineThemes).map(t => [machineSlug(t.name), t.colors.map(hex)]));
+// [main, second, third] for a machine.
+export const machineColors = name => THEMES[machineSlug(name)] || ['#ffb02e', '#ff6a00', '#ffd84d'];
+export const machineGlow = name => machineColors(name)[0];
 
 export { machineArt };
 

@@ -3,13 +3,17 @@ import Icon from '../Icon.jsx';
 import Backbox from './Backbox.jsx';
 import Dmd from './Dmd.jsx';
 import { fmtShort } from '../../lib/scoring.js';
-import { machineGlow } from './theme.js';
+import { machineColors } from './theme.js';
 
 // One machine column: lit backbox on top, name plate, then the top-10 like a high-score table.
+// Lighting matches the garage strips: a score breathes player color ↔ machine color; a record
+// cycles the machine's three colors.
 export default function Cabinet({ entry, i, hot, hit }) {
   const { machine: m, top } = entry;
+  const [c1, c2, c3] = machineColors(m.name);
   return (
-    <div className={`cab2${hot ? ' hot' : ''}${hit ? ' hit' : ''}`} style={{ '--glow': machineGlow(m.name), '--i': i }}>
+    <div className={`cab2${hot ? ' hot' : ''}${hit ? ' hit' : ''}`}
+      style={{ '--glow': c1, '--glow2': c2, '--glow3': c3, '--pc': hit?.player?.color || c1, '--i': i }}>
       <Backbox machine={m} i={i} />
       {hit && (
         <div className="cab2-hit" key={hit.id}>

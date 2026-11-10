@@ -66,34 +66,6 @@ export function useLightsDirector({ settings, party, scores, players, standings,
   const music = settings?.music || null;
   useEffect(() => { engineRef.current?.setMusic(music); }, [music]);
 
-  // New scores: a pulse behind that machine, or a champion effect when it's a new high score.
-  const seen = useRef(null);
-  useEffect(() => {
-    if (!ready) return;
-    const live = scores.filter(s => !s.voided);
-    if (!seen.current) { seen.current = new Set(scores.map(s => s.id)); return; }
-    const fresh = live.filter(s => !seen.current.has(s.id));
-    for (const s of scores) seen.current.add(s.id);
-    const e = engineRef.current;
-    if (!e || !fresh.length) return;
-    for (const s of fresh) {
-      const before = live.filter(x => x.machine_id === s.machine_id && x.id !== s.id && !fresh.includes(x));
-      const best = before.reduce((m, x) => Math.max(m, x.value), -1);
-      if (best >= 0 && s.value > best) e.champion(s.machine_id, colorOf.current(s.player_id));
-      else e.score(s.machine_id, colorOf.current(s.player_id));
-    }
-  }, [scores, ready]);
-
-  // A new overall leader (#1 rating changes hands).
-  const leaderRef = useRef(undefined);
-  const leaderId = standings?.ranked?.[0]?.player?.id ?? null;
-  useEffect(() => {
-    if (!ready) return;
-    if (leaderRef.current === undefined) { leaderRef.current = leaderId; return; }
-    if (leaderId && leaderId !== leaderRef.current) engineRef.current?.leader(colorOf.current(leaderId));
-    leaderRef.current = leaderId;
-  }, [leaderId, ready]);
-
   // Party opened / closed, and the end of the reveal.
   const statusRef = useRef(null);
   const revealRef = useRef(null);
@@ -129,17 +101,33 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     e.revealCue({ color: hexToRgbw(hex), machineId: slide.machine?.id, final: slide.label === 'GRAND CHAMPION' });
   }, []);
 
-  // Demo events from the TV's demo mode (simulator preview only).
-  const onDemo = useCallback(ev => {
+  // The lights follow what the TV puts on screen, at the moment it appears (live and demo alike):
+  //   a score hits a cabinet → that machine breathes (player color ↔ machine color)
+  //   machine record takeover → champion: white flashes, then the machine's colors chase out
+  //   new #1 takeover → leader: white bounces top ↔ curb, then the room washes in their color
+  //   ranked takeover (a player unlocks their ranking) → the room breathes once in their color
+  //   games milestone takeover → gold top ↔ curb bounce
+  //   Wall of Shame note → the room sags to a slow dim red
+  //   attract spotlights and small notes (joins, PBs, climbs) → nothing: the cabinet pulse covers them
+  const onHit = useCallback(hit => {
     const e = engineRef.current;
-    if (!e || !simOnly) return;
-    const c = colorOf.current(ev.player?.id);
-    if (ev.kind === 'score') e.score(ev.machineId, c);
-    else if (ev.kind === 'champion') e.champion(ev.machineId, c);
-    else if (ev.kind === 'leader') e.leader(c);
-  }, [simOnly]);
+    if (e && hit?.machine) e.score(hit.machine.id, colorOf.current(hit.player?.id));
+  }, []);
+  const onTakeover = useCallback(tk => {
+    const e = engineRef.current;
+    if (!e || !tk) return;
+    const c = colorOf.current(tk.player?.id);
+    if (tk.kind === 'record' && tk.machine) e.champion(tk.machine.id, c);
+    else if (tk.kind === 'leader') e.leader(c);
+    else if (tk.kind === 'ranked') e.ranked(c);
+    else if (tk.kind === 'milestone') e.milestone();
+  }, []);
+  const onToast = useCallback(t => {
+    const e = engineRef.current;
+    if (e && t?.kind === 'shame') e.shame();
+  }, []);
 
-  return { driver, setDriver, enabled, dry, active, onRevealSlide, onDemo };
+  return { driver, setDriver, enabled, dry, active, onRevealSlide, onHit, onTakeover, onToast };
 }
 
 // Shared by the TV (as driver) and the simulator / host page (when no TV is driving).
@@ -154,6 +142,9 @@ export function runControl(e, msg) {
     case 'champion': e.champion(msg.machineId, color); break;
     case 'leader': e.leader(color); break;
     case 'pingpong': e.pingPong(color); break;
+    case 'ranked': e.ranked(color); break;
+    case 'milestone': e.milestone(); break;
+    case 'shame': e.shame(); break;
     case 'open': e.partyOpen(); break;
     case 'close': e.stop(); break;
     case 'reveal': e.revealCue({ color, machineId: msg.machineId, final: !!msg.final }); break;

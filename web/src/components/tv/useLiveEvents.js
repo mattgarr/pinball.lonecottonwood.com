@@ -111,9 +111,7 @@ export function buildSpotlights({ standings, scores, players }, machineCursor = 
 //  - toasts (corner): 'join', 'enter', 'climb', 'pb', 'close', 'milestone', 'shame'
 //  - hits (on a cabinet): every new score, for a few seconds (with PB / close badges)
 //  - news: recent headlines for the bottom crawl
-export function useLiveEvents({ standings, scores, players, ready, demo = false, onDemo = null }) {
-  const onDemoRef = useRef(onDemo);
-  onDemoRef.current = onDemo;
+export function useLiveEvents({ standings, scores, players, ready, demo = false }) {
   const [takeovers, setTakeovers] = useState([]);
   const [toasts, setToasts] = useState([]);
   const [hits, setHits] = useState({}); // machineId -> hit
@@ -364,10 +362,6 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false,
       const k = i++ % 9;
       const t = Date.now();
       addHit({ id: `demo-hit-${t}`, machine: m.machine, player: p, value, rank: 1 + (k % 3), isPB: k === 3 });
-      // Lights preview (/lights-sim): the same demo events drive the simulated strips.
-      onDemoRef.current?.(k === 2 ? { kind: 'champion', machineId: m.machine.id, player: p }
-        : { kind: 'score', machineId: m.machine.id, player: p });
-      if (k === 4) onDemoRef.current?.({ kind: 'leader', player: p });
       if (k === 0) addNews([`${p.display_name}: ${value.toLocaleString()} on ${m.machine.name}`]);
       if (k === 1) { pushToasts([{ kind: 'join', player: q }]); addNews([`${q.display_name} joins`]); }
       if (k === 2) {

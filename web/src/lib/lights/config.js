@@ -71,7 +71,8 @@ export const LIGHTS = {
   ambientBri: 170,
   // Full flashes on the strips' dedicated white chip for exciting moments (never faster than 3/s).
   whiteFlash: { champion: true, leader: true },
-  scoreAlsoOnTop: false, // score pulses light only the curb zone behind the machine
+  milestoneGold: [255, 170, 0, 0],
+  scoreAlsoOnTop: true, // machine highlights light the top and curb zones together (one tall column)
 
   // WLED keeps effect IDs fixed across versions; MQTT can't fetch the list, so they're named here.
   // IDs checked against WLED's FX.h (same in 0.14 and 0.15).

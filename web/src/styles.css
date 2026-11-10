@@ -2767,6 +2767,9 @@ button.link { background: none; border: 0; border-bottom: 2px dotted currentColo
 .ls-log { margin-top: 16px; font-size: var(--t10); color: #9c9cb4; line-height: 1.6; word-break: break-all; }
 .ls-log b { color: #e9e9f2; font-weight: normal; }
 .ls-dim { color: #66667a; }
+.ls-legend { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; margin: 0 0 12px; font-size: var(--t10); line-height: 1.6; }
+.ls-legend dt { color: #e9e9f2; }
+.ls-legend dd { margin: 0; color: #9c9cb4; }
 
 .lights-status { display: flex; flex-wrap: wrap; gap: 14px; margin: 6px 0 8px; }
 .lights-stat { display: inline-flex; align-items: center; }
