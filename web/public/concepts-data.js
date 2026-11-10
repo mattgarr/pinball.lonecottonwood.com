@@ -1,16 +1,49 @@
 window.CONCEPT_ITEMS = [
   // =========================================================================
-  // SERIES A: FINAL MASTER HERO (10 BILLY STRINGS POSTERS + 100% COLOR + ROLLING TV + GROUND FOG + UNDER-LOFT STRIP)
+  // SERIES A: THE ALL-GOVEE MAXIMALIST MASTERPIECE (ZERO GLARE, ZERO STRING LIGHTS, ZERO EXTRA FURNITURE)
   // =========================================================================
   {
     cat: 'hero',
-    section: 'SERIES A — FINAL MASTER HERO (10 BILLY STRINGS POSTERS + 100% COLOR + ROLLING TV + GROUND FOG + UNDER-LOFT STRIP)',
-    sectionSub: 'Your primary target build: horseshoe removed, 10 unbroken 18"×24" Billy Strings posters, 100% colored RGBIC + UV lighting, 65" TV on rolling cart, 16" disco ball, and ankle-deep low-lying ground fog.',
-    sectionShort: 'FINAL MASTER HERO',
+    section: 'SERIES A — THE ALL-GOVEE MAXIMALIST MASTERPIECE (ZERO GLARE • ZERO STRING LIGHTS • ZERO EXTRA FURNITURE)',
+    sectionSub: 'Final locked build: 100% Govee ecosystem controlled by 1 wall switch & app, dark glare-free under-loft wood joists, 10 unbroken Billy Strings posters, Govee H6093 Aurora/Laser Star projector + 8× H7060 floods on rafters, 16" disco ball, Govee Curtain Lights 2 in window, 65" TV on rolling cart, 2 glowing high-tops, and ankle-deep ice fog.',
+    sectionShort: 'ALL-GOVEE MASTER HERO',
+    code: 'FINAL-1',
+    level: '★ FINAL MASTER (STRAIGHT)',
+    title: 'All-Govee Maximalist Masterpiece — Straight-On Full Room (Zero Glare, Zero String Lights)',
+    desc: 'Zero overhead string lights and zero joist glare over the pinball glass! Features 8× Govee H7060 floods + Govee H6093 Aurora/Star projector on the rafters, 16" disco ball hit by 2× Govee H7065 spotlights, 10 unbroken Billy Strings posters lit by Govee H6089 downlights + H619E strip + UV, Govee H70B3 Curtain Lights in the left window, Govee H61E6 COB strip on the bar lip, 65" leaderboard TV on rolling cart with H6099 halo, and 2 glowing cyan/magenta cocktail tables in ankle-deep ground fog.',
+    img: '/concepts/govee_max_zero_glare_straight_1794268308791.jpg'
+  },
+  {
+    cat: 'hero',
+    section: 'SERIES A — THE ALL-GOVEE MAXIMALIST MASTERPIECE (ZERO GLARE • ZERO STRING LIGHTS • ZERO EXTRA FURNITURE)',
+    sectionSub: 'Final locked build: 100% Govee ecosystem controlled by 1 wall switch & app, dark glare-free under-loft wood joists, 10 unbroken Billy Strings posters, Govee H6093 Aurora/Laser Star projector + 8× H7060 floods on rafters, 16" disco ball, Govee Curtain Lights 2 in window, 65" TV on rolling cart, 2 glowing high-tops, and ankle-deep ice fog.',
+    sectionShort: 'ALL-GOVEE MASTER HERO',
+    code: 'FINAL-2',
+    level: '★ FINAL MASTER (DIAGONAL)',
+    title: 'All-Govee Maximalist Masterpiece — Wide Diagonal View (Zero Glare, Zero Extra Furniture)',
+    desc: 'Wide diagonal perspective preserving your exact left-wall tool drawers & butcher-block counter (zero barstools, zero floor lamps, zero string lights), dark glare-free under-loft wood joists above the 6 machines, Govee H6093 Aurora/Laser cloud projection across the peak, 16" disco ball, 10+ Billy Strings posters, Govee Curtain Lights 2 in the window, 65" leaderboard TV on a rolling cart, and 2 glowing cyan & magenta cocktail tables in ankle-deep ground fog.',
+    img: '/concepts/govee_max_zero_glare_diagonal_fixed_1794268576919.jpg'
+  },
+  {
+    cat: 'hero',
+    section: 'SERIES A — THE ALL-GOVEE MAXIMALIST MASTERPIECE (ZERO GLARE • ZERO STRING LIGHTS • ZERO EXTRA FURNITURE)',
+    sectionSub: 'Final locked build: 100% Govee ecosystem controlled by 1 wall switch & app, dark glare-free under-loft wood joists, 10 unbroken Billy Strings posters, Govee H6093 Aurora/Laser Star projector + 8× H7060 floods on rafters, 16" disco ball, Govee Curtain Lights 2 in window, 65" TV on rolling cart, 2 glowing high-tops, and ankle-deep ice fog.',
+    sectionShort: 'ALL-GOVEE MASTER HERO',
+    code: 'FINAL-3',
+    level: '★ FINAL MASTER (ALCOVE)',
+    title: 'All-Govee Maximalist Masterpiece — Zero-Glare 6-Machine Alcove, Sink Switch & Rolling TV Close-Up',
+    desc: 'Close-up of Fathom, Centaur, Cactus Canyon, Whirlwind, Whitewater & D&D under dark, glare-free wood joists (all 5 shop-light tubes turned off + black acoustic foam over the Cactus Canyon cutout), lit 100% indirectly by the hidden 3-sided Govee H619E top perimeter strip, backbox halo strip, and under-cabinet fog strip, plus the Govee H5125 6-Button Switch by the sink and 65" TV on a rolling cart.',
+    img: '/concepts/govee_max_zero_glare_alcove_1794268377401.jpg'
+  },
+  {
+    cat: 'hero',
+    section: 'SERIES A — THE ALL-GOVEE MAXIMALIST MASTERPIECE (ZERO GLARE • ZERO STRING LIGHTS • ZERO EXTRA FURNITURE)',
+    sectionSub: 'Final locked build: 100% Govee ecosystem controlled by 1 wall switch & app, dark glare-free under-loft wood joists, 10 unbroken Billy Strings posters, Govee H6093 Aurora/Laser Star projector + 8× H7060 floods on rafters, 16" disco ball, Govee Curtain Lights 2 in window, 65" TV on rolling cart, 2 glowing high-tops, and ankle-deep ice fog.',
+    sectionShort: 'ALL-GOVEE MASTER HERO',
     code: 'A1',
-    level: 'MASTER HERO',
-    title: 'Final Master Hero — Straight-On Full Room',
-    desc: '10 unbroken 18"×24" Billy Strings posters (horseshoe removed, 100% colored RGBIC + UV wash), 100% colored magenta/cyan left bar wall, 65" TV on rolling cart, 16" disco ball, colored string lights, and ankle-deep low-lying ground fog.',
+    level: 'EARLIER HERO (W/ STRINGS)',
+    title: 'Earlier Master Hero — Straight-On Room (With Overhead String Lights Comparison)',
+    desc: 'Comparison view with overhead colored string lights before switching to the cleaner Govee Aurora + Flood rafter setup.',
     img: '/concepts/hero_final_fog_rollingtv_straight_1794265605206.jpg'
   },
   {
