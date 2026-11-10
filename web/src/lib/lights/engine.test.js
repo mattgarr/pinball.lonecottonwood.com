@@ -36,7 +36,8 @@ describe('lights engine', () => {
     const on = segsFor(11);
     expect(on[0]).toMatchObject({ id: 11, on: true, fx: LIGHTS.effects.Breathe, col: [MAG, LIGHTS.machineThemes[WHIRLWIND].colors[0]] });
     vi.advanceTimersByTime(3300);
-    expect(segsFor(11).at(-1)).toEqual({ id: 11, on: false });
+    expect(segsFor(11).at(-1)).toMatchObject({ id: 11, on: false });
+    expect(segsFor(11).at(-1).start).toBeGreaterThanOrEqual(320); // parked on an invisible pixel
   });
 
   it('two machines scoring within 1 s both pulse and both restore', () => {
@@ -79,7 +80,7 @@ describe('lights engine', () => {
     vi.advanceTimersByTime(200);
     expect(segsFor(11).length).toBe(n);
     vi.advanceTimersByTime(5000);
-    expect(segsFor(4).at(-1)).toEqual({ id: 4, on: false });
+    expect(segsFor(4).at(-1)).toMatchObject({ id: 4, on: false });
   });
 
   it('nothing else fires during the reveal', () => {
@@ -143,7 +144,7 @@ describe('lights engine', () => {
 
   it('the curb stacks under the beam band: same width per machine, band and curb the same length', () => {
     e.start();
-    const segs = sent[0].seg, get = id => segs.find(s => s.id === id);
+    const segs = sent[0].seg, get = id => (id >= 2 && id <= 14 && id !== 8 ? { id, ...e.bounds[id] } : segs.find(s => s.id === id));
     for (let i = 0; i < 6; i++) {
       const t = get(2 + i), c = get(9 + i);
       expect(t.stop - t.start).toBe(c.stop - c.start);
@@ -328,5 +329,50 @@ describe('lights engine', () => {
     const ids = sent[0].seg.map(s => s.id);
     expect(ids).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
     expect(sent[0].seg.find(s => s.id === 11)).toMatchObject({ on: true, fx: LIGHTS.effects.Breathe });
+  });
+
+  it('idle machine zones are parked on invisible pixels, never over the real strips', () => {
+    e.start();
+    vi.advanceTimersByTime(60);
+    for (const id of [2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14]) {
+      const s = segsFor(id).at(-1);
+      expect(s.on).toBe(false);
+      expect(s.start).toBeGreaterThanOrEqual(320); // past the real 85-pixel curb (235–319)
+      expect(s.stop).toBeLessThanOrEqual(470); // still inside output 2's padded length
+    }
+    const starts = [2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14].map(id => segsFor(id).at(-1).start);
+    expect(new Set(starts).size).toBe(12);
+  });
+
+  it('a machine effect moves the zone onto its real pixels, and back to its parking spot after', () => {
+    e.start(); sent = [];
+    e.score(WHIRLWIND, MAG);
+    vi.advanceTimersByTime(100);
+    const on = segsFor(11).at(-1);
+    expect(on).toMatchObject({ on: true, start: e.bounds[11].start, stop: e.bounds[11].stop });
+    expect(on.start).toBeLessThan(320);
+    vi.advanceTimersByTime(3500);
+    expect(segsFor(11).at(-1).start).toBeGreaterThanOrEqual(320);
+  });
+
+  it('after close, an effect plays and then your preset starts again; resync leaves the preset alone', () => {
+    e.start(); e.stop(); sent = [];
+    e.test(WHIRLWIND, MAG);
+    vi.advanceTimersByTime(3600);
+    expect(sent.at(-1).ps).toBe(LIGHTS.ambientPreset);
+    sent = [];
+    e.resync(); vi.advanceTimersByTime(60);
+    expect(sent.length).toBe(0);
+    vi.advanceTimersByTime(70000); // no keep-off or minute re-push while your preset runs
+    expect(sent.length).toBe(0);
+  });
+
+  it('the minute re-push never cuts off a zone that is mid-effect', () => {
+    e.start();
+    vi.advanceTimersByTime(59000); sent = [];
+    e.champion(WHIRLWIND, MAG);
+    vi.advanceTimersByTime(1500); // the 60 s re-push lands during the champion effect
+    const offs = sent.flatMap(p => p.seg || []).filter(s => (s.id === 4 || s.id === 11) && s.on === false);
+    expect(offs).toEqual([]);
   });
 });

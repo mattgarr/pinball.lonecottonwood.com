@@ -45,6 +45,7 @@ function connect() {
     reconnectPeriod: 4000,
     connectTimeout: 8000,
     clean: true,
+    queueQoSZero: false, // after a Wi-Fi blip, don't replay a burst of stale flashes
   });
   client.on('message', (topic, buf) => {
     let msg = buf.toString();

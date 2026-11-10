@@ -134,13 +134,16 @@ const AMBIENT = (i, n, t) => { // stand-in for Matt's Arcade Attract playlist: p
 // Colors ([r,g,b]) for pixels [from, to) at time `now` (performance.now()).
 export function renderRange(model, from, to, now, timeScale = 1) {
   const out = [];
-  const segs = Object.values(model.segs).filter(s => s.on && s.start !== undefined && s.stop > s.start).sort((a, b) => a.id - b.id);
+  // Like WLED: every segment with pixels draws, and a switched-off one paints black over those below.
+  const segs = Object.values(model.segs).filter(s => s.start !== undefined && s.stop > s.start).sort((a, b) => a.id - b.id);
   const g = model.on ? (model.bri ?? 255) / 255 : 0;
   for (let p = from; p < to; p++) {
     let top = null;
     for (const s of segs) if (p >= s.start && p < s.stop) top = s; // higher ids draw on top
     let c;
-    if (top && !(model.ambient && AMBIENT_IDS.includes(top.id))) {
+    if (top && !top.on) {
+      c = [0, 0, 0];
+    } else if (top && !(model.ambient && AMBIENT_IDS.includes(top.id))) {
       const t = (now - (top.since || 0)) / timeScale;
       const n = top.stop - top.start;
       // WLED draws effect pixel i at physical pixel i + offset, so physical r shows effect pixel r - offset.

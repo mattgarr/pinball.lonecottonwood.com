@@ -28,7 +28,7 @@ export default function LightsSim() {
   const [mic, setMic] = useState('off'); // off | on | denied
   const [ambientLabel, setAmbientLabel] = useState('');
   const audioRef = useRef(null);
-  const [tvMode, setTvMode] = useState('demo'); // demo | live | off
+  const [tvMode, setTvMode] = useState('demo'); // demo | reveal | live | off
   // This page's private channel for its TV view, so other open simulators (or test runs) don't mix in.
   const [ch] = useState(() => Math.random().toString(36).slice(2, 12));
   useEffect(() => { ensureLightsTopic(); }, []); // with the host unlock, also show the real controller's traffic
@@ -75,6 +75,15 @@ export default function LightsSim() {
     } else apply(pr);
   };
   useEffect(() => () => clearInterval(playTimer.current), []);
+
+  // The remote, the wall switch and the controller's button: what the lights do with no TV or app.
+  const [bri, setBri] = useState(170);
+  const remote = msg => {
+    setTvMode('off'); engine.clearAll(); engine.stopCycle();
+    if (msg.bri !== undefined) setBri(msg.bri);
+    if (msg.on === false) setStandalone('');
+    if (hardware) publish('api', msg); else feedRef.current(msg);
+  };
 
   // Live traffic from the TV (real or dry-run).
   useEffect(() => {
@@ -123,7 +132,15 @@ export default function LightsSim() {
     return () => clearInterval(raf);
   }, [speed, PX]);
 
-  const fire = (cmd, extra = {}) => runControl(engine, { cmd, machineId, color, at: Date.now(), ...extra });
+  // Moments the TV shows (scores, records, #1…): with the TV view on, the button makes the TV show it
+  // and the lights follow the TV, as at the party. (With "send to hardware", the real strips get it too.)
+  const tvFrame = useRef(null);
+  const TV_MOMENTS = ['score', 'champion', 'leader', 'ranked', 'milestone', 'shame'];
+  const fire = (cmd, extra = {}) => {
+    const viaTv = TV_MOMENTS.includes(cmd) && (tvMode === 'demo' || tvMode === 'live') && tvFrame.current?.contentWindow;
+    if (viaTv) tvFrame.current.contentWindow.postMessage({ type: 'pw-sim', kind: cmd, machineId }, location.origin);
+    if (!viaTv || hardware) runControl(engine, { cmd, machineId, color, at: Date.now(), ...extra });
+  };
   useEffect(() => { engine.setMusic(music || null); if (music) setAmbientLabel(''); }, [engine, music]);
 
   // Sound: the Mac's microphone through the Web Audio analyser (like the Gledopto's mic), or a fake
@@ -204,14 +221,14 @@ export default function LightsSim() {
 
       <div className="ls-row">
         <span className="ls-label" style={{ margin: 0 }}>TV board</span>
-        {[['demo', 'TV demo'], ['live', 'Live party'], ['off', 'Hide TV']].map(([k, l]) => (
+        {[['demo', 'TV demo'], ['reveal', 'Winner reveal'], ['live', 'Live party'], ['off', 'Hide TV']].map(([k, l]) => (
           <label key={k} className="ls-mode"><input type="radio" checked={tvMode === k} onChange={() => setTvMode(k)} /> {l}</label>
         ))}
         <span className="ls-dim">The TV's events drive these strips (simulator only, never the real ones).</span>
       </div>
       {tvMode !== 'off' && (
         <div className="ls-tv">
-          <iframe key={tvMode} title="TV board" src={`${tvMode === 'demo' ? '/tv?demo&lights=sim' : '/tv?lights=sim'}&ch=${ch}`} />
+          <iframe ref={tvFrame} key={tvMode} title="TV board" src={`${tvMode === 'demo' ? '/tv?demo&lights=sim' : tvMode === 'reveal' ? '/tv?reveal&lights=sim' : '/tv?lights=sim'}&ch=${ch}`} />
         </div>
       )}
 
@@ -268,22 +285,33 @@ export default function LightsSim() {
           <span className="ls-buttons"><button type="button" onClick={toggleMic}>{mic === 'on' ? 'Stop listening' : 'Listen with this Mac\'s mic'}</button></span>
           <span className="ls-dim">{mic === 'on' ? 'Listening to the room' : mic === 'denied' ? 'Mic blocked: allow it in the browser' : 'No mic: using a fake 120 BPM beat'}</span>
         </div>
-        <div className="ls-row">
-          <label>Standalone (no TV)
-            <select value={standalone} onChange={e => {
-              const v = e.target.value; if (!v) return;
-              setTvMode('off'); engine.clearAll(); engine.stopCycle();
-              if (hardware) publish('api', { ps: Number(v) }); else feedRef.current({ ps: Number(v) });
-            }}>
-              <option value="">Pick a controller preset…</option>
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(id => <option key={id} value={id}>{presets[id].n}</option>)}
-            </select>
-          </label>
-          <span className="ls-buttons"><button type="button" onClick={() => {
-            setTvMode('off'); engine.clearAll(); engine.stopCycle();
-            if (hardware) publish('api', { ps: '1~4~' }); else feedRef.current({ ps: '1~4~' });
-          }}>Next mode (controller button)</button></span>
-          <span className="ls-dim">What the lights do on their own when the wall switch is flipped (boots into Attract).</span>
+        <div className="ls-offline">
+          <div className="ls-offline-head">Lights on their own (no TV, no app): wall switch, remote and the controller's button</div>
+          <div className="ls-row ls-buttons">
+            <button type="button" onClick={() => remote({ on: true, ps: 1 })}>Wall switch on (boots into Attract)</button>
+            <button type="button" onClick={() => remote({ on: false })}>Wall switch off</button>
+          </div>
+          <div className="ls-remote">
+            <div className="ls-remote-label">Remote</div>
+            <div className="ls-row ls-buttons">
+              <button type="button" onClick={() => remote({ on: true })}>On</button>
+              <button type="button" onClick={() => remote({ on: false })}>Off</button>
+              <button type="button" onClick={() => remote({ bri: Math.max(10, bri - 40) })}>Brightness −</button>
+              <button type="button" onClick={() => remote({ bri: Math.min(255, bri + 40) })}>Brightness +</button>
+            </div>
+            <div className="ls-row ls-buttons">
+              {[1, 2, 3, 4, 5, 6, 7].map(id => (
+                <button key={id} type="button" className={standalone === String(id) ? 'on' : ''} onClick={() => remote({ ps: id })}>{id} {presets[id].n}</button>
+              ))}
+            </div>
+          </div>
+          <div className="ls-row ls-buttons">
+            <span className="ls-remote-label">Controller button</span>
+            <button type="button" onClick={() => remote({ ps: presets[9].ps })}>Press (next show)</button>
+            <button type="button" onClick={() => remote({ ps: 7 })}>Double press (house lights)</button>
+            <button type="button" onClick={() => remote({ ps: 8 })}>Long press (off)</button>
+          </div>
+          <div className="ls-dim">{hardware ? 'These go to the real controller.' : 'Preview only; choose "Send to hardware" above to work the real lights like the remote does.'} Playlists step every 8 s here (3 min, 5 min, 1 min and 45 s on the real lights).</div>
         </div>
         <div className="ls-row">
           <label>Ambient
@@ -311,7 +339,7 @@ export default function LightsSim() {
           <button type="button" onClick={() => fire('shame')}>Wall of Shame</button>
           <button type="button" onClick={() => { fire('open'); setAmbientLabel(engine.ambientName()); }}>Party open</button>
           <button type="button" onClick={() => fire('close')}>Party close</button>
-          <button type="button" onClick={revealDemo}>Winner reveal</button>
+          <button type="button" onClick={() => (tvMode === 'off' ? revealDemo() : setTvMode('reveal'))}>Winner reveal</button>
           <button type="button" onClick={() => { fire('house', { on: !house }); setHouse(!house); }}>{house ? 'House lights off' : 'House lights'}</button>
         </div>
         <dl className="ls-legend">

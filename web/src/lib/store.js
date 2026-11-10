@@ -420,6 +420,7 @@ export const host = {
   check: pass => rpc('host_check', { p_pass: pass }),
   setStatus: status => hostCall('host_set_status', { p_status: status }),
   reveal: (active, matchDigits = null) => hostCall('host_reveal', { p_active: active, p_match_digits: matchDigits }),
+  revealStep: step => hostCall('host_reveal_step', { p_step: step }),
   voidScore: (id, voided) => hostCall('host_void', { p_score_id: id, p_voided: voided }),
   markReviewed: id => hostCall('host_review', { p_score_id: id }),
   logScanTest: t => hostCall('host_log_scan_test', {

@@ -1174,3 +1174,12 @@
 
 /* --- lights driver toggle (shows with the cursor, above the sound button) --- */
 .tv-sound.tv-lights { bottom: 64px; }
+
+/* --- reveal countdown: the prize's name, then 3, 2, 1 --- */
+.rv-counting .rv-shade { opacity: 0.88; }
+.rv-countdown { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 190px; }
+.rv-count-lead { font-family: var(--px); font-size: var(--t24); color: color-mix(in srgb, var(--accent) 70%, #fff); }
+.rv-count-num { font-family: var(--vt); font-size: 150px; line-height: 0.85; color: #fff; transform: scale(2.4);
+  text-shadow: 4px 4px 0 color-mix(in srgb, var(--accent) 60%, #000); animation: rv-count-pop 1s steps(6, end) both; }
+@keyframes rv-count-pop { 0% { transform: scale(3.4); opacity: 0; } 25% { transform: scale(2.4); opacity: 1; } 85% { opacity: 1; } 100% { transform: scale(2.2); opacity: 0.2; } }
+.rv { cursor: default; }

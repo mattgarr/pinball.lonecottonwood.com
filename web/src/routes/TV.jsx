@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ensureLightsTopic, useAwards, useParty, useStandings } from '../lib/store.js';
+import { ensureLightsTopic, getHostPass, host, useAwards, useParty, useStandings } from '../lib/store.js';
 import { useLightsDirector } from '../lib/lights/useLightsDirector.js';
 import QR from '../components/QR.jsx';
 import Reveal from '../components/Reveal.jsx';
@@ -21,20 +21,28 @@ export default function TV() {
   const { machines, players, scores, party, ready, standings, event } = useStandings();
   const awards = useAwards(standings, party?.reveal_active ? party.match_digits : null);
   const demo = typeof location !== 'undefined' && new URLSearchParams(location.search).has('demo');
+  const revealPreview = typeof location !== 'undefined' && new URLSearchParams(location.search).has('reveal');
   const { lights: lightsSettings } = useParty();
   useEffect(() => { ensureLightsTopic(); }, []); // learns the lights channel if this browser has the host unlock
   // Garage lights: only the screen marked as the lights driver (the TV on the Mac) sends anything.
   // /tv?lights=sim (the simulator's TV view) drives the simulated strips only, including demo events.
   const lightsSim = typeof location !== 'undefined' && new URLSearchParams(location.search).get('lights') === 'sim';
   // /tv?demo&lights=1: rehearsal, the demo's moments drive the real strips (normally demo never does).
-  const lightsRehearsal = demo && new URLSearchParams(location.search).get('lights') === '1';
+  const lightsRehearsal = (demo || revealPreview) && new URLSearchParams(location.search).get('lights') === '1';
   // The simulator's TV view passes its own private channel (?ch=…), so test pages don't light up each other.
   const simCh = lightsSim ? (new URLSearchParams(location.search).get('ch') || '').replace(/[^a-z0-9]/gi, '').slice(0, 16) : '';
-  const lights = useLightsDirector({ settings: lightsSettings, party, scores, players, standings, ready: ready && (!demo || lightsSim || lightsRehearsal), simOnly: lightsSim, simChannel: simCh ? `~/wpsim/${simCh}` : null });
+  const lights = useLightsDirector({ settings: lightsSettings, party, scores, players, standings, ready: ready && (!(demo || revealPreview) || lightsSim || lightsRehearsal), simOnly: lightsSim, simChannel: simCh ? `~/wpsim/${simCh}` : null });
   const live = useLiveEvents({ standings, scores, players, ready, demo });
   // The garage lights follow what's on screen, as it appears.
   useEffect(() => { if (live.takeover) lights.onTakeover(live.takeover); }, [live.takeover?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (live.toast) lights.onToast(live.toast); }, [live.toast?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // In the lights simulator's TV view, the simulator's event buttons show their moment here.
+  useEffect(() => {
+    if (!lightsSim) return undefined;
+    const on = e => { if (e.origin === location.origin && e.data?.type === 'pw-sim') live.inject(e.data.kind, e.data.machineId); };
+    window.addEventListener('message', on);
+    return () => window.removeEventListener('message', on);
+  }, [lightsSim, live.inject]); // eslint-disable-line react-hooks/exhaustive-deps
   const litHits = useRef(new Set());
   useEffect(() => {
     for (const h of Object.values(live.hits)) {
@@ -158,8 +166,16 @@ export default function TV() {
     else { await sound.enable(); setSoundOn(true); }
   }
 
-  if (party?.reveal_active) {
-    return <div className={`tv-frame tv2-frame${cursor ? ' show-cursor' : ''}`}><Reveal standings={standings} awards={awards} onSlide={lights.onRevealSlide} /></div>;
+  // The reveal: one prize at a time, advanced by hand (host page Next / Back, or a click, Space or the
+  // arrow keys here). /tv?reveal previews it locally without touching the party.
+  if (party?.reveal_active || revealPreview) {
+    const onStep = revealPreview ? null : n => { if (getHostPass()) host.revealStep(n).catch(() => {}); };
+    return (
+      <div className={`tv-frame tv2-frame${cursor ? ' show-cursor' : ''}`}>
+        <Reveal standings={standings} awards={awards} onSlide={lights.onRevealSlide}
+          step={revealPreview ? 0 : party?.reveal_step || 0} onStep={onStep} />
+      </div>
+    );
   }
 
   const joinURL = `${location.origin}/`;

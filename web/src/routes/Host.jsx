@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getHostPass, host, photoUrl, setHostPass, useParty } from '../lib/store.js';
+import { getHostPass, host, photoUrl, setHostPass, useAwards, useParty, useStandings } from '../lib/store.js';
+import { revealPlan } from '../components/Reveal.jsx';
 import { fmt } from '../lib/scoring.js';
 import { emailResults } from '../lib/emailResults.js';
 import Avatar from '../components/Avatar.jsx';
@@ -335,6 +336,26 @@ function GuestsCard({ eventId, eventName }) {
   );
 }
 
+// During the reveal: step through the prizes. Each Next shows the next prize's name and a 3-2-1 on
+// the TV, then the winner, and the TV waits there.
+function RevealControls({ party, busy, run }) {
+  const { standings } = useStandings();
+  const awards = useAwards(standings, party?.match_digits ?? null);
+  const plan = revealPlan({ standings, awards });
+  const step = Math.min(party?.reveal_step || 0, Math.max(0, plan.length - 1));
+  const cur = plan[step], next = plan[step + 1];
+  return (
+    <div className="reveal-controls">
+      <div className="muted small">Prize {step + 1} of {plan.length}{cur ? `: ${cur.label}, ${cur.title}` : ''}</div>
+      <div className="row gap">
+        <button className="secondary" type="button" disabled={busy || step === 0} onClick={() => run(() => host.revealStep(step - 1), 'Back one prize.')}>◀ Back</button>
+        <button className="primary" type="button" disabled={busy || !next} onClick={() => run(() => host.revealStep(step + 1), `Next: ${next.label}.`)}>{next ? `Next prize: ${next.label} ▶` : 'That was the last prize'}</button>
+      </div>
+      <div className="muted small">On the TV Mac you can also click, or press Space or the arrow keys.</div>
+    </div>
+  );
+}
+
 function EndOfNight({ party, event, open, busy, run }) {
   const [matchDigits, setMatchDigits] = useState('');
   const revealing = !!party?.reveal_active;
@@ -361,7 +382,10 @@ function EndOfNight({ party, event, open, busy, run }) {
               }, 'The reveal is playing on the TV.');
             }}>🎉 Start the reveal</button>
           ) : (
-            <button className="secondary big" type="button" disabled={busy} onClick={() => run(() => host.reveal(false), 'TV is back to the leaderboard.')}>End the reveal</button>
+            <>
+              <RevealControls party={party} busy={busy} run={run} />
+              <button className="secondary big" type="button" disabled={busy} onClick={() => run(() => host.reveal(false), 'TV is back to the leaderboard.')}>End the reveal</button>
+            </>
           )}
         </li>
         <li>

@@ -75,6 +75,10 @@ export const LIGHTS = {
   // WLED draws a segment's effect pixel i at physical pixel i + offset (FX_fcn setPixelColor:
   // indexSet += offset). If the bench test shows the curb shifted the wrong way, flip this to false.
   wledOffsetAdds: true,
+  // WLED still paints a switched-off segment (black) over the ones below it, so an idle machine zone is
+  // "parked" on pixels that don't exist: output 2 is padded to the top run's length, and pixels past
+  // the real curb (320+) are invisible. Each idle zone sits on its own pixel from parkStart.
+  parkStart: 330,
   scoreAlsoOnTop: true, // machine highlights light the top and curb zones together (one tall column)
 
   // WLED keeps effect IDs fixed across versions; MQTT can't fetch the list, so they're named here.
@@ -150,4 +154,13 @@ export function hexToRgbw(hex) {
   const h = String(hex || '').replace('#', '');
   if (!/^[0-9a-f]{6}$/i.test(h)) return [255, 0, 170, 0];
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16), 0];
+}
+
+// Where an idle machine zone is parked (one invisible pixel each; see parkStart).
+export function parkOf(id, cfg = LIGHTS) {
+  const { top, curb } = cfg.runs;
+  const n = cfg.machineOrder.length;
+  const k = id >= curb.firstMachineSeg ? n + (id - curb.firstMachineSeg) : id - top.firstMachineSeg;
+  const start = cfg.parkStart + k;
+  return { start, stop: start + 1 };
 }

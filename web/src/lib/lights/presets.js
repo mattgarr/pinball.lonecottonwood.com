@@ -22,13 +22,16 @@ const cool = names => names.map(n => LIGHTS.coolColors[n]);
 function layout(zones, state, machine = null) {
   let segs = [];
   const eng = new LightsEngine({ send: p => { segs = p.seg || segs; }, zones });
-  eng.applyLayout(zones); eng.flush(); eng.destroy();
+  eng.applyLayout(zones); eng.flush();
+  const bounds = { ...eng.bounds };
+  eng.destroy();
   const { top, curb } = LIGHTS.runs;
   const base = [top.baseSeg, top.bandSeg, curb.baseSeg];
   return segs.map(s => {
     if (base.includes(s.id)) return { ...s, on: true, bri: 255, mi: false, rev: false, ...state };
+    // Idle machine zones stay parked on invisible pixels (WLED paints an off segment black).
     const i = s.id >= curb.firstMachineSeg ? s.id - curb.firstMachineSeg : s.id - top.firstMachineSeg;
-    return machine ? { ...s, on: true, bri: 255, mi: true, rev: true, ...machine(LIGHTS.machineOrder[i]) } : { ...s, on: false };
+    return machine ? { ...s, ...bounds[s.id], on: true, bri: 255, mi: true, rev: true, ...machine(LIGHTS.machineOrder[i]) } : s;
   });
 }
 

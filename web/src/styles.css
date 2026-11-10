@@ -2750,7 +2750,7 @@ button.link { background: none; border: 0; border-bottom: 2px dotted currentColo
 .ls-dot.idle { background: #666; }
 .ls-strip { margin-bottom: 18px; }
 .ls-label { color: #9c9cb4; margin-bottom: 6px; }
-.ls-scroll { overflow-x: auto; padding-bottom: 6px; }
+.ls-scroll { overflow-x: auto; padding-bottom: 6px; max-width: calc(100vw - 32px); }
 .ls-scroll canvas { display: block; background: #05050a; }
 .ls-sections { position: relative; height: 16px; }
 .ls-section { position: absolute; top: 0; height: 14px; border-left: 2px solid #3c3c5c; padding-left: 4px; color: #7c7c9c; white-space: nowrap; overflow: hidden; box-sizing: border-box; }
@@ -2767,6 +2767,12 @@ button.link { background: none; border: 0; border-bottom: 2px dotted currentColo
 .ls-log { margin-top: 16px; font-size: var(--t10); color: #9c9cb4; line-height: 1.6; word-break: break-all; }
 .ls-log b { color: #e9e9f2; font-weight: normal; }
 .ls-dim { color: #66667a; }
+.ls-offline { border: 1px solid #2a2a38; padding: 12px 12px 4px; margin: 0 0 12px; }
+.ls-offline-head { color: #e9e9f2; font-size: var(--t10); margin-bottom: 10px; }
+.ls-remote { border-left: 2px solid #2a2a38; padding-left: 12px; margin-bottom: 4px; }
+.ls-remote-label { color: #9c9cb4; font-size: var(--t10); margin-bottom: 8px; }
+.ls-row .ls-remote-label { margin-bottom: 0; }
+.ls-buttons button.on { background: #fff; outline: 2px solid var(--nes-yellow); }
 .ls-legend { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; margin: 0 0 12px; font-size: var(--t10); line-height: 1.6; }
 .ls-legend dt { color: #e9e9f2; }
 .ls-legend dd { margin: 0; color: #9c9cb4; }
@@ -2788,3 +2794,5 @@ button.link { background: none; border: 0; border-bottom: 2px dotted currentColo
 .lights-bri select { flex: 1; height: 40px; font-family: var(--px); font-size: var(--t10); background: #000; color: #e9e9f2; border: 2px solid #33334a; padding: 0 8px; }
 .ls-tv { width: 100%; max-width: 1100px; aspect-ratio: 16 / 9; margin-bottom: 16px; border: 2px solid #22222e; background: #000; }
 .ls-tv iframe { width: 100%; height: 100%; border: 0; display: block; }
+
+.reveal-controls { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 12px; }

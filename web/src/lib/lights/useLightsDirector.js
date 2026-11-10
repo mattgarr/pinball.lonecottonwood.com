@@ -38,6 +38,9 @@ export function useLightsDirector({ settings, party, scores, players, standings,
   const colorOf = useRef(() => [255, 0, 170, 0]);
   colorOf.current = pid => hexToRgbw(players.find(p => p.id === pid)?.color);
 
+  const partyRef = useRef(party);
+  partyRef.current = party;
+
   // Create / tear down the engine when this screen starts or stops driving.
   useEffect(() => {
     if (!active) return undefined;
@@ -45,16 +48,19 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     const engine = new LightsEngine({ send: payload => publish(sendTo, payload), zones: settings?.zones || undefined, music: settings?.music || null });
     engineRef.current = engine;
     engine.start(); // clean slate: zones pushed, machine segments off, party base on
+    // Outside the party (not open), the room belongs to your WLED preset; the TV only adds moments.
+    if (!simOnly && partyRef.current?.status !== 'open') engine.stop();
     const beat = () => { if (!simOnly) publish('director', { at: Date.now(), dry, page: 'tv' }, { retain: true }); };
     beat();
     const iv = setInterval(beat, HEARTBEAT_MS);
-    // WLED announces "online" every time it (re)connects. The first message is just the retained
-    // current state; any later "online" means it rebooted and lost our segments, so push them again.
-    let heard = false;
+    // WLED re-publishes "online" after every change, so only "online" after "offline" means it
+    // rebooted and lost our segments: then push them again. (A minute-by-minute re-push covers
+    // reboots too quick to announce "offline".)
+    let last = null;
     const unStatus = simOnly ? () => {} : subscribe('status', m => {
-      const online = String(m).toLowerCase().includes('online');
-      if (heard && online) engine.resync();
-      heard = true;
+      const now = String(m).toLowerCase().includes('online') ? 'online' : 'offline';
+      if (last === 'offline' && now === 'online') engine.resync();
+      last = now;
     });
     const bye = () => { engine.stop(); if (!simOnly) publish('director', { at: Date.now(), off: true }, { retain: true }); };
     window.addEventListener('pagehide', bye);
@@ -91,7 +97,10 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     }
     statusRef.current = status;
     const rev = !!party?.reveal_active;
-    if (revealRef.current && !rev && e) e.revealEnd();
+    if (revealRef.current && !rev && e) {
+      e.revealEnd();
+      if (status !== 'open') e.stop(); // reveal over and the party is closed: back to your preset
+    }
     revealRef.current = rev;
   }, [party?.status, party?.reveal_active]);
 
@@ -106,12 +115,14 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     });
   }, [active]);
 
-  // The reveal calls this as each slide appears.
-  const onRevealSlide = useCallback(slide => {
+  // The reveal calls this for each count of the 3-2-1 (phase 'count', n = 3, 2, 1) and when the
+  // winner appears (phase 'show'), so the strips and the TV share one timeline.
+  const onRevealSlide = useCallback((slide, phase = 'show', n = 0) => {
     const e = engineRef.current;
     if (!e) return;
     const hex = slide.hero?.color || slide.list?.[0]?.player?.color || slide.accent;
-    e.revealCue({ color: hexToRgbw(hex), machineId: slide.machine?.id, final: slide.label === 'GRAND CHAMPION' });
+    if (phase === 'count') e.revealTick(n, hexToRgbw(slide.accent || hex));
+    else e.revealCue({ color: hexToRgbw(hex), machineId: slide.machine?.id, final: slide.label === 'GRAND CHAMPION' });
   }, []);
 
   // The lights follow what the TV puts on screen, at the moment it appears (live and demo alike):
@@ -161,6 +172,7 @@ export function runControl(e, msg) {
     case 'open': e.partyOpen(); break;
     case 'close': e.stop(); break;
     case 'reveal': e.revealCue({ color, machineId: msg.machineId, final: !!msg.final }); break;
+    case 'revealTick': e.revealTick(msg.n, color); break;
     case 'revealEnd': e.revealEnd(); break;
     case 'layout': e.applyLayout(msg.zones || e.zones); e.flush(); break;
     case 'music': e.setMusic(msg.name || null); break;

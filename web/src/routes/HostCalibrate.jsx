@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ensureLightsTopic, getHostPass, host, useParty } from '../lib/store.js';
 import { LightsEngine } from '../lib/lights/engine.js';
-import { LIGHTS, defaultZones, stackUnder } from '../lib/lights/config.js';
+import { LIGHTS, defaultZones, stackUnder, parkOf } from '../lib/lights/config.js';
 import { publish } from '../lib/lights/mqtt.js';
 
 const P = LIGHTS.pointerSeg;
@@ -81,7 +81,8 @@ export default function HostCalibrate() {
     zones.forEach((z, i) => {
       timers.current.push(setTimeout(() => send({ seg: [{ id: firstSeg + i, on: true, fx: 0, bri: 255, col: [ALT[i % 2]] }] }), 400 + i * 900));
     });
-    timers.current.push(setTimeout(() => send({ seg: zones.map((z, i) => ({ id: firstSeg + i, on: false })) }), 400 + zones.length * 900 + 2500));
+    // Then park them again on invisible pixels (an off zone still paints black on the real strip).
+    timers.current.push(setTimeout(() => send({ seg: zones.map((z, i) => ({ id: firstSeg + i, ...parkOf(firstSeg + i), on: false })) }), 400 + zones.length * 900 + 2500));
   }
 
   async function save() {

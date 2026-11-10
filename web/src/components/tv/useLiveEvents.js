@@ -392,10 +392,30 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
     return () => clearInterval(iv);
   }, [demo, ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The lights simulator's event buttons: show that moment on this TV (the lights then follow the TV).
+  const inject = useCallback((kind, machineId) => {
+    const ps = players, ms = standings.machines;
+    if (!ps.length || !ms.length) return;
+    const p = ps[Math.floor(Math.random() * ps.length)], q = ps.find(x => x.id !== p.id) || p;
+    const m = ms.find(x => x.machine.id === Number(machineId)) || ms[0];
+    const value = Math.round((Math.random() * 40 + 1) * 1e5) * 10;
+    const t = Date.now();
+    lastActivityRef.current = t;
+    if (['score', 'champion', 'leader', 'milestone'].includes(kind)) {
+      addHit({ id: `sim-hit-${t}`, machine: m.machine, player: p, value, rank: kind === 'champion' ? 1 : 2, isPB: false });
+    }
+    const add = item => setTakeovers([item]); // a button press shows right away (replaces what's up)
+    if (kind === 'champion') add({ kind: 'record', id: `sim-rec-${t}`, machine: m.machine, player: p, score: value * 3, prevScore: value, prevPlayer: q, N: 5 });
+    if (kind === 'leader') add({ kind: 'leader', id: `sim-lead-${t}`, player: p, rating: 87, prevPlayer: q });
+    if (kind === 'ranked') add({ kind: 'ranked', id: `sim-rank-${t}`, player: p, rank: 3, rating: 76, totalRanked: ps.length });
+    if (kind === 'milestone') add({ kind: 'milestone', id: `sim-mile-${t}`, count: 50, player: p, machine: m.machine, totalPlayers: ps.length });
+    if (kind === 'shame') pushToasts([{ kind: 'shame', player: q }]);
+  }, [players, standings, addHit, pushToasts]);
+
   const nextTakeover = useCallback(() => setTakeovers(q => q.slice(1)), []);
   const nextToast = useCallback(() => setToasts(q => q.slice(1)), []);
   return {
     takeover: takeovers[0] ?? null, queued: Math.max(0, takeovers.length - 1), nextTakeover,
-    toast: toasts[0] ?? null, nextToast, hits, news,
+    toast: toasts[0] ?? null, nextToast, hits, news, inject,
   };
 }

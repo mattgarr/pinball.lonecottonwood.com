@@ -10,7 +10,7 @@
 // - Changes within ~50 ms merge into one message, and a segment gets at most one new low-priority
 //   command per second (5 scores in 2 s → at most 3 commands for that segment).
 // - Nothing flashes faster than 3 times a second.
-import { LIGHTS, defaultZones, beamOf, curbOffset } from './config.js';
+import { LIGHTS, defaultZones, beamOf, curbOffset, parkOf } from './config.js';
 
 const MERGE_MS = 50;
 const KEEP_OFF_MS = 5000;
@@ -35,6 +35,7 @@ export class LightsEngine {
     this.music = music && cfg.music[music] ? music : null; // music mode: name of a sound-reactive effect
     this.cycleIdx = 0; // which ambient effect is up (rotates every cfg.ambientMinutes)
     this.cycleTimer = null;
+    this.bounds = {}; // machine segment id → its real pixels { start, stop }
   }
 
   // --- helpers ---------------------------------------------------------------------------------
@@ -61,9 +62,11 @@ export class LightsEngine {
   // the same effect in the same message, so they run in lockstep, stacked.
   baseSegs() { return [this.cfg.runs.top.baseSeg, this.cfg.runs.top.bandSeg, this.cfg.runs.curb.baseSeg]; }
   isBase(id) { return this.baseSegs().includes(id); }
+  // An idle machine zone: switched off AND parked on an invisible pixel (WLED paints off segments black).
+  offState(id) { return { id, ...parkOf(id, this.cfg), on: false }; }
 
   restState(id) {
-    if (!this.isBase(id)) return { id, on: false };
+    if (!this.isBase(id)) return this.offState(id);
     if (this.music) {
       const m = this.cfg.music[this.music];
       return { id, on: true, fx: this.fx(this.music), sx: m.sx, ix: m.ix, pal: 4, bri: 255, col: this.cfg.partyBase.col };
@@ -148,7 +151,7 @@ export class LightsEngine {
     st.prio = prio;
     // Machine zones are always symmetric: mirrored around the machine's center, so nothing ever
     // scrolls one way across a machine (rev + mi = moving out from the center).
-    const seg = this.isBase(id) ? { id, on: true, ...state } : { id, on: true, mi: true, rev: true, ...state };
+    const seg = this.isBase(id) ? { id, on: true, ...state } : { id, ...this.bounds[id], on: true, mi: true, rev: true, ...state };
     // Throttle repeat low-priority effects on the same segment: hold the latest, send it when allowed.
     const since = Date.now() - st.lastSent;
     if (!force && wasSame && prio < 4 && since < SEG_GAP_MS) {
@@ -174,6 +177,13 @@ export class LightsEngine {
     if (st.timer) { clearTimeout(st.timer); this.timers.delete(st.timer); }
     if (st.heldTimer) { clearTimeout(st.heldTimer); st.heldTimer = null; }
     st.timer = null; st.held = null; st.prio = 0; st.prioAtLastSend = 0;
+    if (this.closed) {
+      // After the party closes the room belongs to your preset. Any message to WLED stops a running
+      // playlist, so once this effect is over, start the preset again.
+      if (!this.isBase(id)) this.queue(this.offState(id));
+      if ([...this.segs.values()].every(x => x.prio === 0)) this.queueExtra({ ps: this.cfg.ambientPreset });
+      return;
+    }
     this.queue(this.restState(id));
   }
 
@@ -196,8 +206,12 @@ export class LightsEngine {
     this.cfg.machineOrder.forEach((mid, i) => {
       const t = zones.top.find(z => z.machineId === mid) || zones.top[i];
       const c = zones.curb.find(z => z.machineId === mid) || zones.curb[i];
-      if (t) this.queue({ id: top.firstMachineSeg + i, start: t.start, stop: t.stop, on: false });
-      if (c) this.queue({ id: curb.firstMachineSeg + i, start: c.start, stop: c.stop, on: false });
+      // Remember each zone's real pixels (effects send them); idle zones stay parked, busy ones keep going.
+      for (const [id, z] of [[top.firstMachineSeg + i, t], [curb.firstMachineSeg + i, c]]) {
+        if (!z) continue;
+        this.bounds[id] = { start: z.start, stop: z.stop };
+        if (this.seg(id).prio === 0) this.queue(this.offState(id));
+      }
     });
   }
 
@@ -215,20 +229,25 @@ export class LightsEngine {
   // are at rest, so a lost "off" can't leave a machine lit for the rest of the night.
   startKeepOff() {
     this.stopKeepOff();
+    let ticks = 0;
     this.keepOffTimer = setInterval(() => {
+      // Once a minute, push the whole layout again (a quick reboot may never announce "offline");
+      // zones that are busy are left alone, and unchanged bounds don't restart WLED's effects.
+      if (++ticks % 12 === 0) { this.applyLayout(); return; }
       const idle = this.allMachineSegs().filter(id => this.seg(id).prio === 0 && !this.pending.has(id));
       if (!idle.length) return;
-      for (const id of idle) this.queue({ id, on: false });
+      for (const id of idle) this.queue(this.offState(id));
     }, KEEP_OFF_MS);
   }
   stopKeepOff() { if (this.keepOffTimer) clearInterval(this.keepOffTimer); this.keepOffTimer = null; }
 
   start() { // page load / party open: clean slate, zones pushed, party base on
+    this.closed = false;
     this.clearAll();
     this.startCycle();
     this.startKeepOff();
     this.applyLayout();
-    for (const id of this.allMachineSegs()) this.queue({ id, on: false });
+    for (const id of this.allMachineSegs()) this.queue(this.offState(id));
     for (const id of this.baseSegs()) this.queue(this.restState(id));
     this.queueExtra({ on: true });
     this.flush();
@@ -237,6 +256,7 @@ export class LightsEngine {
   // The controller came back (power cut, reboot): it has forgotten the app's segments. Push the
   // zones again and put the current look back, without interrupting anything the app is doing.
   resync() {
+    if (this.closed) return; // your preset is playing; leave it alone
     this.applyLayout();
     if (this.house) for (const id of this.baseSegs()) this.queue({ id, on: true, fx: this.fx('Solid'), bri: 255, col: [this.cfg.houseWhite] });
     else if (!this.revealing) for (const id of this.baseSegs()) if (this.seg(id).prio === 0) this.queue(this.restState(id));
@@ -254,9 +274,11 @@ export class LightsEngine {
     this.clearAll();
     this.stopCycle();
     this.house = false; this.revealing = false;
-    for (const id of this.allMachineSegs()) this.queue({ id, on: false });
+    for (const id of this.allMachineSegs()) this.queue(this.offState(id));
     this.queueExtra({ ps: this.cfg.ambientPreset });
     this.flush();
+    this.stopKeepOff();
+    this.closed = true; // your preset plays; the app only steps in for a moment (see restore)
     this.needsLayout = true; // the preset may change segments; push the zones again before the next effect
   }
 
@@ -354,7 +376,7 @@ export class LightsEngine {
     this.house = !!on;
     if (on) {
       this.clearAll();
-      for (const id of this.allMachineSegs()) this.queue({ id, on: false });
+      for (const id of this.allMachineSegs()) this.queue(this.offState(id));
       for (const id of this.baseSegs()) this.effect(id, { fx: this.fx('Solid'), bri: 255, col: [this.cfg.houseWhite] }, 4, 0);
       this.flush();
     } else {
@@ -375,25 +397,41 @@ export class LightsEngine {
   // --- winner reveal ------------------------------------------------------------------------------
   // One cue per reveal slide, sent by the TV as each slide appears (so lights and TV share a timeline).
   // cue: { color: [r,g,b,w], machineId?: id, final?: bool }
+  // The reveal's 3-2-1 before each prize: the room goes dark and pulses once per count, brighter each
+  // time (one pulse a second, well under 3 flashes a second), in the prize's color.
+  revealTick(n, color) {
+    this.revealing = true;
+    this.house = false;
+    this.clearAll();
+    for (const id of this.allMachineSegs()) this.queue(this.offState(id));
+    const c = color || [255, 179, 0, 0];
+    const bri = { 3: 70, 2: 150, 1: 255 }[n] ?? 120;
+    for (const id of this.baseSegs()) this.effect(id, { fx: this.fx('Solid'), bri, col: [c] }, 4, 0, { force: true });
+    this.flush();
+    this.later(() => {
+      for (const id of this.baseSegs()) this.effect(id, { fx: this.fx('Solid'), bri: 12, col: [c] }, 4, 0, { force: true });
+      this.flush();
+    }, 380);
+  }
+
   revealCue(cue) {
     this.revealing = true;
     this.house = false;
     this.clearAll();
     const [top, band, curb] = this.baseSegs();
-    for (const id of this.allMachineSegs()) this.queue({ id, on: false });
+    for (const id of this.allMachineSegs()) this.queue(this.offState(id));
     const c = cue.color || [255, 179, 0, 0];
     if (cue.final) {
-      // Dim, slow build, burst in the winner's color, then three white house-light flashes (≤ 3/s).
+      // Right after the countdown: burst in the winner's color, three white house-light flashes
+      // (600 ms apart, under 3 a second), then a celebration chase that holds until the next prize.
       const steps = [
-        [0, { fx: this.fx('Solid'), bri: 25, col: [c] }],
-        [900, { fx: this.fx('Wipe'), sx: 60, bri: 140, col: [c, [0, 0, 0, 0]] }],
-        [2700, { fx: this.fx('Solid'), bri: 255, col: [c] }],
-        [3700, { fx: this.fx('Solid'), bri: 255, col: [this.cfg.houseWhite] }],
-        [3950, { fx: this.fx('Solid'), bri: 255, col: [c] }],
-        [4300, { fx: this.fx('Solid'), bri: 255, col: [this.cfg.houseWhite] }],
-        [4550, { fx: this.fx('Solid'), bri: 255, col: [c] }],
-        [4900, { fx: this.fx('Solid'), bri: 255, col: [this.cfg.houseWhite] }],
-        [5150, { fx: this.fx('Chase Rainbow'), sx: 180, bri: 255, col: [c] }],
+        [0, { fx: this.fx('Solid'), bri: 255, col: [c] }],
+        [600, { fx: this.fx('Solid'), bri: 255, col: [this.cfg.houseWhite] }],
+        [850, { fx: this.fx('Solid'), bri: 255, col: [c] }],
+        [1200, { fx: this.fx('Solid'), bri: 255, col: [this.cfg.houseWhite] }],
+        [1450, { fx: this.fx('Solid'), bri: 255, col: [c] }],
+        [1800, { fx: this.fx('Solid'), bri: 255, col: [this.cfg.houseWhite] }],
+        [2050, { fx: this.fx('Chase Rainbow'), sx: 180, bri: 255, col: [c] }],
       ];
       for (const [at, st] of steps) {
         this.later(() => {
@@ -415,7 +453,7 @@ export class LightsEngine {
   revealEnd() {
     this.revealing = false;
     this.clearAll();
-    for (const id of this.allMachineSegs()) this.queue({ id, on: false });
+    for (const id of this.allMachineSegs()) this.queue(this.offState(id));
     for (const id of this.baseSegs()) this.queue(this.restState(id));
     this.flush();
   }

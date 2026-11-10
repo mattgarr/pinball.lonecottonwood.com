@@ -14,6 +14,7 @@ describe('standalone presets', () => {
     LIGHTS.machineOrder.forEach((id, i) => {
       for (const sid of [LIGHTS.runs.top.firstMachineSeg + i, LIGHTS.runs.curb.firstMachineSeg + i]) {
         expect(segs.find(s => s.id === sid)).toMatchObject({ on: true, col: LIGHTS.machineThemes[id].colors });
+        expect(segs.find(s => s.id === sid).start).toBeLessThan(320); // on its real pixels
       }
     });
   });
@@ -27,7 +28,7 @@ describe('standalone presets', () => {
       for (const s of v.seg) {
         expect(s.stop).toBeGreaterThan(s.start);
         if ([0, 1, 8].includes(s.id) || v.n === 'Machine showcase') { expect(s.on).toBe(true); expect(valid.has(s.fx)).toBe(true); }
-        else expect(s.on).toBe(false);
+        else { expect(s.on).toBe(false); expect(s.start).toBeGreaterThanOrEqual(320); }
       }
     }
   });

@@ -9,24 +9,44 @@ import { useRamp } from './tv/Takeover.jsx';
 import '../tv.css';
 
 const fmt = n => Number(n).toLocaleString();
-const SLIDE_MS = 6500;
+const COUNT_MS = 1000; // each number of the 3-2-1
 const ordinal = n => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
 
-// Auto-advancing reveal: fun prizes, then machine champions, then 3rd, 2nd and the Grand Champion last.
-export default function Reveal({ standings, awards, onSlide }) {
+// The reveal, one prize at a time: fun prizes, then machine champions, then 3rd, 2nd and the Grand
+// Champion last. Each prize: its name and a 3-2-1 countdown, then the winner, then it waits for the
+// host (`step` from the party, via the host page's Next / Back) or a click / Space / arrow key here.
+export default function Reveal({ standings, awards, onSlide, step = 0, onStep }) {
   const slides = buildSlides({ standings, awards });
-  const [idx, setIdx] = useState(0);
+  const last = Math.max(0, slides.length - 1);
+  const [idx, setIdx] = useState(Math.min(step, last));
+  useEffect(() => { setIdx(Math.min(step, last)); }, [step, last]);
+  const go = n => {
+    const next = Math.max(0, Math.min(last, n));
+    if (next === idx) return;
+    setIdx(next);
+    onStep?.(next);
+  };
+  useEffect(() => {
+    const key = e => {
+      if (['ArrowRight', ' ', 'Enter', 'PageDown'].includes(e.key)) { e.preventDefault(); go(idx + 1); }
+      else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); go(idx - 1); }
+    };
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  });
 
-  // Tell the lights which slide is up, so the strips and the TV share one timeline.
+  // 3, 2, 1, then the winner (count 0). The lights get each count and the reveal, on the same timeline.
   const cur = slides[idx] ?? slides[0];
   const cueKey = cur ? `${idx}:${cur.label}:${cur.title || ''}` : '';
-  useEffect(() => { if (cur && onSlide) onSlide(cur); }, [cueKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  const [count, setCount] = useState(3);
   useEffect(() => {
-    if (slides.length <= 1) return;
-    const t = setInterval(() => setIdx(i => (i + 1) % slides.length), SLIDE_MS);
-    return () => clearInterval(t);
-  }, [slides.length]);
+    if (!cur) return undefined;
+    setCount(3);
+    onSlide?.(cur, 'count', 3);
+    const ts = [2, 1].map((n, k) => setTimeout(() => { setCount(n); onSlide?.(cur, 'count', n); }, COUNT_MS * (k + 1)));
+    ts.push(setTimeout(() => { setCount(0); onSlide?.(cur, 'show'); }, COUNT_MS * 3));
+    return () => ts.forEach(clearTimeout);
+  }, [cueKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const slide = slides[idx] ?? slides[0];
   if (!slide) return <div className="reveal-tv rv"><div className="rv-empty">No data to reveal yet.</div></div>;
@@ -34,8 +54,23 @@ export default function Reveal({ standings, awards, onSlide }) {
   const accent = slide.accent || '#ffcc33';
   const split = !!slide.machine;
 
+  if (count > 0) {
+    return (
+      <div className="reveal-tv rv rv-counting" style={{ '--accent': accent, '--slide-ms': `${COUNT_MS * 3}ms` }} onClick={() => go(idx + 1)}>
+        {slide.machine && <img key={`bg${idx}`} className="rv-bg" src={machineArt(slide.machine.name)} alt="" onError={e => artFallback(e, slide.machine.name)} />}
+        <div className="rv-shade" />
+        <div className="rv-top" key={`top${idx}`}><div className="rv-pill">{slide.label}</div></div>
+        <div className="rv-countdown">
+          <div className="rv-count-lead">And the winner is…</div>
+          <div className="rv-count-num" key={`n${idx}-${count}`}>{count}</div>
+        </div>
+        <Dots slides={slides} idx={idx} />
+      </div>
+    );
+  }
+
   return (
-    <div className="reveal-tv rv" style={{ '--accent': accent, '--slide-ms': `${SLIDE_MS}ms` }}>
+    <div className="reveal-tv rv" style={{ '--accent': accent, '--slide-ms': '1ms' }} onClick={() => go(idx + 1)}>
       {slide.machine && <img key={`bg${idx}`} className="rv-bg" src={machineArt(slide.machine.name)} alt="" onError={e => artFallback(e, slide.machine.name)} />}
       {slide.machine && <div className="rv-shade" />}
       <div className="rv-glow" />
@@ -73,11 +108,22 @@ export default function Reveal({ standings, awards, onSlide }) {
         </div>
       </div>
 
-      <div className="rv-dots">
-        {slides.map((_, i) => <span key={i === idx ? `on${idx}` : i} className={`rv-dot${i === idx ? ' on' : i < idx ? ' done' : ''}`} />)}
-      </div>
+      <Dots slides={slides} idx={idx} />
     </div>
   );
+}
+
+function Dots({ slides, idx }) {
+  return (
+    <div className="rv-dots">
+      {slides.map((_, i) => <span key={i === idx ? `on${idx}` : i} className={`rv-dot${i === idx ? ' on' : i < idx ? ' done' : ''}`} />)}
+    </div>
+  );
+}
+
+// For the host page: what each step of the reveal shows.
+export function revealPlan({ standings, awards }) {
+  return buildSlides({ standings, awards }).map(s => ({ label: s.label, title: s.title }));
 }
 
 function Ramp({ value }) {
