@@ -1222,3 +1222,59 @@
 .rv-walk-row.win { box-shadow: 0 0 50px color-mix(in srgb, var(--accent) 60%, transparent); animation: rv-reel-win 400ms steps(2, end) 3; }
 .rv-walk-note { font-family: var(--px); font-size: var(--t24); color: var(--accent); opacity: 0; min-height: 1.5em; }
 .rv-walk-note.on { opacity: 1; }
+
+/* ===================== FREE PLAY BOARD + TOURNAMENT CLOCK ===================== */
+/* Free play: header, full-height high score tables, crawl. */
+.tv2-drift.tv2-fp { grid-template-rows: 44px minmax(0, 1fr) 40px; }
+.fp-cabs .bb { flex: 0 0 214px; }
+.fp-cabs .cab2-scores { flex: 1 1 auto; overflow: hidden; }
+.fp-cabs .cab2-scores li { flex-basis: 25px; }
+.fp-cabs .cab2-scores li.r1 { flex-basis: 29px; }
+/* A best set in free play: a sky-blue bar and rank (legend in the header). */
+.cab2-scores li.fp { box-shadow: inset 4px 0 0 var(--nes-sky); }
+.cab2-scores li.fp .cab2-rank { color: var(--nes-sky); }
+.fp-cabs .cab2-hit { top: 90px; }
+
+.fp-sub { display: flex; align-items: center; gap: 10px; margin-top: 6px; min-width: 0; }
+.fp-badge {
+  flex: 0 0 auto; font-family: var(--px); font-size: var(--t12); line-height: 1; color: #000; background: var(--nes-sky);
+  padding: 4px 8px 3px; animation: tk-blink 1.6s steps(2, start) 6;
+}
+.fp-note { font-family: var(--px); font-size: var(--t10); color: var(--nes-sky); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; word-spacing: -2px; }
+
+/* The countdown chip (header, both boards). */
+.tv-clock { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; min-width: 0; white-space: nowrap; }
+.fp-sub .tv-clock { margin-top: 0; }
+.tv-clock-label { font-family: var(--px); font-size: var(--t10); color: var(--ink-2); word-spacing: -2px; overflow: hidden; text-overflow: ellipsis; }
+.tv-clock-time { font-family: var(--px); font-size: var(--t12); color: #000; background: var(--nes-lime, #58d854); padding: 4px 6px 3px; line-height: 1; }
+.tv-clock.end .tv-clock-time { background: var(--nes-yellow, #f8b800); }
+.tv-clock.soon .tv-clock-time { background: var(--nes-red); color: #fff; animation: tk-blink 1s steps(2, start) infinite; }
+
+/* Clock takeovers. */
+.to-clock.start { background: radial-gradient(60% 60% at 50% 45%, #062a0a, #000 75%); }
+.to-clock.end { background: radial-gradient(60% 60% at 50% 45%, #2a0610, #000 75%); }
+.to-clock .to-title { font-size: 48px !important; text-align: center; }
+.to-clock-body { position: relative; z-index: 3; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 36px; }
+.to-clock-num { font-family: var(--px); font-size: 240px; line-height: 1; color: #fff; text-shadow: 10px 10px 0 var(--glow); display: flex; flex-direction: column; align-items: center; gap: 28px; }
+.to-clock-num span { font-size: var(--t24); text-shadow: none; color: var(--glow); }
+.to-clock .to-sub { text-align: center; color: #e8e8f4; }
+.to-clock-icon { animation: lead-bob 0.6s steps(2, start) infinite; }
+
+/* Last 10 seconds: over everything, one number a second. */
+.to.final { z-index: 90; justify-content: center; gap: 30px; animation: none; }
+.to-final-label { position: relative; z-index: 3; font-family: var(--px); font-size: 48px; color: #fff; text-shadow: 4px 4px 0 var(--nes-red); }
+.to-final-label.small { font-size: var(--t24); color: var(--nes-yellow, #f8b800); text-shadow: none; animation: tk-blink 0.5s steps(2, start) infinite; }
+.to-final-num {
+  position: relative; z-index: 3; font-family: var(--px); font-size: 360px; line-height: 1; color: #fff;
+  text-shadow: 14px 14px 0 var(--nes-red); animation: final-pop 1s steps(5, end) both;
+}
+@keyframes final-pop { 0% { transform: scale(1.5); opacity: 0; } 20% { transform: scale(1); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.85; } }
+.to-clock.end.zero .to-title { color: #fff; }
+.to-gameover { font-size: 96px !important; padding: 0.3em 0.5em; }
+.tv2-closed.grace { background: var(--nes-red); animation: tk-blink 1s steps(2, start) infinite; }
+.tv2-closed.sealed { background: #3a2a00; color: var(--nes-yellow, #f8b800); }
+.pz-sealed { flex: 1; display: grid; place-items: center; text-align: center; gap: 10px; font-family: var(--px); font-size: var(--t16); color: var(--nes-yellow, #f8b800); line-height: 1.5; }
+.pz-sealed small { font-size: var(--t10); color: var(--ink-3); }
+.pr.sealed .pr-name, .pr.sealed .pr-val { color: var(--nes-yellow, #f8b800) !important; letter-spacing: 4px !important; }
+.fp-key { display: inline-block; width: 6px; height: 12px; background: var(--nes-sky); vertical-align: -1px; }
+.fp-badge { animation: none; }

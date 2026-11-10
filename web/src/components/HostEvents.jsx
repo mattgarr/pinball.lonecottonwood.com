@@ -103,7 +103,7 @@ export default function HostEvents({ run, busy }) {
                     {e.name}
                   </div>
                   <span className={`ev-stat-badge ${e.status === 'open' ? 'on' : 'off'}`}>
-                    {e.status === 'open' ? 'SCORES ON' : 'SCORES OFF'}
+                    {e.status !== 'open' ? 'SCORES OFF' : e.free_play ? 'FREE PLAY' : 'SCORES ON'}
                   </span>
                 </div>
                 <div className="ev-meta muted small">

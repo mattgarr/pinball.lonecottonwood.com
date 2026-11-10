@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { actions, findLoggedScore, useAllTime, useStandings } from '../lib/store.js';
+import { actions, findLoggedScore, useAllTime, useNightStandings, usePhase, useStandings } from '../lib/store.js';
+import { PhaseNote } from '../components/PhaseNote.jsx';
 import { friendlyError } from '../lib/errors.js';
 import { machineArt } from '../lib/machineArt.js';
 import { fmt, fmtShort, ordinal } from '../lib/scoring.js';
@@ -80,7 +81,12 @@ function buildRows(read, { scores, mid, me, players, keyPrefix, taken = new Set(
 export default function Machine() {
   const { id } = useParams();
   const mid = Number(id);
-  const { machines, players, scores, me, standings, party, ready, events } = useStandings();
+  const { machines, players, scores, me, standings: tourneyStandings, party, ready, events } = useStandings();
+  // Free play: ranks here are among every game tonight (the tournament's own ranks are frozen).
+  const phase = usePhase();
+  const counting = phase === 'on' || phase === 'grace' || phase === 'closed';
+  const night = useNightStandings();
+  const standings = counting ? tourneyStandings : night;
   const loc = useLocation();
   const nav = useNavigate();
 
@@ -316,7 +322,7 @@ export default function Machine() {
         <StartStep
           machine={machine} mineHere={mineHere} board={board} closed={closed}
           onSwitch={() => setSwitcher(true)} onSnap={onSnap} onType={() => { setPhoto(null); setReadInfo(null); setNotice(''); goStep('pad'); }}
-          onPhotoError={setErr} me={me}
+          onPhotoError={setErr} me={me} note={<PhaseNote />}
         />
       )}
 
@@ -355,7 +361,7 @@ export default function Machine() {
           machineScores={machineScores} playerById={playerById} busy={busy}
           onAttach={setPhoto} onPhotoError={setErr}
           onFix={() => (loc.state?.from === 'pad' ? nav(-1) : goStep('pad', { replace: true }))}
-          onSubmit={submitSolo} onSwitch={() => setSwitcher(true)}
+          onSubmit={submitSolo} onSwitch={() => setSwitcher(true)} freePlay={!counting}
         />
       )}
 
@@ -415,7 +421,7 @@ export default function Machine() {
 
 // RPC result → { duplicate, loggedBy }. loggedBy: who logged the existing row (null if unknown).
 function dupOf(r) {
-  return { duplicate: !!r?.duplicate, loggedBy: r?.duplicate ? r.logged_by ?? null : null };
+  return { duplicate: !!r?.duplicate, loggedBy: r?.duplicate ? r.logged_by ?? null : null, freePlay: !!r?.free_play };
 }
 
 // "ALREADY LOGGED ✓" / "ALREADY LOGGED BY [avatar] TINA ✓"
@@ -435,7 +441,7 @@ function Loading() {
 }
 
 // ---------------------------------------------------------------------------
-function StartStep({ machine, mineHere, closed, onSwitch, onSnap, onType, onPhotoError }) {
+function StartStep({ machine, mineHere, closed, onSwitch, onSnap, onType, onPhotoError, note = null }) {
   return (
     <>
       <div className="mhero">
@@ -458,6 +464,7 @@ function StartStep({ machine, mineHere, closed, onSwitch, onSnap, onType, onPhot
         <div className="err">Scoring's closed. Finals are on the TV.</div>
       ) : (
         <div className="start-actions">
+          {note}
           <PhotoButton className="snap-btn" onPhoto={onSnap} onError={onPhotoError} onType={onType}>
             <span className="snap-icon" aria-hidden="true"><PixelEmoji e="📸" size={40} /></span>
             <span className="snap-text">
@@ -528,7 +535,7 @@ function preflight(value, pid, machine, machineScores, photo) {
   return { warnings, crown, needsPhoto: crown.contested && !photo };
 }
 
-function ConfirmStep({ machine, board, value, photo, readInfo, me, forPlayer, whoChip, onCancel, machineScores, playerById, busy, onAttach, onPhotoError, onFix, onSubmit, onSwitch }) {
+function ConfirmStep({ machine, board, value, photo, readInfo, me, forPlayer, whoChip, onCancel, machineScores, playerById, busy, onAttach, onPhotoError, onFix, onSubmit, onSwitch, freePlay = false }) {
   const pid = forPlayer.id;
   const isMe = pid === me.id;
   const { warnings, crown, needsPhoto } = preflight(value, pid, machine, machineScores, photo);
@@ -558,6 +565,7 @@ function ConfirmStep({ machine, board, value, photo, readInfo, me, forPlayer, wh
           <div className="confirm-label">{fromPhoto ? 'We read' : 'You typed'}</div>
           <LedNumber value={value} size="xl" />
           <div className="confirm-say">≈ {sayNumber(value)}</div>
+          {freePlay && <div className="phase-note fp">This will be FREE PLAY: just for fun, it won't count for the tournament.</div>}
           {!mineAlready && (
             <div className={`confirm-preview${prevBest != null && value <= prevBest ? ' below' : ''}`}>
               {crown.claimedTop
@@ -931,6 +939,7 @@ function DoneStep({ machine, machines, results, standings, me, playerById, busy,
           <AlreadyLogged by={mine.loggedBy} me={me} playerById={playerById} className="done-dup" />
         )}
         {mine && <LedNumber value={mine.value} size="xl" />}
+        {results.some(r => !r.error && r.freePlay) && <div className="phase-note fp">Logged as free play: just for fun, it doesn't count for the tournament.</div>}
         {mine && now && (
           <div className="done-stats">
             <div className="done-rank">

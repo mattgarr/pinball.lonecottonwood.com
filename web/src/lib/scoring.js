@@ -9,6 +9,10 @@
 
 export const MIN_TABLES = 2;
 
+// Free-play scores (before the start, after the end, after the awards) never count for the
+// tournament. includeFreePlay: every game tonight (the free-play board and its live moments).
+const liveScores = (scores, includeFreePlay = false) => scores.filter(s => !s.voided && (includeFreePlay || !s.free_play));
+
 function rankRows(rows) {
   // rows: [{ playerId, best }] → sorted, with competition rank + standing
   rows.sort((a, b) => b.best - a.best);
@@ -25,8 +29,8 @@ function rankRows(rows) {
   return rows;
 }
 
-export function computeStandings({ machines = [], players = [], scores = [] }) {
-  const live = scores.filter(s => !s.voided);
+export function computeStandings({ machines = [], players = [], scores = [], includeFreePlay = false }) {
+  const live = liveScores(scores, includeFreePlay);
   const playerById = new Map(players.map(p => [p.id, p]));
 
   const stats = new Map(players.map(p => [p.id, {
@@ -99,7 +103,7 @@ export const PRIZE_ORDER = ['Grand Champion', '2nd Place', '3rd Place', 'machine
 
 export function computeAwards({ machines = [], players = [], scores = [], standings, matchDigits = null }) {
   if (!standings) return {};
-  const live = scores.filter(s => !s.voided);
+  const live = liveScores(scores);
   const playerById = new Map(players.map(p => [p.id, p]));
   const machineById = new Map(machines.map(m => [m.id, m]));
   const all = [...standings.stats.values()];
@@ -173,6 +177,25 @@ export function computeAwards({ machines = [], players = [], scores = [], standi
 
   const matchDrawn = matchDigits != null && matchDigits !== '';
   return { champion, second, third, machineChamps, grinder, bigWhiff, theMatch, matchDrawn };
+}
+
+// Free-play board: each machine's high score table across every game tonight (tournament and free
+// play), one row per player (their best), best first. freePlay marks a best set in free play.
+export function computeHighScores({ machines = [], players = [], scores = [], n = 10 }) {
+  const playerById = new Map(players.map(p => [p.id, p]));
+  const best = new Map(); // mid -> Map(pid -> score row)
+  for (const s of scores) {
+    if (s.voided || !playerById.has(s.player_id)) continue;
+    if (!best.has(s.machine_id)) best.set(s.machine_id, new Map());
+    const m = best.get(s.machine_id), cur = m.get(s.player_id);
+    if (!cur || s.value > cur.value || (s.value === cur.value && s.id < cur.id)) m.set(s.player_id, s);
+  }
+  return machines.map(machine => {
+    const rows = [...(best.get(machine.id)?.values() ?? [])]
+      .sort((a, b) => b.value - a.value || a.id - b.id)
+      .map((s, i) => ({ rank: i + 1, player: playerById.get(s.player_id), score: s.value, freePlay: !!s.free_play, scoreId: s.id }));
+    return { machine, N: rows.length, top: rows.slice(0, n) };
+  });
 }
 
 // Prize names a player is holding right now (for the ME tab and the results email).

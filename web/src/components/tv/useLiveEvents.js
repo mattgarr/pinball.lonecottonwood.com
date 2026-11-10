@@ -10,10 +10,12 @@ const ATTRACT_CHECK_MS = 75000; // check every 75s if room has been quiet
 const ATTRACT_QUIET_MS = 45000; // require 45s of quiet before showing an attract spotlight
 
 // Build deterministic "Arcade Attract" spotlight cards from live party data.
-export function buildSpotlights({ standings, scores, players }, machineCursor = 0) {
+export function buildSpotlights({ standings, scores, players, freePlay = false }, machineCursor = 0) {
   const cards = [];
   const ms = standings?.machines ?? [];
   if (!ms.length) return cards;
+  // Free play: no battles or bounties (nothing's at stake), just the machine tips.
+  if (freePlay) return buildTips(ms, players, machineCursor);
 
   // 1. CLOSEST BATTLE (tightest #1 vs #2 margin on any machine)
   let closest = null;
@@ -75,7 +77,13 @@ export function buildSpotlights({ standings, scores, players }, machineCursor = 
     }
   }
 
-  // 3. MACHINE SPOTLIGHT + PRO TIP & FUN FACT (from /content/machine-*.md)
+  cards.push(...buildTips(ms, players, machineCursor));
+  return cards;
+}
+
+// MACHINE SPOTLIGHT + PRO TIP & FUN FACT (from /content/machine-*.md)
+function buildTips(ms, players, machineCursor) {
+  const cards = [];
   const withTips = ms
     .map(m => ({ entry: m, hi: machineHighlights(m.machine.name) }))
     .filter(x => x.hi.tips.length > 0);
@@ -111,7 +119,11 @@ export function buildSpotlights({ standings, scores, players }, machineCursor = 
 //  - toasts (corner): 'join', 'enter', 'climb', 'pb', 'close', 'milestone', 'shame'
 //  - hits (on a cabinet): every new score, for a few seconds (with PB / close badges)
 //  - news: recent headlines for the bottom crawl
-export function useLiveEvents({ standings, scores, players, ready, demo = false }) {
+// freePlay: the free-play board. Standings then cover every game tonight; only hits, new high
+// scores, PBs, close calls and joins fire (nothing about tournament ranks).
+// sealed: the podium is a secret (last 15 min until the reveal): no leader / ranked / climb / shame moments.
+// lastCall: the last 15 minutes: the closest-battle spotlight shows without waiting for a quiet room.
+export function useLiveEvents({ standings, scores, players, ready, demo = false, freePlay = false, sealed = false, lastCall = false }) {
   const [takeovers, setTakeovers] = useState([]);
   const [toasts, setToasts] = useState([]);
   const [hits, setHits] = useState({}); // machineId -> hit
@@ -119,8 +131,9 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
   const base = useRef(null);
   const lastActivityRef = useRef(Date.now());
   const spotCursorRef = useRef(0);
-  const dataRef = useRef({ standings, scores, players });
-  dataRef.current = { standings, scores, players };
+  const dataRef = useRef({ standings, scores, players, freePlay, lastCall });
+  dataRef.current = { standings, scores, players, freePlay, lastCall };
+  const quiet = freePlay || sealed; // no tournament-rank moments
 
   const addNews = useCallback(items => {
     if (!items.length) return;
@@ -156,7 +169,7 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
     }
 
     const snap = {
-      champs, board, rankedIds, playerMachineBest,
+      freePlay, champs, board, rankedIds, playerMachineBest,
       leader: standings.topPlayers[0]?.player ?? null,
       shame: standings.bottomPlayers?.[0]?.player ?? null,
       playerIds: new Set(players.map(p => p.id)),
@@ -166,7 +179,7 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
     };
     const prev = base.current;
     base.current = snap;
-    if (!prev) return; // baseline
+    if (!prev || prev.freePlay !== freePlay) return; // baseline (also when switching boards)
     // A big jump all at once (the Mac woke from sleep, or the host switched events) is a catch-up,
     // not a burst of live moments: take it as the new baseline without a parade of takeovers.
     const newCount = scores.reduce((n, s) => n + (prev.seen.has(s.id) || s.voided ? 0 : 1), 0);
@@ -228,15 +241,15 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
       }
     }
 
-    // New overall #1 leader
-    const lead = standings.topPlayers[0];
+    // New overall #1 leader (tournament only)
+    const lead = quiet ? null : standings.topPlayers[0];
     if (lead && lead.player.id !== prev.leader?.id) {
       fresh.push({ kind: 'leader', id: `lead:${lead.player.id}:${lead.rating}`, player: lead.player, rating: lead.rating, prevPlayer: prev.leader });
       headlines.push(`${lead.player.display_name} takes the overall lead`);
     }
 
     // Newly ranked player (completed 2nd machine and unlocked overall ranking!)
-    for (const st of standings.ranked) {
+    for (const st of quiet ? [] : standings.ranked) {
       if (!prev.rankedIds.has(st.player.id)) {
         const isNewLeader = lead && st.player.id === lead.player.id && lead.player.id !== prev.leader?.id;
         if (!isNewLeader) {
@@ -254,7 +267,7 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
     }
 
     // Milestones: major ones get a full-screen takeover, minor ones get a corner toast
-    const m = MILESTONES.find(x => prev.games < x && snap.games >= x);
+    const m = freePlay ? null : MILESTONES.find(x => prev.games < x && snap.games >= x);
     if (m) {
       if (TAKEOVER_MILESTONES.has(m)) {
         fresh.push({
@@ -292,21 +305,21 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
     for (const p of players) {
       if (!prev.playerIds.has(p.id)) { notes.push({ kind: 'join', player: p }); headlines.push(`${p.display_name} joins`); }
     }
-    for (const st of standings.topPlayers.slice(0, BOARD_N)) {
+    for (const st of quiet ? [] : standings.topPlayers.slice(0, BOARD_N)) {
       if (st.player.id === lead?.player.id && lead.player.id !== prev.leader?.id) continue;
       if (!prev.rankedIds.has(st.player.id)) continue; // covered by 'ranked' takeover
       const was = prev.board.get(st.player.id);
       if (was == null) notes.push({ kind: 'enter', player: st.player, rank: st.rank, rating: st.rating });
       else if (st.rank < was) notes.push({ kind: 'climb', player: st.player, rank: st.rank, by: was - st.rank, rating: st.rating });
     }
-    const shame = standings.bottomPlayers?.[0]?.player;
+    const shame = quiet ? null : standings.bottomPlayers?.[0]?.player;
     if (shame && prev.shame && shame.id !== prev.shame.id) {
       notes.push({ kind: 'shame', player: shame });
       headlines.push(`${shame.display_name} hits rock bottom`);
     }
     pushToasts(notes);
     addNews(headlines);
-  }, [standings, scores, players, ready, demo, addHit, addNews, pushToasts]);
+  }, [standings, scores, players, ready, demo, freePlay, quiet, addHit, addNews, pushToasts]);
 
   // URL preview support (?spotlight=0, 1, 2 or ?takeover=ranked / milestone / record / leader) + Periodic Quiet-Room Attract Spotlights
   useEffect(() => {
@@ -360,13 +373,16 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
 
     // (Reads the latest data through a ref: the 60 s data refresh must not keep restarting this timer.)
     const iv = setInterval(() => {
-      if (Date.now() - lastActivityRef.current < ATTRACT_QUIET_MS) return;
+      const last = dataRef.current.lastCall;
+      if (!last && Date.now() - lastActivityRef.current < ATTRACT_QUIET_MS) return;
       setTakeovers(q => {
         if (q.length > 0) return q;
         const cur = spotCursorRef.current++;
         const cards = buildSpotlights(dataRef.current, cur);
         if (!cards.length) return q;
-        return [cards[cur % cards.length]];
+        // Last call: the closest battle on any machine, every time.
+        const riv = last && cards.find(c => c.subkind === 'rivalry');
+        return [riv || cards[cur % cards.length]];
       });
     }, ATTRACT_CHECK_MS);
     return () => clearInterval(iv);
@@ -436,10 +452,15 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
     if (kind === 'shame') pushToasts([{ kind: 'shame', player: q }]);
   }, [players, standings, addHit, pushToasts]);
 
+  // Clock moments (countdown marks, start, end) go straight to the front, replacing a spotlight.
+  const pushTakeover = useCallback(item => {
+    lastActivityRef.current = Date.now();
+    setTakeovers(q => [item, ...q.filter(x => x.kind !== 'spotlight' && x.id !== item.id)]);
+  }, []);
   const nextTakeover = useCallback(() => setTakeovers(q => q.slice(1)), []);
   const nextToast = useCallback(() => setToasts(q => q.slice(1)), []);
   return {
     takeover: takeovers[0] ?? null, queued: Math.max(0, takeovers.length - 1), nextTakeover,
-    toast: toasts[0] ?? null, nextToast, hits, news, inject,
+    toast: toasts[0] ?? null, nextToast, hits, news, inject, pushTakeover,
   };
 }

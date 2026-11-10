@@ -159,7 +159,21 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     if (e && t?.kind === 'shame') e.shame();
   }, []);
 
-  return { driver, setDriver, enabled, dry, active, hasTopic, onRevealSlide, onHit, onTakeover, onToast };
+  // Tournament clock (TV): 'mark' a minute mark (gold bounce), 'start' (white bounces, then a green wash),
+  // 'tick' n = 10…1 (the room pulses brighter as it nears 0), 'gameover' (white strobes, then dark and
+  // held until the reveal), 'resume' (back to the party lights, e.g. the end was pushed back).
+  const onClock = useCallback((what, n = 0) => {
+    const e = engineRef.current;
+    if (!e) return;
+    const red = [228, 0, 88, 0], white = LIGHTS.houseWhite || [0, 0, 0, 255];
+    if (what === 'mark') e.milestone();
+    else if (what === 'start') e.leader([0, 255, 60, 0]);
+    else if (what === 'tick') e.revealTick(n > 6 ? 3 : n > 3 ? 2 : 1, red);
+    else if (what === 'gameover') [0, 500, 1000].forEach(t => setTimeout(() => engineRef.current?.revealTick(1, white), t));
+    else if (what === 'resume') e.revealEnd();
+  }, []);
+
+  return { driver, setDriver, enabled, dry, active, hasTopic, onRevealSlide, onHit, onTakeover, onToast, onClock };
 }
 
 // Shared by the TV (as driver) and the simulator / host page (when no TV is driving).

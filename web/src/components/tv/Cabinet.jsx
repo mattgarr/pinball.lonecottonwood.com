@@ -8,7 +8,8 @@ import { machineColors } from './theme.js';
 // One machine column: lit backbox on top, name plate, then the top-10 like a high-score table.
 // Lighting matches the garage strips: a score breathes player color ↔ machine color; a record
 // cycles the machine's three colors.
-export default function Cabinet({ entry, i, hot, hit }) {
+// rows: table length (the free-play board shows more). A row with freePlay set gets a small marker.
+export default function Cabinet({ entry, i, hot, hit, rows = 10 }) {
   const { machine: m, top } = entry;
   const [c1, c2, c3] = machineColors(m.name);
   return (
@@ -32,14 +33,14 @@ export default function Cabinet({ entry, i, hot, hit }) {
       </div>
       <ol className="cab2-scores">
         {top.length ? top.map(s => (
-          <li key={s.player.id} className={`r${Math.min(s.rank, 4)}`}>
+          <li key={s.player.id} className={`r${Math.min(s.rank, 4)}${s.freePlay ? ' fp' : ''}`}>
             <span className="cab2-rank">{s.rank === 1 ? <Icon name="crown" size={15} stroke={2.2} /> : s.rank}</span>
             <Avatar avatar={s.player.avatar} emoji={s.player.emoji} name={s.player.display_name} color={s.player.color} size={20} />
             <span className="cab2-pname">{s.player.display_name}</span>
             <Dmd className="cab2-pscore" tone={s.rank === 1 ? 'hot' : undefined}>{fmtShort(s.score)}</Dmd>
           </li>
         )) : <li className="cab2-empty"><span>Be the first</span><span className="cab2-empty-sub">to score</span></li>}
-        {top.length > 0 && Array.from({ length: Math.max(0, 10 - top.length) }, (_, k) => (
+        {top.length > 0 && Array.from({ length: Math.max(0, rows - top.length) }, (_, k) => (
           <li key={`slot${k}`} className="slot"><span className="cab2-rank">{top.length + k + 1}</span><span className="slot-line" /></li>
         ))}
       </ol>

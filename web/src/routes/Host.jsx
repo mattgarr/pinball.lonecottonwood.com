@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getHostPass, host, photoUrl, setHostPass, useAwards, useParty, useStandings } from '../lib/store.js';
+import { getHostPass, host, photoUrl, setHostPass, useAwards, useParty, usePhase, useStandings } from '../lib/store.js';
+import { fmtClock, isoToPacific, pacificToIso, revealedAfterEnd } from '../lib/schedule.js';
+import { serverNow } from '../lib/clock.js';
 import { revealPlan } from '../components/Reveal.jsx';
 import { fmt } from '../lib/scoring.js';
 import { emailResults } from '../lib/emailResults.js';
@@ -102,8 +104,9 @@ function HostPanel({ onLogout }) {
   }, [players, playerScope, inCurrentEvent, playerFilter]);
 
   const open = party?.status === 'open';
+  const phase = usePhase();
   const liveScores = scores.filter(s => !s.voided).length;
-  const reviewCount = scores.filter(s => s.needs_review && !s.voided).length;
+  const reviewCount = scores.filter(s => s.needs_review && !s.voided && !s.free_play).length;
 
   return (
     <div className="screen host">
@@ -165,8 +168,8 @@ function HostPanel({ onLogout }) {
 
       <div className="host-grid-2">
         <section className="card">
-          <h2>Scores are {open ? 'ON' : 'OFF'}</h2>
-          <p className="muted small">{open ? 'Guests can log scores right now.' : "Guests can't log scores right now."} {liveScores} score{liveScores === 1 ? '' : 's'} so far.</p>
+          <h2>Scores are {open ? 'ON' : 'OFF'}{open && phase !== 'on' ? ' (free play)' : ''}</h2>
+          <p className="muted small">{!open ? "Guests can't log scores right now." : phase === 'on' ? 'Guests can log scores right now, and they count.' : "Guests can log scores just for fun: they don't count for the tournament."} {liveScores} score{liveScores === 1 ? '' : 's'} so far.</p>
           <button className={open ? 'secondary' : 'primary'} type="button" disabled={busy || !party}
             onClick={() => {
               if (open && !confirm('Stop accepting scores? Guests will see that scoring is closed. You can turn it back on.')) return;
@@ -197,7 +200,7 @@ function HostPanel({ onLogout }) {
         <div className="host-card-head">
           <div>
             <h2>All scores ({shown.length})</h2>
-            <p className="muted small">Wrong or fake score? Tap Remove. You can undo that with Restore.</p>
+            <p className="muted small">Wrong or fake score? Tap Remove. You can undo that with Restore. The Counts / Free play button flips whether a score counts for the tournament.</p>
           </div>
           <div className="host-filter-bar">
             <select className="host-select" value={machineFilter} onChange={e => setMachineFilter(e.target.value)} aria-label="Filter by machine">
@@ -220,7 +223,12 @@ function HostPanel({ onLogout }) {
                     <td>{p?.emoji ? <PixelEmoji e={p.emoji} size={16} /> : null} {p?.display_name ?? '?'}{s.logged_by ? <span className="muted small host-logged-by">logged by {playerById.get(s.logged_by)?.display_name ?? '?'}</span> : null}</td>
                     <td>{machineById.get(s.machine_id)?.name}{s.photo_path ? <> <a href={photoUrl(s.photo_path)} target="_blank" rel="noreferrer" title="photo of the score"><PixelEmoji e="📸" size={22} /></a></> : null}</td>
                     <td className="ralign mono">{fmt(s.value)}</td>
-                    <td className="ralign">
+                    <td className="ralign host-score-actions">
+                      <button className={`ghost${s.free_play ? ' kind-fp' : ''}`} type="button" disabled={busy || s.voided}
+                        title="Tap to flip between counting for the tournament and free play"
+                        onClick={() => run(() => host.setScoreKind(s.id, !!s.free_play), s.free_play ? `${p?.display_name ?? ''}'s ${fmt(s.value)} now counts for the tournament.` : `${p?.display_name ?? ''}'s ${fmt(s.value)} is now free play (doesn't count).`)}>
+                        {s.free_play ? 'Free play' : 'Counts'}
+                      </button>
                       {s.voided
                         ? <button className="ghost" type="button" disabled={busy} onClick={() => run(() => host.voidScore(s.id, false), 'Score restored.')}>Restore</button>
                         : <button className="ghost danger" type="button" disabled={busy} onClick={() => run(() => host.voidScore(s.id, true), `Removed ${p?.display_name ?? ''}'s ${fmt(s.value)}. Tap Restore to undo.`)}>Remove</button>}
@@ -308,8 +316,10 @@ function HostPanel({ onLogout }) {
         </div>
       </section>
 
+      <ScheduleCard party={party} phase={phase} busy={busy} run={run} />
+
       <h2 id="sec-end" className="host-section">End of the night</h2>
-      <EndOfNight party={party} event={event} open={open} busy={busy} run={run} />
+      <EndOfNight party={party} event={event} phase={phase} reviewCount={reviewCount} busy={busy} run={run} />
 
       <h2 id="sec-setup" className="host-section">Setup (before the party)</h2>
       <section className="card">
@@ -367,24 +377,108 @@ function RevealControls({ party, busy, run }) {
   );
 }
 
-function EndOfNight({ party, event, open, busy, run }) {
+const PHASE_TEXT = {
+  pre: 'Free play: the tournament hasn\'t started yet',
+  on: 'Tournament on: scores count',
+  closed: 'Scores are off',
+  grace: 'Play is over: scores logged in the next few minutes still count',
+  over: 'Tournament over: new scores are free play',
+  reveal: 'The reveal is on the TV',
+  free: 'Free play: just for fun',
+};
+
+// Tournament start and end times. Before the start and after the end, scores are free play (the
+// database decides from its own clock). The TV counts down to both.
+function ScheduleCard({ party, phase, busy, run }) {
+  const startsAt = party?.tourney_starts_at || null, endsAt = party?.tourney_ends_at || null;
+  const [start, setStart] = useState(isoToPacific(startsAt));
+  const [end, setEnd] = useState(isoToPacific(endsAt));
+  useEffect(() => { setStart(isoToPacific(startsAt)); }, [startsAt]);
+  useEffect(() => { setEnd(isoToPacific(endsAt)); }, [endsAt]);
+  const dirty = start !== isoToPacific(startsAt) || end !== isoToPacific(endsAt);
+  const nowIso = () => new Date(serverNow()).toISOString();
+  const save = (s, e, msg) => run(() => host.setSchedule(s, e), msg);
+  return (
+    <section className="card host-sched">
+      <h2>Tournament times</h2>
+      <p className="muted small">
+        Now: <b>{PHASE_TEXT[phase] || phase}</b>.
+        {startsAt || endsAt
+          ? ` The tournament runs ${startsAt ? `from ${fmtClock(startsAt)}` : 'from now'}${endsAt ? ` to ${fmtClock(endsAt)}` : ' until you stop it'}. Scores before or after that are free play and don't count. The TV counts down to both.`
+          : ' No times set: the tournament runs whenever scores are on. Set times to start and end it automatically, with countdowns on the TV.'}
+      </p>
+      <div className="host-sched-fields">
+        <label className="field">
+          <span className="muted small">Starts (Pacific time)</span>
+          <input type="datetime-local" value={start} onChange={e => setStart(e.target.value)} disabled={busy} />
+        </label>
+        <label className="field">
+          <span className="muted small">Ends (Pacific time)</span>
+          <input type="datetime-local" value={end} onChange={e => setEnd(e.target.value)} disabled={busy} />
+        </label>
+      </div>
+      <div className="row gap host-sched-row">
+        <button className="primary" type="button" disabled={busy || !dirty} onClick={() => {
+          const s = pacificToIso(start), e = pacificToIso(end);
+          if (s && e && Date.parse(e) <= Date.parse(s)) { alert('The end time has to be after the start time.'); return; }
+          save(s, e, s || e ? `Saved: ${s ? fmtClock(s) : 'now'} to ${e ? fmtClock(e) : 'whenever you stop it'}.` : 'Times cleared.');
+        }}>Save times</button>
+        <button className="ghost" type="button" disabled={busy || (!startsAt && !endsAt)} onClick={() => {
+          if (!confirm('Clear both times? The TV countdowns stop, and the tournament runs whenever scores are on.')) return;
+          save(null, null, 'Times cleared.');
+        }}>Clear times</button>
+      </div>
+      <div className="muted small">Running late or early?</div>
+      <div className="row gap host-sched-row">
+        <button className="ghost" type="button" disabled={busy || phase !== 'pre'} onClick={() => {
+          if (!confirm('Start the tournament now? Scores count from now on.')) return;
+          save(nowIso(), endsAt, 'The tournament is on.');
+        }}>Start now</button>
+        <button className="ghost" type="button" disabled={busy || !endsAt || !['on', 'grace', 'over'].includes(phase) || revealedAfterEnd(party)} onClick={() => {
+          save(startsAt, new Date(Date.parse(endsAt) + 15 * 60000).toISOString(), `Ends at ${fmtClock(new Date(Date.parse(endsAt) + 15 * 60000).toISOString())} now.`);
+        }}>+15 min</button>
+        <button className="ghost" type="button" disabled={busy || phase !== 'on'} onClick={() => {
+          if (!confirm('End the tournament now? Scores logged from now on are free play and don\'t count.')) return;
+          save(startsAt && Date.parse(startsAt) < serverNow() ? startsAt : null, nowIso(), 'The tournament is over.');
+        }}>End now</button>
+      </div>
+    </section>
+  );
+}
+
+function EndOfNight({ party, event, phase, reviewCount = 0, busy, run }) {
   const revealing = !!party?.reveal_active;
+  const freePlay = !!party?.free_play;
+  const running = phase === 'on' || phase === 'pre';
+  const endsAt = party?.tourney_ends_at || null;
+  // End the tournament by setting its end to now: logging and sign-ups stay open (as free play).
+  const stopTournament = () => host.setSchedule(party?.tourney_starts_at && Date.parse(party.tourney_starts_at) < serverNow() ? party.tourney_starts_at : null, new Date(serverNow()).toISOString());
   return (
     <section className="card">
       <ol className="host-steps">
-        <li className={open ? '' : 'done'}>
-          <b>Stop scores.</b> {open
-            ? <button className="secondary" type="button" disabled={busy} onClick={() => run(() => host.setStatus('closed'), 'Scores are OFF.')}>Stop accepting scores</button>
-            : <span className="muted small">Done: scores are off.</span>}
+        <li className={running ? '' : 'done'}>
+          <b>End the tournament.</b> {running
+            ? (endsAt
+              ? <span className="muted small">It ends by itself at {fmtClock(endsAt)} (the TV counts down). Or end it now in Tournament times above.</span>
+              : <button className="secondary" type="button" disabled={busy} onClick={() => {
+                if (!confirm('End the tournament now? Guests can keep logging, but new scores are free play and don\'t count.')) return;
+                run(stopTournament, 'The tournament is over.');
+              }}>End the tournament now</button>)
+            : phase === 'grace'
+            ? <span className="muted small">Play is over. Scores logged in the next few minutes still count.</span>
+            : <span className="muted small">Done: tournament scores are final.</span>}
         </li>
         <li>
           <b>Reveal the winners on the TV.</b>
           <div className="muted small">The TV goes prize by prize, Grand Champion first. The Match comes last and draws itself (00, 10 … 90, like a real pinball Match), then spins through everyone whose total points tonight end in it (nobody? then everyone left without a prize).</div>
           {!revealing ? (
             <button className="primary big" type="button" disabled={busy} onClick={() => {
-              if (open && !confirm('Scores are still ON. Stop scores and start the reveal?')) return;
+              if (reviewCount && !confirm(`${reviewCount} score${reviewCount === 1 ? '' : 's'} still need${reviewCount === 1 ? 's' : ''} a look (see "Double-check these" above). Start the reveal anyway?`)) return;
+              if (running && !confirm('The tournament is still running. End it and start the reveal?')) return;
+              if (phase === 'grace' && !confirm('Guests can still log their last scores for a couple of minutes. Start the reveal anyway?')) return;
+              if (!running && freePlay && !confirm('Free play is on. Start the reveal again? The TV switches to the reveal; free play comes back when you end it.')) return;
               run(async () => {
-                if (open) await host.setStatus('closed');
+                if (running) await stopTournament();
                 // Draw once: starting the reveal again keeps the same number, so The Match winner never changes.
                 const drawn = party?.match_digits ?? (crypto.getRandomValues(new Uint32Array(1))[0] % 10) * 10; // 00, 10 … 90
                 await host.reveal(true, drawn);
@@ -400,15 +494,35 @@ function EndOfNight({ party, event, open, busy, run }) {
             </>
           )}
         </li>
+        <li className={freePlay ? 'on' : ''}>
+          <b>Free play.</b> <span className="muted small">After the awards, guests keep logging scores just for fun. The TV shows each machine's high scores of the night. The tournament results stay final.</span>
+          <div className="row gap host-fp-row">
+            <span className={`host-pill${freePlay ? ' on' : ''}`}>{freePlay ? `On since ${fmtClock(party?.free_play_at)}` : 'Off'}</span>
+            {freePlay ? (
+              <button className="secondary" type="button" disabled={busy} onClick={() => {
+                if (!confirm('End free play? Guests can\'t log scores any more.')) return;
+                run(() => host.freePlay(false), 'Free play is over. Scores are OFF.');
+              }}>End free play</button>
+            ) : (
+              <button className="primary" type="button" disabled={busy} onClick={() => {
+                const msg = running
+                  ? 'The tournament is still running! Start free play anyway? That ends the tournament: scores from now on don\'t count.'
+                  : `Start free play?${revealing ? ' This ends the reveal.' : ''} The TV switches to the high score board and guests can log scores again, just for fun.`;
+                if (!confirm(msg)) return;
+                run(async () => { if (running && endsAt) await stopTournament(); await host.freePlay(true); }, 'Free play is on.');
+              }}>Start free play</button>
+            )}
+          </div>
+        </li>
         <li>
-          <b>Email everyone their results.</b> <span className="muted small">Only players who ticked "email me results" get one.</span>
+          <b>Email everyone their results.</b> <span className="muted small">Only players who ticked "email me results" get one. Free play never shows up in them.</span>
           {event?.results_sent_at && <div className="muted small">Already sent {new Date(event.results_sent_at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}.</div>}
           <div className="row gap" style={{ marginTop: 8 }}>
-            <button className="ghost" type="button" disabled={busy || open || !event} onClick={() => {
+            <button className="ghost" type="button" disabled={busy || running || phase === 'grace' || !event} onClick={() => {
               if (event.results_sent_at && !confirm('Results were ALREADY emailed once. Send them again to everyone?')) return;
               if (!event.results_sent_at && !confirm('Email final results now to every player who asked for them?')) return;
               run(() => emailResults(event.id), r => `Results emailed to ${r?.sent ?? 0} player${r?.sent === 1 ? '' : 's'}${r?.skipped ? ` (${r.skipped} didn't want email)` : ''}.`);
-            }}>{open ? 'Stop scores first' : 'Email results'}</button>
+            }}>{running ? 'End the tournament first' : 'Email results'}</button>
             <button className="ghost" type="button" disabled={busy || !event} onClick={() => {
               const to = prompt('Send a sample to which email? (Uses the current #1 player\'s results. No guest gets anything.)');
               if (!to?.trim()) return;
@@ -423,7 +537,7 @@ function EndOfNight({ party, event, open, busy, run }) {
 
 // Scores that deserve a second look: a new #1 with no photo, or a score logged for someone else.
 function ReviewQueue({ scores, playerById, machineById, busy, run }) {
-  const queue = scores.filter(s => s.needs_review && !s.voided).sort((a, b) => b.id - a.id);
+  const queue = scores.filter(s => s.needs_review && !s.voided && !s.free_play).sort((a, b) => b.id - a.id);
   if (!queue.length) return null;
   return (
     <section id="sec-review" className="card review-card">
@@ -474,6 +588,7 @@ function AddScore({ players, machines, busy, run }) {
   const [pid, setPid] = useState('');
   const [mid, setMid] = useState('');
   const [val, setVal] = useState('');
+  const [counts, setCounts] = useState(''); // '' by the clock, 'yes', 'no'
   const ok = pid && mid && /^\d+$/.test(val);
   return (
     <section className="card">
@@ -489,8 +604,13 @@ function AddScore({ players, machines, busy, run }) {
           {machines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
         <input inputMode="numeric" value={val} onChange={e => setVal(e.target.value.replace(/\D/g, ''))} placeholder="score" aria-label="Score" />
+        <select value={counts} onChange={e => setCounts(e.target.value)} aria-label="Counts for the tournament?">
+          <option value="">Counts: by the clock</option>
+          <option value="yes">Counts for the tournament</option>
+          <option value="no">Free play (doesn't count)</option>
+        </select>
         <button className="primary" type="button" disabled={busy || !ok}
-          onClick={() => run(async () => { await host.addScore(Number(pid), Number(mid), Number(val)); setVal(''); }, 'Score added.')}>Add</button>
+          onClick={() => run(async () => { await host.addScore(Number(pid), Number(mid), Number(val), counts === '' ? null : counts === 'yes'); setVal(''); }, 'Score added.')}>Add</button>
       </div>
     </section>
   );

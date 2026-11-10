@@ -12,7 +12,8 @@ export async function emailResults(eventId, { testTo } = {}) {
   // Same as the TV: an event with no machines attached uses all of them.
   const machines = mids.size ? s.allMachines.filter(m => mids.has(m.id)) : s.allMachines;
   const isCurrent = eventId === s.party?.current_event_id;
-  const scores = s.allScores.filter(x => x.event_id === eventId || (isCurrent && x.event_id == null));
+  // Tournament games only: free play never shows up in results.
+  const scores = s.allScores.filter(x => (x.event_id === eventId || (isCurrent && x.event_id == null)) && !x.free_play);
   const entrants = new Set(s.entries.filter(x => x.event_id === eventId).map(x => x.player_id));
   for (const x of scores) entrants.add(x.player_id);
   const players = s.players.filter(p => entrants.has(p.id));

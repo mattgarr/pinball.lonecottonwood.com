@@ -1,0 +1,24 @@
+/* Free play / tournament phase notes on guest pages. Type scale: --t10/--t12/--t16/--t24, --b10/--b12. */
+.phase-note {
+  font-family: var(--pxbody); font-size: var(--b10); line-height: 1.5; padding: 8px 10px; margin: 8px 0;
+  background: #000; color: var(--nes-sky, #3cbcfc); box-shadow: inset 0 0 0 2px var(--nes-sky, #3cbcfc);
+}
+.phase-note.on { color: var(--nes-lime, #58d854); box-shadow: inset 0 0 0 2px var(--nes-lime, #58d854); }
+.phase-note.hot { color: #fff; background: #3a0016; box-shadow: inset 0 0 0 2px var(--nes-red, #e40058); }
+.confirm-body .phase-note { text-align: center; }
+
+.sealed-card { flex-direction: row !important; align-items: center; gap: 12px !important; box-shadow: inset 0 0 0 2px var(--nes-yellow, #f8b800) !important; }
+.sealed-card h3 { font-family: var(--px); font-size: var(--t12) !important; color: var(--nes-yellow, #f8b800); }
+
+/* After the end: full-screen "look at the TV" card (closable, free play continues). */
+.awards-soon {
+  position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 16px;
+  background: rgba(0, 0, 0, 0.92);
+}
+.awards-soon-box {
+  width: min(420px, 100%); box-sizing: border-box; display: grid; justify-items: center; gap: 14px; text-align: center;
+  padding: 24px 16px; background: #000; box-shadow: inset 0 0 0 3px var(--nes-yellow, #f8b800);
+}
+.awards-soon-box h1 { font-family: var(--px); font-size: var(--t16); line-height: 1.4; margin: 0; color: var(--nes-yellow, #f8b800); }
+.awards-soon-box p { font-family: var(--pxbody); font-size: var(--b12); margin: 0; color: #e8e8f4; }
+.awards-soon-box .cta { width: 100%; }

@@ -34,6 +34,7 @@ export default function Takeover(props) {
   if (k === 'ranked') return <RankedTakeover {...props} />;
   if (k === 'milestone') return <MilestoneTakeover {...props} />;
   if (k === 'spotlight') return <SpotlightTakeover {...props} />;
+  if (k === 'clock') return <ClockTakeover {...props} />;
   return <RecordTakeover {...props} />;
 }
 
@@ -307,6 +308,66 @@ function SpotlightTakeover({ item, onDone }) {
         </div>
       </div>
       <div className="to-timer" style={{ animationDuration: `${SPOTLIGHT_MS}ms` }} />
+    </div>
+  );
+}
+
+// Tournament clock: "starts in 5 minutes" … "TOURNAMENT IS ON", "ends in 15 minutes" … "END OF TOURNAMENT".
+export const CLOCK_MS = 6000;
+export function ClockTakeover({ item, onDone }) {
+  const [leaving, setLeaving] = useState(false);
+  const start = item.side === 'start', zero = item.minutes === 0;
+  const ms = zero ? 9000 : CLOCK_MS;
+  useEffect(() => {
+    if (item.pinned) return;
+    const a = setTimeout(() => setLeaving(true), ms - 550);
+    const b = setTimeout(onDone, ms);
+    return () => { clearTimeout(a); clearTimeout(b); };
+  }, [onDone, item.pinned, ms]);
+  const glow = start ? '#58d854' : item.minutes > 5 ? '#f8b800' : '#e40058';
+  const at = t => (t ? new Date(t).toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit' }) : '');
+  const ends = at(item.target), closes = at(item.target ? item.target + 3 * 60000 : 0);
+  const title = start
+    ? (zero ? 'TOURNAMENT IS ON' : 'TOURNAMENT STARTS IN')
+    : zero ? 'END OF TOURNAMENT'
+    : item.minutes === 15 ? 'LAST CALL'
+    : item.minutes === 5 ? 'START YOUR LAST GAME NOW'
+    : 'TOURNAMENT ENDS IN';
+  const sub = start
+    ? (zero ? 'Every score counts from now on. Go!' : "Warm up now: free play scores don't count")
+    : zero ? <>Snap your last score now{closes ? <>: logging closes at <b>{closes}</b></> : null}. Results sealed until the awards!</>
+    : item.minutes === 15 ? <>Play ends {ends || 'soon'}{closes ? <> · logging closes {closes}</> : null}</>
+    : item.minutes <= 5 ? 'Last chance: get your best games in!'
+    : 'Get your scores in before the buzzer';
+  return (
+    <div className={`to to-leader to-clock ${start ? 'start' : 'end'}${zero ? ' zero' : ''}${leaving ? ' out' : ''}`} style={{ '--glow': glow }}>
+      <div className="to-shade" />
+      <div className="to-rays" />
+      {zero && start && <Confetti count={160} seed={(item.target || 7) % 997} />}
+      <div className="to-marquee">
+        <span className="to-bulbs" />
+        <span className="to-title">{title}</span>
+        <span className="to-bulbs r" />
+      </div>
+      <div className="to-clock-body">
+        {!zero && <div className="to-clock-num">{item.minutes}<span>{item.minutes === 1 ? 'MINUTE' : 'MINUTES'}</span></div>}
+        {zero && start && <div className="to-clock-icon"><PixelEmoji e="🏁" size={128} grid={16} /></div>}
+        {zero && !start && <Dmd ghost tone="red" className="to-gameover">GAME OVER</Dmd>}
+        <div className="to-sub">{sub}</div>
+      </div>
+      <div className="to-timer" style={{ animationDuration: `${ms}ms` }} />
+    </div>
+  );
+}
+
+// The last 10 seconds before the end: one big number per second, over everything.
+export function FinalCountdown({ n }) {
+  return (
+    <div className="to to-clock end final" style={{ '--glow': '#e40058' }}>
+      <div className="to-shade" />
+      <div className="to-final-label">TOURNAMENT ENDS IN</div>
+      <div className="to-final-num" key={n}>{n}</div>
+      <div className="to-final-label small">Finish your ball!</div>
     </div>
   );
 }

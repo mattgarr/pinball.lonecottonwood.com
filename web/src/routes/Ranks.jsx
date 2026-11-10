@@ -1,5 +1,8 @@
 import { Link, useSearchParams } from 'react-router-dom';
-import { useAllTime, useAwards, useStandings } from '../lib/store.js';
+import { useAllTime, useAwards, usePhase, useStandings } from '../lib/store.js';
+import { sealed } from '../lib/schedule.js';
+import { serverNow } from '../lib/clock.js';
+import { SealedCard } from '../components/PhaseNote.jsx';
 import { MIN_TABLES, fmt, ordinal } from '../lib/scoring.js';
 import Avatar from '../components/Avatar.jsx';
 import PixelEmoji from '../components/PixelEmoji.jsx';
@@ -23,6 +26,11 @@ export default function Ranks() {
   const machines = ever ? allMachines : eventMachines;
   const mine = me ? standings.stats.get(me.id) : null;
   const machineEntry = standings.machines.find(x => String(x.machine.id) === view);
+  const phase = usePhase();
+  const isCurrent = !ever && pickedEvId === party?.current_event_id;
+  // Current event: final once the tournament is over; sealed (no podium) from 15 min before the end until the reveal.
+  const isFinal = !ever && (isCurrent ? ['closed', 'over', 'reveal', 'free'].includes(phase) : pickedEvent?.status === 'closed');
+  const isSealed = isCurrent && sealed(party, serverNow());
 
   return (
     <div className="screen ranks">
@@ -56,7 +64,7 @@ export default function Ranks() {
         ))}
       </div>
 
-      {view === 'all' ? <Overall standings={standings} mine={mine} me={me} machines={machines} awards={ever ? null : awards} closed={!ever && pickedEvent?.status === 'closed'} />
+      {view === 'all' ? (isSealed ? <SealedCard /> : <Overall standings={standings} mine={mine} me={me} machines={machines} awards={ever ? null : awards} closed={isFinal} />)
         : machineEntry ? <MachineBoard entry={machineEntry} me={me} mine={mine} players={players} />
         : <div className="muted">No such machine.</div>}
     </div>

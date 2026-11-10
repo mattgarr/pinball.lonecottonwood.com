@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { actions, getHostPass, useAwards, useStandings } from '../lib/store.js';
+import { actions, getHostPass, useAwards, usePhase, useStandings } from '../lib/store.js';
+import { revealedAfterEnd, sealed } from '../lib/schedule.js';
+import { serverNow } from '../lib/clock.js';
+import { PhaseNote, SealedCard } from '../components/PhaseNote.jsx';
 import { friendlyError } from '../lib/errors.js';
 import { machineArt } from '../lib/machineArt.js';
 import { MIN_TABLES, fmt, ordinal, prizesFor } from '../lib/scoring.js';
@@ -23,6 +26,7 @@ export default function Me() {
   const evId = pickedEvId ?? party?.current_event_id;
   const { me, machines, players, scores, standings, event, entrantIds } = useStandings(evId);
   const awards = useAwards(standings, null);
+  const phase = usePhase();
   const [err, setErr] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [entering, setEntering] = useState(false);
@@ -66,7 +70,13 @@ export default function Me() {
   const mineAll = scores.filter(s => s.player_id === me.id).sort((a, b) => b.id - a.id);
   const open = event ? event.status === 'open' : party?.status === 'open';
   const inEvent = !!(me && (entrantIds?.has(me.id) || mineAll.some(s => !s.voided)));
-  const fresh = s => !s.voided && open && Date.now() - new Date(s.created_at).getTime() < UNDO_MS;
+  // Tournament scores are final once the logging window has closed (the server refuses too).
+  const fresh = s => !s.voided && open && Date.now() - new Date(s.created_at).getTime() < UNDO_MS
+    && (s.free_play || !['over', 'reveal', 'free'].includes(phase));
+  // From 15 min before the end until the reveal, the podium is a secret (current event only).
+  const isSealed = evId === party?.current_event_id && sealed(party, serverNow());
+  const prizesFinal = evId !== party?.current_event_id ? event?.status === 'closed'
+    : phase === 'free' || phase === 'closed' || (phase === 'over' && revealedAfterEnd(party));
   // Mine, plus ones I logged for other players (the server lets me undo those too).
   const undoable = scores
     .filter(s => (s.player_id === me.id || s.logged_by === me.id) && fresh(s))
@@ -170,7 +180,9 @@ export default function Me() {
       )}
       {err && <div className="err" role="alert">{err}</div>}
 
-      <section className="me-rating">
+      {evId === party?.current_event_id && <PhaseNote compact />}
+
+      {isSealed ? <SealedCard /> : <section className="me-rating">
         {st.rating != null ? (
           <>
             <LedNumber value={st.rating} size="md" />
@@ -185,15 +197,15 @@ export default function Me() {
             <div className="muted small">Play {MIN_TABLES} machines to get ranked.</div>
           </div>
         )}
-      </section>
+      </section>}
 
       <TicketPanel me={me} eventId={evId} eventName={event?.name} />
 
-      {held.length > 0 && (
+      {held.length > 0 && !isSealed && (
         <section className="panel">
-          <h3>You're leading</h3>
+          <h3>{prizesFinal ? (held.length > 1 ? 'Your prizes' : 'Your prize') : "You're leading"}</h3>
           <ul className="held">{held.map(h => <li key={h}>{h}</li>)}</ul>
-          <div className="muted small">Final when scoring closes.</div>
+          <div className="muted small">{prizesFinal ? 'Final results.' : 'Final when scoring closes.'}</div>
         </section>
       )}
 

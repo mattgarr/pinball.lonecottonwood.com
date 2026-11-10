@@ -1,6 +1,8 @@
-import { useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { computeStandings, computeAwards } from './scoring.js';
+import { nextBoundary, scoreCountsNow, tourneyPhase } from './schedule.js';
+import { serverNow, startClock } from './clock.js';
 import { lightsTopic, setLightsTopic } from './lights/mqtt.js';
 
 // Public project settings. The publishable key is designed to live in the browser:
@@ -89,7 +91,7 @@ function set(patch) {
 const subscribe = l => { listeners.add(l); return () => listeners.delete(l); };
 
 const PLAYER_COLS = 'id, display_name, emoji, color, avatar, first_timer, created_at';
-const SCORE_COLS = 'id, player_id, machine_id, value, voided, created_at, logged_by, photo_path, needs_review, event_id';
+const SCORE_COLS = 'id, player_id, machine_id, value, voided, created_at, logged_by, photo_path, needs_review, event_id, free_play';
 
 async function fetchAllScores() {
   const out = [];
@@ -182,6 +184,7 @@ function start() {
   if (started) return;
   started = true;
   refreshAll();
+  startClock(sb);
   checkMe();
 
   let wasDown = false;
@@ -294,6 +297,29 @@ function maybeEnter() {
   });
 }
 listeners.add(maybeEnter);
+
+// Standings over every game tonight, free play included (the free-play board and its live moments).
+export function useNightStandings() {
+  const s = useParty();
+  return useMemo(() => {
+    const evPlayers = playersForEvent(s.players, s.entrantIds, s.scores, true);
+    return computeStandings({ machines: s.machines, players: evPlayers, scores: s.scores, includeFreePlay: true });
+  }, [s.machines, s.players, s.entrantIds, s.scores]);
+}
+
+// The tournament phase right now ('pre' | 'on' | 'closed' | 'over' | 'reveal' | 'free', see schedule.js),
+// re-checked at each scheduled start / end and every 15 s.
+export function usePhase() {
+  const { party } = useParty();
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => tick(x => x + 1), 15000);
+    const nb = nextBoundary(party, serverNow());
+    const t = nb ? setTimeout(() => tick(x => x + 1), Math.min(nb - serverNow() + 30, 2 ** 31 - 1)) : null;
+    return () => { clearInterval(iv); clearTimeout(t); };
+  }, [party]);
+  return tourneyPhase(party, serverNow());
+}
 
 export function useAwards(standings, matchDigits) {
   const s = useParty();
@@ -420,16 +446,18 @@ const rememberedTicket = pid => (pid ? safe(() => localStorage.getItem(TICKET_KE
 function addLocalScore(r, row) {
   if (!r?.score_id || state.allScores.some(s => s.id === r.score_id)) return;
   if (r.duplicate) { refreshAll(); return; }
-  set({ allScores: [...state.allScores, { id: r.score_id, voided: false, created_at: new Date().toISOString(), logged_by: null, event_id: state.party?.current_event_id ?? null, ...row }] });
+  set({ allScores: [...state.allScores, { id: r.score_id, voided: false, created_at: new Date().toISOString(), logged_by: null, event_id: state.party?.current_event_id ?? null, free_play: !!r.free_play, ...row }] });
 }
 
 // Who already logged this exact score? Same rule as the server (player + machine + value,
 // not voided, last 45 min). Lets the assign screen mark rows "already logged" before submit.
 export const DEDUPE_MS = 45 * 60 * 1000;
+// Only the same kind counts: a free-play game never matches a tournament one (the server does the same).
 export function findLoggedScore(scores, { playerId = null, machineId, value }) {
   if (!(value > 0)) return null;
   const since = Date.now() - DEDUPE_MS;
-  return scores.find(s => !s.voided && s.machine_id === machineId && s.value === value
+  const fp = !scoreCountsNow(state.party, serverNow());
+  return scores.find(s => !s.voided && !!s.free_play === fp && s.machine_id === machineId && s.value === value
     && (playerId == null || s.player_id === playerId) && (Date.parse(s.created_at) || 0) > since) || null;
 }
 
@@ -454,6 +482,10 @@ const hostCall = (name, args = {}) => {
 export const host = {
   check: pass => rpc('host_check', { p_pass: pass }),
   setStatus: status => hostCall('host_set_status', { p_status: status }),
+  // After the awards: free play on (ends the reveal, opens logging) or off (closes logging).
+  freePlay: on => hostCall('host_free_play', { p_on: !!on }),
+  // Tournament start / end (ISO strings or null) for the active event.
+  setSchedule: (startsAt, endsAt) => hostCall('host_set_schedule', { p_starts: startsAt || null, p_ends: endsAt || null }),
   reveal: (active, matchDigits = null) => hostCall('host_reveal', { p_active: active, p_match_digits: matchDigits }),
   revealStep: step => hostCall('host_reveal_step', { p_step: step }),
   voidScore: (id, voided) => hostCall('host_void', { p_score_id: id, p_voided: voided }),
@@ -464,7 +496,9 @@ export const host = {
   }),
   scanTests: () => hostCall('host_scan_tests'),
   setScanMode: (machineId, mode, fps) => hostCall('host_set_scan_mode', { p_machine_id: machineId, p_mode: mode, p_fps: fps }),
-  addScore: (playerId, machineId, value) => hostCall('host_add_score', { p_player_id: playerId, p_machine_id: machineId, p_value: value }),
+  // counts: true / false, or null = by the clock (free play outside the tournament times).
+  addScore: (playerId, machineId, value, counts = null) => hostCall('host_add_score', { p_player_id: playerId, p_machine_id: machineId, p_value: value, p_counts: counts }),
+  setScoreKind: (scoreId, counts) => hostCall('host_set_score_kind', { p_score_id: scoreId, p_counts: !!counts }),
   resetPin: (playerId, pin) => hostCall('host_reset_pin', { p_player_id: playerId, p_new_pin: pin }),
   removePlayer: playerId => hostCall('host_remove_player', { p_player_id: playerId }),
   wipe: confirm => hostCall('host_wipe', { p_confirm: confirm }),

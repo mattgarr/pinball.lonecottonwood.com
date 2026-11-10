@@ -7,6 +7,7 @@ import Landing from './routes/Landing.jsx';
 import Avatar from './components/Avatar.jsx';
 import PixelEmoji from './components/PixelEmoji.jsx';
 import PinballIcon from './components/PinballIcon.jsx';
+import { AwardsSoon } from './components/PhaseNote.jsx';
 
 captureFakeFlag(); // read ?fakephoto=… before the join redirect drops the query string
 captureAccessKey(); // party QR codes carry ?k=<key>: remember it and take it off the address bar
@@ -113,6 +114,7 @@ export default function App() {
       <main className={`main${showTabs ? ' with-tabs' : ''}`}>
         <Outlet />
       </main>
+      {!loc.pathname.startsWith('/host') && <AwardsSoon />}
       {showTabs && (
         <nav className="tabbar" aria-label="Main">
           <NavLink to="/" end className="tab"><PixelEmoji e="🕹️" size={24} grid={14} /><span>Play</span></NavLink>

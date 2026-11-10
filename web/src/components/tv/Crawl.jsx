@@ -3,13 +3,34 @@ import { fmtShort } from '../../lib/scoring.js';
 import { machineHighlights } from '../../lib/content.js';
 
 // News-channel crawl along the bottom. Fresh events lead as BREAKING; dynamic party storylines & pro tips fill the rest.
-export default function Crawl({ standings, awards, news, machines }) {
+// freePlay ('pre' before the tournament, 'free' after the awards): high scores and tips instead of
+// the title race. highScores: computeHighScores rows.
+export default function Crawl({ standings, awards, news, machines, freePlay = null, highScores = null, startsAt = null, sealed = false }) {
   const items = useMemo(() => {
     const out = [];
     const fresh = news.slice(0, 4).map(n => ({ k: n.id, tag: 'BREAKING', text: n.text, hot: true }));
+    if (freePlay) {
+      out.push(freePlay === 'pre'
+        ? { tag: 'FREE PLAY', text: `Warm up now: these scores don't count. The tournament starts${startsAt ? ` at ${startsAt}` : ' soon'}!` }
+        : { tag: 'FREE PLAY', text: "Just for fun: scores don't change the tournament. Results are final." });
+      if (freePlay === 'free' && awards?.champion) out.push({ tag: 'GRAND CHAMPION', text: `${awards.champion.player.display_name} · ${awards.champion.rating} rating` });
+      for (const h of highScores || []) {
+        const top = h.top[0];
+        out.push(top
+          ? { tag: `HIGH SCORE · ${h.machine.name}`, text: `${top.player.display_name} · ${fmtShort(top.score)}` }
+          : { tag: `OPEN TABLE · ${h.machine.name}`, text: 'No scores yet tonight: first one takes the top spot!' });
+      }
+      for (const m of machines) {
+        const hi = machineHighlights(m.name);
+        if (hi.tips[0]) out.push({ tag: `PRO TIP · ${m.name}`, text: hi.tips[0] });
+      }
+      out.push({ tag: 'SCAN TO PLAY', text: 'Scan the QR code · snap your score · beat the high scores' });
+      return [...fresh, ...out.map((x, i) => ({ ...x, k: `s${i}` }))];
+    }
 
-    // 1. Overall leader & tightest top-of-board race
-    const lead = standings.topPlayers[0];
+    if (sealed) out.push({ tag: 'RESULTS SEALED', text: 'Who won? Find out at the awards!' });
+    // 1. Overall leader & tightest top-of-board race (not while results are sealed)
+    const lead = sealed ? null : standings.topPlayers[0];
     const second = standings.topPlayers[1];
     if (lead && second && lead.rating - second.rating <= 8) {
       const diff = lead.rating - second.rating;
@@ -56,7 +77,7 @@ export default function Crawl({ standings, awards, news, machines }) {
     }
 
     // 5. Grinder & Tonight's total action
-    if (awards.grinder) {
+    if (awards.grinder && !sealed) {
       out.push({ tag: 'THE GRINDER', text: `${awards.grinder.player.display_name} · ${awards.grinder.plays} games played` });
     }
     out.push({ tag: 'TONIGHT', text: `${standings.meta.totalPlayers} players · ${standings.meta.totalScores} games logged` });
@@ -71,7 +92,7 @@ export default function Crawl({ standings, awards, news, machines }) {
 
     out.push({ tag: 'SCAN TO PLAY', text: 'Scan the QR code · snap your score · climb the board' });
     return [...fresh, ...out.map((x, i) => ({ ...x, k: `s${i}` }))];
-  }, [standings, awards, news, machines]);
+  }, [standings, awards, news, machines, freePlay, highScores, startsAt, sealed]);
 
   // Speed is constant per character, so long crawls don't race.
   const chars = items.reduce((n, it) => n + it.tag.length + it.text.length + 6, 0);

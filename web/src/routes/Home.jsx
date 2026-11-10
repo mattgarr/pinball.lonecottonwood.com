@@ -3,6 +3,7 @@ import { useStandings } from '../lib/store.js';
 import { machineArt } from '../lib/machineArt.js';
 import { MIN_TABLES, fmtShort, ordinal } from '../lib/scoring.js';
 import Avatar from '../components/Avatar.jsx';
+import { PhaseNote } from '../components/PhaseNote.jsx';
 
 export default function Home() {
   const { machines, me, standings, party, event } = useStandings();
@@ -40,6 +41,7 @@ export default function Home() {
       )}
 
       {closed && <div className="err">Scoring's closed. Finals on the TV.</div>}
+      {!closed && <PhaseNote compact />}
 
       <div className="home-head">
         {event && <div className="event-chip">{event.name}</div>}

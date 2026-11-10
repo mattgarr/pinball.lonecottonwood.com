@@ -377,3 +377,25 @@
     margin: 0 !important;
   }
 }
+
+/* Tournament times + free play step */
+.host-sched { display: grid; gap: 10px; }
+.host-sched-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.host-sched-fields .field { display: grid; gap: 6px; min-width: 0; }
+.host-sched input[type="datetime-local"] {
+  height: 40px; width: 100%; box-sizing: border-box; background: #000; color: var(--nes-white); color-scheme: dark;
+  border: 2px solid var(--nes-gray); padding: 0 8px; font-family: var(--pxbody); font-size: var(--b10);
+}
+.host-sched-row, .host-fp-row { flex-wrap: wrap; align-items: center; }
+.host-fp-row { margin-top: 8px; }
+.host-pill {
+  display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 0 12px; box-sizing: border-box;
+  font-family: var(--px); font-size: var(--t10); line-height: 1; color: #9c9cb4; box-shadow: inset 0 0 0 2px #3c3c5c;
+}
+.host-pill.on { color: #000; background: var(--nes-lime); box-shadow: none; }
+@media (min-width: 680px) {
+  .host-add { grid-template-columns: 1fr 1fr 130px 1fr auto; }
+}
+.host-score-actions { white-space: nowrap; }
+.host-score-actions > button + button { margin-left: 6px; }
+.host .kind-fp { color: var(--nes-sky, #3cbcfc) !important; box-shadow: inset 0 0 0 2px var(--nes-sky, #3cbcfc) !important; }
