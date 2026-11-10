@@ -7,7 +7,8 @@
 // The zones then light up in turn to check, and Save stores them and pushes them to the controller.
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getHostPass, host, useParty } from '../lib/store.js';
+import { ensureLightsTopic, getHostPass, host, useParty } from '../lib/store.js';
+import { LightsEngine } from '../lib/lights/engine.js';
 import { LIGHTS, defaultZones, stackUnder } from '../lib/lights/config.js';
 import { publish } from '../lib/lights/mqtt.js';
 
@@ -34,7 +35,17 @@ export default function HostCalibrate() {
   const pointer = n => send({ on: true, seg: [{ id: P, start: n, stop: n + 1, on: true, fx: 0, bri: 255, col: [[255, 255, 255, 255]] }] });
   const removePointer = () => send({ seg: [{ id: P, stop: 0 }] });
 
-  useEffect(() => { pointer(pos); }, [pos]); // eslint-disable-line react-hooks/exhaustive-deps
+  // First make sure the controller has the app's segments (after a reboot it only has its own), then
+  // light the pointer. WLED adds a missing segment at the next free slot, so the pointer (15) needs 0–14.
+  const [laidOut, setLaidOut] = useState(false);
+  useEffect(() => {
+    ensureLightsTopic().then(() => {
+      const eng = new LightsEngine({ send, zones: settings?.zones || undefined });
+      eng.applyLayout(settings?.zones || defaultZones()); eng.flush(); eng.destroy();
+      setLaidOut(true);
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (laidOut) pointer(pos); }, [pos, laidOut]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { timers.current.forEach(clearTimeout); removePointer(); }, []); // leaving the page removes the pointer
 
   function pickRun(k) {

@@ -134,7 +134,7 @@ Suggested design, if it's ever needed (confirm with Matt before building):
 The lighting plan is the Claude Doc "Pinball Garage Lighting Plan". Its spec assumed a local server; **the app is cloud-hosted, so the build talks to the lights through a public MQTT broker instead.**
 
 - **How it works:**
-  - The WLED controller (Gledopto) subscribes to `broker.hivemq.com:1883`, topic `woodsidepinball/0574bee021207a68cb` (see `web/src/lib/lights/config.js`).
+  - The WLED controller (Gledopto) subscribes to `broker.hivemq.com:1883`. The channel (Device Topic) is a **secret** generated in the database (`lights_secret`, migration 0021), readable only via `host_lights_topic(p_pass)`; the host lights card shows it. Browsers cache it in localStorage `pw.lightsTopic` once unlocked as host (the TV Mac must unlock `/host` once). The old public topic is retired (it was in the public repo, and was also over WLED's 32-character limit).
   - The **TV page on the Mac** drives the lights: it watches scores, machine champions, leader changes, party open/close and the reveal, and publishes WLED JSON state to `<topic>/api` over secure WebSockets (`wss://broker.hivemq.com:8884/mqtt`).
   - Only a screen marked as the lights driver sends anything: move the mouse on the TV and click "Lights: … drive the garage lights from this screen", or open `/tv?lights=1`. It's stored in that browser.
 - **Code:** `web/src/lib/lights/` (`config.js` zones/topic/effects; `engine.js` priorities, restore timers, merging, throttle, reveal choreography; `useLightsDirector.js` the TV driver; `mqtt.js`; `render.js` for the simulator). Tests: `cd web && npm test` (25 engine tests).
@@ -155,6 +155,9 @@ The lighting plan is the Claude Doc "Pinball Garage Lighting Plan". Its spec ass
   - After a controller reboot (WLED re-announces "online" on `/status`), the TV calls `engine.resync()` to push the zones and the current look again.
   - Rehearsal: `/tv?demo&lights=1` lets demo moments drive the real strips (plain `?demo` never does).
   - Install / commissioning guide (Claude Doc): https://claude.ai/artifact/X7WEoSWVYhKuVQCZzVHkMh
+  - Segments are always sent in ascending id order (WLED appends a missing segment at the next free slot). The curb offset follows WLED's rule (effect pixel i drawn at i + offset); `wledOffsetAdds` in config flips it if the bench test disagrees.
+  - Standalone shows: `lib/lights/presets.js` builds WLED presets (1 Attract playlist, 2 Calm, 3 Exciting, 4 Music, 5 House, 6 Off, 9 Next mode = `1~4~`), downloadable from the host lights card; the simulator previews them ("Standalone (no TV)"). WiZ remote buttons 1–4 = presets 1–4.
+  - CLI scripts need `LIGHTS_TOPIC` set to the secret channel.
   - Machine-zone effects are always symmetric (`mi` + `rev`, mirrored from the machine's center); nothing scrolls one way across a machine.
   - Stuck-light safety: `destroy()` returns anything mid-flash to rest, and the driver re-sends "off" to idle machine zones every 5 s (a dropped MQTT message can't leave a machine lit).
   - The simulator's TV view publishes on a private channel (`sim/<random>`), so open simulators and test runs don't light each other up. Only the real TV in simulator-only mode uses the shared `sim` topic.
@@ -163,5 +166,5 @@ The lighting plan is the Claude Doc "Pinball Garage Lighting Plan". Its spec ass
 - **Topics:** `/api` (real controller), `/sim` (simulator-only mode), `/status` (WLED online/offline), `/director` (TV heartbeat), `/control` (host commands for the TV).
 - **CLI:** `npm run lights:test -- --machine whirlwind --event score --color magenta [--hardware]`, and `npm run lights:mock`.
 - **Physical machine order** (left to right) is `machineOrder` in `config.js`: Fathom, Centaur, Whirlwind, Whitewater, Cactus Canyon, D&D (ids 2,1,3,4,5,6). Change it there if the machines move.
-- **WLED setup Matt still needs to do:** Config → Sync Interfaces → MQTT: enable, broker `broker.hivemq.com`, port 1883, no user/pass, Device Topic `woodsidepinball/0574bee021207a68cb`, Group Topic anything. The rest follows the doc (LED prefs, 12,000 mA, presets 1–5, boot preset 1).
+- **WLED setup Matt still needs to do:** Config → Sync Interfaces → MQTT: enable, broker `broker.hivemq.com`, port 1883, no user/pass, Device Topic and Group Topic as shown on the host lights card. The rest follows the doc (LED prefs, 12,000 mA, presets 1–5, boot preset 1).
 - **Not done:** the optional "live mirror" of real LED colors (needs a LAN connection to WLED, which a cloud page can't reach). Effect IDs are fixed in `config.js`, because MQTT can't fetch `/json/eff`; WLED keeps IDs stable.

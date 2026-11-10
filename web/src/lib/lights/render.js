@@ -143,7 +143,9 @@ export function renderRange(model, from, to, now, timeScale = 1) {
     if (top && !(model.ambient && AMBIENT_IDS.includes(top.id))) {
       const t = (now - (top.since || 0)) / timeScale;
       const n = top.stop - top.start;
-      let idx = (p - top.start + (top.of || 0)) % n; // WLED's segment offset rotates the pattern
+      // WLED draws effect pixel i at physical pixel i + offset, so physical r shows effect pixel r - offset.
+      const shift = LIGHTS.wledOffsetAdds === false ? (top.of || 0) : -(top.of || 0);
+      let idx = (((p - top.start + shift) % n) + n) % n;
       let len = n;
       if (top.mi) { len = Math.ceil(n / 2); if (idx >= len) idx = n - 1 - idx; } // mirrored halves
       if (top.rev) idx = len - 1 - idx;

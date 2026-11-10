@@ -150,7 +150,9 @@ describe('lights engine', () => {
     }
     expect(get(1).stop - get(1).start).toBe(get(8).stop - get(8).start); // curb made the beam's length
     // Shifted by the offset, each curb machine zone sits under its beam zone.
-    for (let i = 0; i < 6; i++) expect(get(2 + i).start - get(1).start).toBe(get(9 + i).start - get(8).start + get(8).of);
+    const len = get(8).stop - get(8).start;
+    // WLED shows effect pixel (r - offset) at curb pixel r, so each curb zone lines up with its beam zone.
+    for (let i = 0; i < 6; i++) expect(get(2 + i).start - get(1).start).toBe((((get(9 + i).start - get(8).start - get(8).of) % len) + len) % len);
   });
 
   it('band and curb always change in the same message with the same effect (they stay in sync)', () => {
@@ -307,5 +309,24 @@ describe('lights engine', () => {
     const segs = sent.flatMap(p => p.seg || []);
     for (const id of [0, 1, 8, 2, 7, 9, 14]) expect(segs.some(s => s.id === id && s.start !== undefined)).toBe(true);
     expect(segs.find(s => s.id === 8 && s.fx !== undefined)).toBeTruthy();
+  });
+
+  it('segments always go out in ascending id order (WLED appends new ones at the next slot)', () => {
+    e.start(); e.champion(WHIRLWIND, MAG); e.leader(CYAN);
+    vi.advanceTimersByTime(6000);
+    for (const p of sent) {
+      const ids = (p.seg || []).map(s => s.id);
+      expect(ids).toEqual([...ids].sort((a, b) => a - b));
+    }
+    expect(sent[0].seg.map(s => s.id)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+  });
+
+  it('after the party closes to your preset, the next effect pushes the zones first', () => {
+    e.start(); e.stop(); sent = [];
+    e.test(WHIRLWIND, MAG);
+    vi.advanceTimersByTime(60);
+    const ids = sent[0].seg.map(s => s.id);
+    expect(ids).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+    expect(sent[0].seg.find(s => s.id === 11)).toMatchObject({ on: true, fx: LIGHTS.effects.Breathe });
   });
 });

@@ -3,12 +3,13 @@
 // "Simulator only" plays effects here and sends nothing; "Send to hardware" plays them on the strips too.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useParty } from '../lib/store.js';
+import { ensureLightsTopic, useParty } from '../lib/store.js';
 import { LIGHTS, defaultZones, bandOf } from '../lib/lights/config.js';
 import { LightsEngine } from '../lib/lights/engine.js';
 import { runControl } from '../lib/lights/useLightsDirector.js';
 import { publish, subscribe, onConnection } from '../lib/lights/mqtt.js';
 import { applyMessage, newModel, renderRange } from '../lib/lights/render.js';
+import { buildPresets } from '../lib/lights/presets.js';
 
 // The 12 player colors (same palette players get when they sign up).
 const COLORS = ['#ff5b6e', '#ffb020', '#ffd84d', '#38d39f', '#2ec5e8', '#5b8cff', '#a07bff', '#ff6fd0', '#7ee081', '#ff8a4c', '#4dd4c4', '#c9a0ff'];
@@ -29,7 +30,8 @@ export default function LightsSim() {
   const audioRef = useRef(null);
   const [tvMode, setTvMode] = useState('demo'); // demo | live | off
   // This page's private channel for its TV view, so other open simulators (or test runs) don't mix in.
-  const [ch] = useState(() => Math.random().toString(36).slice(2, 10));
+  const [ch] = useState(() => Math.random().toString(36).slice(2, 12));
+  useEffect(() => { ensureLightsTopic(); }, []); // with the host unlock, also show the real controller's traffic
   const model = useRef(newModel());
   const canvasTop = useRef(null), canvasCurb = useRef(null);
   const nameOf = id => allMachines.find(m => m.id === id)?.name || `#${id}`;
@@ -45,14 +47,43 @@ export default function LightsSim() {
     seed.applyLayout(zones); seed.flush(); seed.destroy();
   }, [JSON.stringify(zones)]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The controller's own presets (standalone shows). A message with `ps` plays that preset here the
+  // way WLED would: playlists step through their items (every 8 s here, so you can see them all).
+  const presets = useMemo(() => buildPresets(zones), [JSON.stringify(zones)]); // eslint-disable-line react-hooks/exhaustive-deps
+  const playTimer = useRef(null);
+  const curPreset = useRef(1);
+  const [standalone, setStandalone] = useState('');
+  const feedRef = useRef(null);
+  feedRef.current = msg => {
+    if (!msg || typeof msg !== 'object') return;
+    const { ps, ...rest } = msg;
+    if (Object.keys(rest).length) applyMessage(model.current, rest);
+    if (ps === undefined) return;
+    let id = Number(ps);
+    const cyc = typeof ps === 'string' && ps.match(/^(\d+)~(\d+)~$/);
+    if (cyc) { const a = +cyc[1], b = +cyc[2]; id = curPreset.current >= a && curPreset.current < b ? curPreset.current + 1 : a; }
+    const pr = presets[id];
+    if (!pr) return;
+    if (pr.ps !== undefined) { feedRef.current({ ps: pr.ps }); return; }
+    curPreset.current = id; setStandalone(String(id));
+    clearInterval(playTimer.current); playTimer.current = null;
+    const apply = item => applyMessage(model.current, item.seg ? { on: item.on, bri: item.bri, seg: item.seg } : { on: item.on });
+    if (pr.playlist) {
+      let i = 0;
+      apply(presets[pr.playlist.ps[0]]);
+      playTimer.current = setInterval(() => { i = (i + 1) % pr.playlist.ps.length; apply(presets[pr.playlist.ps[i]]); }, 8000);
+    } else apply(pr);
+  };
+  useEffect(() => () => clearInterval(playTimer.current), []);
+
   // Live traffic from the TV (real or dry-run).
   useEffect(() => {
     const show = (src) => msg => {
-      applyMessage(model.current, msg);
+      feedRef.current(msg);
       setLog(l => [{ at: new Date().toLocaleTimeString(), src, msg: JSON.stringify(msg).slice(0, 160) }, ...l].slice(0, 12));
     };
     const a = subscribe('api', show('hardware')), b = subscribe('sim', show('simulator'));
-    const d = subscribe(`sim/${ch}`, show('TV view'));
+    const d = subscribe(`~/wpsim/${ch}`, show('TV view'));
     const c = onConnection(setConn);
     return () => { a(); b(); c(); d(); };
   }, []);
@@ -62,7 +93,7 @@ export default function LightsSim() {
     zones, timeScale: speed,
     send: msg => {
       if (hardware) { publish('api', msg); return; } // comes back through the live subscription
-      applyMessage(model.current, msg);
+      feedRef.current(msg);
       setLog(l => [{ at: new Date().toLocaleTimeString(), src: 'this page', msg: JSON.stringify(msg).slice(0, 160) }, ...l].slice(0, 12));
     },
   }), [hardware, speed, JSON.stringify(zones)]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -236,6 +267,23 @@ export default function LightsSim() {
           </label>
           <span className="ls-buttons"><button type="button" onClick={toggleMic}>{mic === 'on' ? 'Stop listening' : 'Listen with this Mac\'s mic'}</button></span>
           <span className="ls-dim">{mic === 'on' ? 'Listening to the room' : mic === 'denied' ? 'Mic blocked: allow it in the browser' : 'No mic: using a fake 120 BPM beat'}</span>
+        </div>
+        <div className="ls-row">
+          <label>Standalone (no TV)
+            <select value={standalone} onChange={e => {
+              const v = e.target.value; if (!v) return;
+              setTvMode('off'); engine.clearAll(); engine.stopCycle();
+              if (hardware) publish('api', { ps: Number(v) }); else feedRef.current({ ps: Number(v) });
+            }}>
+              <option value="">Pick a controller preset…</option>
+              {[1, 2, 3, 4, 5, 6].map(id => <option key={id} value={id}>{presets[id].n}</option>)}
+            </select>
+          </label>
+          <span className="ls-buttons"><button type="button" onClick={() => {
+            setTvMode('off'); engine.clearAll(); engine.stopCycle();
+            if (hardware) publish('api', { ps: '1~4~' }); else feedRef.current({ ps: '1~4~' });
+          }}>Next mode (controller button)</button></span>
+          <span className="ls-dim">What the lights do on their own when the wall switch is flipped (boots into Attract).</span>
         </div>
         <div className="ls-row">
           <label>Ambient

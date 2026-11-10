@@ -4,11 +4,12 @@
 // driving, this page sends them itself.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { host, useParty } from '../lib/store.js';
-import { LIGHTS } from '../lib/lights/config.js';
+import { ensureLightsTopic, host, useParty } from '../lib/store.js';
+import { LIGHTS, defaultZones } from '../lib/lights/config.js';
+import { buildPresets } from '../lib/lights/presets.js';
 import { LightsEngine } from '../lib/lights/engine.js';
 import { runControl } from '../lib/lights/useLightsDirector.js';
-import { publish, subscribe, onConnection } from '../lib/lights/mqtt.js';
+import { publish, subscribe, onConnection, lightsTopic, onLightsTopic } from '../lib/lights/mqtt.js';
 
 const COLORS = ['#ff5b6e', '#ffb020', '#ffd84d', '#38d39f', '#2ec5e8', '#5b8cff', '#a07bff', '#ff6fd0', '#7ee081', '#ff8a4c', '#4dd4c4', '#c9a0ff'];
 const DRIVER_FRESH_MS = 60000;
@@ -24,6 +25,8 @@ export default function LightsPanel({ busy, run }) {
   const [now, setNow] = useState(Date.now());
   const briTimer = useRef(null);
 
+  const [topic, setTopic] = useState(lightsTopic());
+  useEffect(() => { ensureLightsTopic().then(t => setTopic(t)); return onLightsTopic(setTopic); }, []);
   useEffect(() => {
     const a = subscribe('status', m => setWled(String(m).toLowerCase().includes('online') ? 'online' : 'offline'));
     const b = subscribe('director', m => setDriver(m && typeof m === 'object' ? m : null));
@@ -116,7 +119,24 @@ export default function LightsPanel({ busy, run }) {
         <a className="ghost" href="/lights-sim" target="_blank" rel="noreferrer">Open simulator ↗</a>
         <Link className="ghost" to="/host/calibrate">Calibrate machine zones</Link>
       </div>
-      <p className="muted small">The TV drives the lights once you move the mouse over it and click "Lights: drive the garage lights from this screen" (do this on the TV's Mac only).</p>
+      <div className="row gap lights-row">
+        <button type="button" className="ghost" onClick={() => downloadPresets(settings.zones)}>Download controller presets</button>
+      </div>
+      <p className="muted small">The lights' own shows for when the TV isn't running (Attract, Calm, Exciting, Music, House lights, Off). Upload the file in WLED: Config → Security &amp; Updates → Restore presets. Download it again after calibrating.</p>
+      <p className="muted small">The TV drives the lights once you unlock this host page on the TV's Mac, move the mouse to the bottom-right corner of the TV and click "Lights: click to drive the garage lights from this screen".</p>
+      <div className="lights-topic">
+        <div className="muted small">For WLED's MQTT settings (keep these private: anyone with them can control the lights):</div>
+        <div className="small">Device Topic: <code>{topic || 'loading…'}</code></div>
+        <div className="small">Group Topic: <code>{topic ? `${topic}g` : 'loading…'}</code></div>
+      </div>
     </section>
   );
+}
+
+function downloadPresets(zones) {
+  const blob = new Blob([JSON.stringify(buildPresets(zones || defaultZones()))], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'presets.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }

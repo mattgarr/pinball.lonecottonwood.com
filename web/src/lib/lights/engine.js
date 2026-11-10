@@ -125,7 +125,8 @@ export class LightsEngine {
     if (this.flushTimer) { clearTimeout(this.flushTimer); this.flushTimer = null; }
     if (!this.pending.size && !Object.keys(this.extra).length) return;
     const payload = { ...this.extra };
-    if (this.pending.size) payload.seg = [...this.pending.values()];
+    // Ascending ids: WLED appends a missing segment at the next free slot, so 0, 1, 2… must arrive in order.
+    if (this.pending.size) payload.seg = [...this.pending.values()].sort((a, b) => a.id - b.id);
     this.pending.clear();
     this.extra = {};
     const now = Date.now();
@@ -139,6 +140,7 @@ export class LightsEngine {
 
   // Start an effect on one segment. Returns false if a higher-priority effect is running.
   effect(id, state, prio, durMs, { force = false } = {}) {
+    if (this.needsLayout) this.applyLayout();
     const st = this.seg(id);
     if (st.prio > prio) return false;
     const wasSame = st.prio === prio && st.prio > 0;
@@ -185,7 +187,9 @@ export class LightsEngine {
     // The curb is the top run's length too (pixels past the real strip don't exist), shifted by `of`,
     // so curb pixel k shows what the top pixel directly above it shows.
     const len = top.stop - top.start;
-    const of = ((beamOf(this.cfg).start - top.start + curbOffset(zones, this.cfg)) % len + len) % len;
+    const d = beamOf(this.cfg).start - top.start + curbOffset(zones, this.cfg); // curb pixel k = top pixel k + d
+    const of = (((this.cfg.wledOffsetAdds === false ? d : -d) % len) + len) % len;
+    this.needsLayout = false;
     this.queue({ id: top.baseSeg, start: top.start, stop: top.stop });
     this.queue({ id: top.bandSeg, start: top.start, stop: top.stop });
     this.queue({ id: curb.baseSeg, start: curb.start, stop: curb.start + len, of });
@@ -253,6 +257,7 @@ export class LightsEngine {
     for (const id of this.allMachineSegs()) this.queue({ id, on: false });
     this.queueExtra({ ps: this.cfg.ambientPreset });
     this.flush();
+    this.needsLayout = true; // the preset may change segments; push the zones again before the next effect
   }
 
   score(machineId, color) {

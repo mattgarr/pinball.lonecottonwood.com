@@ -4,11 +4,11 @@
 // /tv on someone's phone never doubles a flash.
 //
 // WLED setup (Config > Sync Interfaces > MQTT): broker broker.hivemq.com, port 1883, no user/pass,
-// Device topic = TOPIC below. Commands go to `${TOPIC}/api` as JSON state (same body as POST /json/state).
+// Device topic = the secret channel name (stored in the database, shown on the host lights card).
+// Commands go to `<channel>/api` as JSON state (same body as POST /json/state).
 
 export const LIGHTS = {
   broker: 'wss://broker.hivemq.com:8884/mqtt',
-  topic: 'woodsidepinball/0574bee021207a68cb', // long and random: nobody stumbles onto the lights
   competitorMode: 'individual', // 'team' would color by team (no teams at this party)
 
   // Physical order, left to right, as machine ids from the machines table.
@@ -72,6 +72,9 @@ export const LIGHTS = {
   // Full flashes on the strips' dedicated white chip for exciting moments (never faster than 3/s).
   whiteFlash: { champion: true, leader: true },
   milestoneGold: [255, 170, 0, 0],
+  // WLED draws a segment's effect pixel i at physical pixel i + offset (FX_fcn setPixelColor:
+  // indexSet += offset). If the bench test shows the curb shifted the wrong way, flip this to false.
+  wledOffsetAdds: true,
   scoreAlsoOnTop: true, // machine highlights light the top and curb zones together (one tall column)
 
   // WLED keeps effect IDs fixed across versions; MQTT can't fetch the list, so they're named here.

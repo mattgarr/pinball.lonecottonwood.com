@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LightsEngine } from './engine.js';
 import { LIGHTS, hexToRgbw } from './config.js';
-import { publish, subscribe } from './mqtt.js';
+import { publish, subscribe, lightsTopic, onLightsTopic } from './mqtt.js';
 
 const DRIVER_KEY = 'pw.lightsDriver';
 const HEARTBEAT_MS = 20000;
@@ -29,7 +29,11 @@ export function useLightsDirector({ settings, party, scores, players, standings,
 
   const enabled = !!settings?.enabled;
   const dry = simOnly || settings?.dry_run !== false;
-  const active = simOnly ? ready : driver && enabled && ready;
+  // The real controller's channel is a secret this browser learns with the host passcode (unlock
+  // /host once on the TV Mac). The simulator's TV view uses its own throwaway channel instead.
+  const [hasTopic, setHasTopic] = useState(!!lightsTopic());
+  useEffect(() => onLightsTopic(() => setHasTopic(true)), []);
+  const active = simOnly ? ready : driver && enabled && ready && hasTopic;
   const engineRef = useRef(null);
   const colorOf = useRef(() => [255, 0, 170, 0]);
   colorOf.current = pid => hexToRgbw(players.find(p => p.id === pid)?.color);
@@ -136,7 +140,7 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     if (e && t?.kind === 'shame') e.shame();
   }, []);
 
-  return { driver, setDriver, enabled, dry, active, onRevealSlide, onHit, onTakeover, onToast };
+  return { driver, setDriver, enabled, dry, active, hasTopic, onRevealSlide, onHit, onTakeover, onToast };
 }
 
 // Shared by the TV (as driver) and the simulator / host page (when no TV is driving).

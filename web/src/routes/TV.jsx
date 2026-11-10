@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useAwards, useParty, useStandings } from '../lib/store.js';
+import { ensureLightsTopic, useAwards, useParty, useStandings } from '../lib/store.js';
 import { useLightsDirector } from '../lib/lights/useLightsDirector.js';
 import QR from '../components/QR.jsx';
 import Reveal from '../components/Reveal.jsx';
@@ -22,6 +22,7 @@ export default function TV() {
   const awards = useAwards(standings, party?.reveal_active ? party.match_digits : null);
   const demo = typeof location !== 'undefined' && new URLSearchParams(location.search).has('demo');
   const { lights: lightsSettings } = useParty();
+  useEffect(() => { ensureLightsTopic(); }, []); // learns the lights channel if this browser has the host unlock
   // Garage lights: only the screen marked as the lights driver (the TV on the Mac) sends anything.
   // /tv?lights=sim (the simulator's TV view) drives the simulated strips only, including demo events.
   const lightsSim = typeof location !== 'undefined' && new URLSearchParams(location.search).get('lights') === 'sim';
@@ -29,7 +30,7 @@ export default function TV() {
   const lightsRehearsal = demo && new URLSearchParams(location.search).get('lights') === '1';
   // The simulator's TV view passes its own private channel (?ch=…), so test pages don't light up each other.
   const simCh = lightsSim ? (new URLSearchParams(location.search).get('ch') || '').replace(/[^a-z0-9]/gi, '').slice(0, 16) : '';
-  const lights = useLightsDirector({ settings: lightsSettings, party, scores, players, standings, ready: ready && (!demo || lightsSim || lightsRehearsal), simOnly: lightsSim, simChannel: simCh ? `sim/${simCh}` : null });
+  const lights = useLightsDirector({ settings: lightsSettings, party, scores, players, standings, ready: ready && (!demo || lightsSim || lightsRehearsal), simOnly: lightsSim, simChannel: simCh ? `~/wpsim/${simCh}` : null });
   const live = useLiveEvents({ standings, scores, players, ready, demo });
   // The garage lights follow what's on screen, as it appears.
   useEffect(() => { if (live.takeover) lights.onTakeover(live.takeover); }, [live.takeover?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -242,7 +243,9 @@ export default function TV() {
         </button>
         <button type="button" className={`tv-sound tv-lights${lights.driver ? ' on' : ''}`} onClick={e => { e.stopPropagation(); lights.setDriver(!lights.driver); }}
           title="Only the TV in the garage should drive the lights">
-          {lights.driver
+          {lights.driver && !lights.hasTopic
+            ? '⚙ Lights: unlock /host on this computer once, then reload'
+            : lights.driver
             ? `⚙ Lights: this screen drives them${lights.enabled ? (lights.dry ? ' (simulator only)' : '') : ' (lights off in host)'} · click to stop`
             : '⚙ Lights: click to drive the garage lights from this screen'}
         </button>

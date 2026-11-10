@@ -1,6 +1,7 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { computeStandings, computeAwards } from './scoring.js';
+import { lightsTopic, setLightsTopic } from './lights/mqtt.js';
 
 // Public project settings. The publishable key is designed to live in the browser:
 // the database only allows reads, and every write goes through checked server functions.
@@ -25,7 +26,22 @@ export const getHostPass = () => safe(() => {
   localStorage.removeItem(HOST_KEY);
   return null;
 });
-export const setHostPass = p => safe(() => (p ? localStorage.setItem(HOST_KEY, JSON.stringify({ p, t: Date.now() })) : localStorage.removeItem(HOST_KEY)));
+export const setHostPass = p => {
+  safe(() => (p ? localStorage.setItem(HOST_KEY, JSON.stringify({ p, t: Date.now() })) : localStorage.removeItem(HOST_KEY)));
+  if (p) ensureLightsTopic();
+};
+
+// Garage lights: learn the secret channel name with the host passcode, once per browser (kept after
+// the host unlock expires, so the TV Mac keeps driving the lights). Quietly does nothing without it.
+export async function ensureLightsTopic() {
+  const pass = getHostPass();
+  if (!pass) return lightsTopic();
+  try {
+    const { data, error } = await sb.rpc('host_lights_topic', { p_pass: pass });
+    if (!error && data) setLightsTopic(data);
+  } catch { /* offline: keep what we have */ }
+  return lightsTopic();
+}
 
 // ---------------------------------------------------------------------------
 // One shared, live copy of the whole party (it's small: ~40 players, a few

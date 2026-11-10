@@ -2,17 +2,41 @@
 // Light commands are fire-and-forget: if the broker or the controller is down, nothing in the party
 // app waits on it or shows an error.
 //
-// Topics (all under LIGHTS.topic):
+// The channel name (the controller's "device topic") is a secret: it is NOT in this code. A browser
+// learns it once from the database with the host passcode (ensureLightsTopic in store.js) and keeps
+// it in localStorage; until then, nothing is sent to or heard from the real controller.
+//
+// Topics (under the secret channel):
 //   /api       JSON state for the real controller (WLED reads this)
 //   /sim       the same commands in simulator-only (dry-run) mode; WLED ignores it
 //   /status    WLED's own "online"/"offline" (retained)
 //   /director  heartbeat from the TV that drives the lights (retained JSON)
 //   /control   host commands for the TV to carry out (house lights, tests, brightness…)
+// A topic starting with "~/" is used as written (the simulator's private throwaway channels).
 import mqtt from 'mqtt';
 import { LIGHTS } from './config.js';
 
+const TOPIC_KEY = 'pw.lightsTopic';
+let base = (() => { try { return localStorage.getItem(TOPIC_KEY) || null; } catch { return null; } })();
+const topicFns = new Set();
+export const lightsTopic = () => base;
+export function onLightsTopic(fn) { topicFns.add(fn); return () => topicFns.delete(fn); }
+
 let client = null;
-const handlers = new Map(); // full topic → Set(fn)
+const handlers = new Map(); // sub → Set(fn)
+const full = sub => (sub.startsWith('~/') ? sub.slice(2) : base ? `${base}/${sub}` : null);
+
+export function setLightsTopic(tp) {
+  if (!tp || tp === base) return;
+  const old = [...handlers.keys()].map(full).filter(Boolean);
+  base = tp;
+  try { localStorage.setItem(TOPIC_KEY, tp); } catch { /* private window */ }
+  if (client?.connected) {
+    for (const o of old) { try { client.unsubscribe(o); } catch { /* ignore */ } }
+    for (const s of handlers.keys()) { const f = full(s); if (f) client.subscribe(f); }
+  }
+  for (const fn of topicFns) { try { fn(tp); } catch { /* ignore */ } }
+}
 
 function connect() {
   if (client) return client;
@@ -23,36 +47,44 @@ function connect() {
     clean: true,
   });
   client.on('message', (topic, buf) => {
-    const fns = handlers.get(topic);
-    if (!fns) return;
     let msg = buf.toString();
     try { msg = JSON.parse(msg); } catch { /* plain text, e.g. "online" */ }
-    for (const fn of fns) { try { fn(msg, topic); } catch { /* ignore */ } }
+    for (const [sub, fns] of handlers) {
+      if (full(sub) !== topic) continue;
+      for (const fn of fns) { try { fn(msg, topic); } catch { /* ignore */ } }
+    }
   });
-  client.on('connect', () => { for (const t of handlers.keys()) client.subscribe(t); });
+  client.on('connect', () => { for (const s of handlers.keys()) { const f = full(s); if (f) client.subscribe(f); } });
   client.on('error', () => { /* reconnects on its own */ });
   return client;
 }
 
-export const t = sub => `${LIGHTS.topic}/${sub}`;
-
 export function publish(sub, payload, { retain = false } = {}) {
   try {
+    const topic = full(sub);
+    if (!topic) return; // channel not known on this browser yet
     const c = connect();
     const body = typeof payload === 'string' ? payload : JSON.stringify(payload);
-    c.publish(t(sub), body, { qos: 0, retain });
+    c.publish(topic, body, { qos: 0, retain });
   } catch { /* fire and forget */ }
 }
 
 export function subscribe(sub, fn) {
   const c = connect();
-  const topic = t(sub);
-  if (!handlers.has(topic)) { handlers.set(topic, new Set()); if (c.connected) c.subscribe(topic); }
-  handlers.get(topic).add(fn);
+  if (!handlers.has(sub)) {
+    handlers.set(sub, new Set());
+    const f = full(sub);
+    if (f && c.connected) c.subscribe(f);
+  }
+  handlers.get(sub).add(fn);
   return () => {
-    const set = handlers.get(topic);
+    const set = handlers.get(sub);
     set?.delete(fn);
-    if (set && !set.size) { handlers.delete(topic); try { c.unsubscribe(topic); } catch { /* ignore */ } }
+    if (set && !set.size) {
+      handlers.delete(sub);
+      const f = full(sub);
+      if (f) { try { c.unsubscribe(f); } catch { /* ignore */ } }
+    }
   };
 }
 
