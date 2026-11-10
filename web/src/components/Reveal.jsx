@@ -41,23 +41,41 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, p
     return () => window.removeEventListener('keydown', key);
   });
 
-  // 3, 2, 1, then the winner (count 0). The lights get each count and the reveal, on the same timeline.
+  // Each prize's build-up, then the winner. Grand Champion: 3-2-1. 2nd and 3rd: a walk down the
+  // ratings. The other prizes: 3-2-1, then a walk down that prize's standings. The Match: its draw and
+  // spin. The lights get 3, 2, 1 and the reveal on the same timeline.
   const cur = slides[idx] ?? slides[0];
   const cueKey = cur ? `${idx}:${cur.label}:${cur.title || ''}` : '';
-  // The count belongs to one prize: a new prize starts at 3 on its very first frame (no flash of the
-  // winner before the countdown).
-  const [cd, setCd] = useState({ k: cueKey, n: 3 });
-  const count = cd.k === cueKey ? cd.n : 3;
+  const mode = modeOf(cur);
+  const first = mode === 'walk' ? 'walk' : mode === 'spin' ? 'spin' : 3;
+  // The phase belongs to one prize: a new prize starts at its first phase on its very first frame (no
+  // flash of the winner before the build-up).
+  const [cd, setCd] = useState({ k: cueKey, n: first });
+  const phase = cd.k === cueKey ? cd.n : first;
   useEffect(() => {
     if (!cur) return undefined;
-    // The Match swaps the 3-2-1 for its draw and slot-machine spin; the lights still get 3, 2, 1.
-    const t = cur.spin ? spinTimes(cur.spin) : cur.walk?.rows.length ? walkTimes(cur.walk)
-      : { at: [0, COUNT_MS, COUNT_MS * 2], show: COUNT_MS * 3 };
+    const set = n => setCd({ k: cueKey, n });
     const ts = [setTimeout(() => onSlide?.(cur, 'count', 3), 0)]; // after the lights engine is up
-    [2, 1].forEach((n, k) => ts.push(setTimeout(() => { setCd({ k: cueKey, n }); onSlide?.(cur, 'count', n); }, t.at[k + 1])));
-    ts.push(setTimeout(() => { setCd({ k: cueKey, n: 0 }); onSlide?.(cur, 'show'); }, t.show));
+    const at = (ms, f) => ts.push(setTimeout(f, ms));
+    let show;
+    if (mode === 'spin' || mode === 'walk') {
+      const t = mode === 'spin' ? spinTimes(cur.spin) : walkTimes(cur.walk);
+      at(t.at[1], () => onSlide?.(cur, 'count', 2));
+      at(t.at[2], () => onSlide?.(cur, 'count', 1));
+      show = t.show;
+    } else {
+      at(COUNT_MS, () => { set(2); onSlide?.(cur, 'count', 2); });
+      at(COUNT_MS * 2, () => { set(1); onSlide?.(cur, 'count', 1); });
+      show = COUNT_MS * 3;
+      if (mode === 'countwalk') {
+        at(show, () => set('walk'));
+        show += Math.max(1500, walkTimes(cur.walk).land + WALK_HOLD);
+      }
+    }
+    at(show, () => { set(0); onSlide?.(cur, 'show'); });
     return () => ts.forEach(clearTimeout);
   }, [cueKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const count = typeof phase === 'number' ? phase : 0;
 
   const slide = slides[idx] ?? slides[0];
   if (!slide) return <div className="reveal-tv rv"><div className="rv-empty">No data to reveal yet.</div></div>;
@@ -65,7 +83,7 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, p
   const accent = slide.accent || '#ffcc33';
   const split = !!slide.machine;
 
-  if (count > 0 && slide.spin) {
+  if (phase === 'spin') {
     return (
       <div className="reveal-tv rv rv-counting" style={{ '--accent': accent }} onClick={() => go(idx + 1)}>
         <div className="rv-shade" />
@@ -76,7 +94,7 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, p
     );
   }
 
-  if (count > 0 && slide.walk?.rows.length) {
+  if (phase === 'walk') {
     return (
       <div className="reveal-tv rv rv-counting" style={{ '--accent': accent }} onClick={() => go(idx + 1)}>
         {slide.machine && <img key={`bg${idx}`} className="rv-bg" src={machineArt(slide.machine.name)} alt="" onError={e => artFallback(e, slide.machine.name)} />}
@@ -207,6 +225,12 @@ function MatchSpin({ spin }) {
 // The walk down a prize's standings: a cursor starts at the top, marks each person who already won a
 // prize ("WON: 2ND PLACE") and moves on, and stops on the winner (or runs off the end: nobody left).
 const WALK_IN = 1100, WALK_HOLD = 1400, ROW_H = 92, ROWS_SHOWN = 6;
+function modeOf(slide) {
+  if (!slide) return 'count';
+  if (slide.spin) return 'spin';
+  if (!slide.walk?.rows.length) return 'count';
+  return slide.walkOnly ? 'walk' : 'countwalk';
+}
 function walkTimes(w) {
   const steps = w.win >= 0 ? w.win : w.rows.length; // -1: walk past everyone
   const step = steps ? Math.max(380, Math.min(800, 4200 / steps)) : 0;
@@ -317,11 +341,12 @@ function buildSlides({ standings, awards }) {
     [awards?.third, '3RD PLACE', '#cd7f32', '🥉', 'not enough ranked players (2+ machines each)'],
   ];
   for (const [st, label, accent, footer, why] of podium) {
-    const w = walk('Overall rating', byRating, st?.player);
-    if (!st) { push(noWinner(label, accent, why, { walk: w })); continue; }
     const grand = label === 'GRAND CHAMPION';
+    // The Grand Champion is just the top of the list: a 3-2-1, no walk. 2nd and 3rd walk the ratings.
+    const w = grand ? null : { ...walk('Overall rating', byRating, st?.player) };
+    if (!st) { push(noWinner(label, accent, why, { walk: w, walkOnly: true })); continue; }
     push({
-      label, confetti: true, hero: hero(st.player), title: st.player.display_name, accent, footer, walk: w,
+      label, confetti: true, hero: hero(st.player), title: st.player.display_name, accent, footer, walk: w, walkOnly: true,
       trophy: grand, rays: grand,
       subtitle: grand ? `The Pinball Wizard · ${st.crowns} crown${st.crowns === 1 ? '' : 's'}` : `${st.machinesPlayed} machines played`,
       score: `${st.rating}/100`,

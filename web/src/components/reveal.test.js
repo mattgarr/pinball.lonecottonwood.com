@@ -46,12 +46,18 @@ describe('winner reveal', () => {
     for (const plan of [party(40, { matchDigits: 40 }), party(6), party(13, { machinesEach: 2 })]) {
       const seen = new Set();
       for (const s of plan) {
-        if (s.walk) {
+        if (s.walk && s.label !== 'GRAND CHAMPION') {
           if (s.title !== 'No winner tonight') expect(s.walk.stopsOn).toBe(s.title);
           for (const w of s.walk.above) { expect(w).toBeTruthy(); expect(seen.has(w)).toBe(true); }
         }
         if (s.title !== 'No winner tonight') seen.add(s.label);
       }
     }
+  });
+  it('Grand Champion has no walk; 2nd and 3rd do', () => {
+    const plan = party(40, { matchDigits: 40 });
+    expect(plan[0].walk).toBeFalsy();
+    expect(plan[1].walk.stopsOn).toBe(plan[1].title);
+    expect(plan[2].walk.above.length).toBe(2);
   });
 });
