@@ -5,6 +5,16 @@ REPO="git@github.com:mattgarr/pinball.lonecottonwood.com.git"
 cd "$(dirname "$0")/../web"
 npm run build
 cd dist
+# GitHub Pages serves unknown paths through 404.html (the app still loads, but with a 404 status, which
+# some link previews and in-app browsers treat as broken). Publish a real copy of the app at every
+# route instead, as both route.html and route/index.html (Pages may redirect to the trailing slash).
+for r in join rejoin me ranks about register tv lights-sim host host/guests host/qr host/test host/calibrate \
+         machine/1 machine/2 machine/3 machine/4 machine/5 machine/6 \
+         machine/1/guide machine/2/guide machine/3/guide machine/4/guide machine/5/guide machine/6/guide; do
+  mkdir -p "$r" "$(dirname "$r")"
+  cp index.html "$r.html"
+  cp index.html "$r/index.html"
+done
 rm -rf .git
 git init -q -b gh-pages
 git add -A
