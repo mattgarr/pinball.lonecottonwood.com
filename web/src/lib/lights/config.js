@@ -48,7 +48,7 @@ export const LIGHTS = {
   pointerSeg: 15, // temporary one-pixel pointer used by the calibration page
   // Default width of the six machines together, in pixels (14/m): about 2.75 ft per machine → ~16.5 ft.
   // Calibration replaces this with the real positions.
-  machineSpanPx: 70,
+  machineSpanPx: 84,
 
   // The state the ambient layers (walls, beam band, curb) return to after an effect (and on party open).
   partyBase: { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, bri: 170, col: [[140, 40, 255, 0], [255, 40, 170, 0], [0, 230, 210, 0]] },
