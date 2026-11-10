@@ -28,6 +28,8 @@ export default function LightsSim() {
   const [ambientLabel, setAmbientLabel] = useState('');
   const audioRef = useRef(null);
   const [tvMode, setTvMode] = useState('demo'); // demo | live | off
+  // This page's private channel for its TV view, so other open simulators (or test runs) don't mix in.
+  const [ch] = useState(() => Math.random().toString(36).slice(2, 10));
   const model = useRef(newModel());
   const canvasTop = useRef(null), canvasCurb = useRef(null);
   const nameOf = id => allMachines.find(m => m.id === id)?.name || `#${id}`;
@@ -50,8 +52,9 @@ export default function LightsSim() {
       setLog(l => [{ at: new Date().toLocaleTimeString(), src, msg: JSON.stringify(msg).slice(0, 160) }, ...l].slice(0, 12));
     };
     const a = subscribe('api', show('hardware')), b = subscribe('sim', show('simulator'));
+    const d = subscribe(`sim/${ch}`, show('TV view'));
     const c = onConnection(setConn);
-    return () => { a(); b(); c(); };
+    return () => { a(); b(); c(); d(); };
   }, []);
 
   // This page's own engine for the event buttons.
@@ -177,7 +180,7 @@ export default function LightsSim() {
       </div>
       {tvMode !== 'off' && (
         <div className="ls-tv">
-          <iframe key={tvMode} title="TV board" src={tvMode === 'demo' ? '/tv?demo&lights=sim' : '/tv?lights=sim'} />
+          <iframe key={tvMode} title="TV board" src={`${tvMode === 'demo' ? '/tv?demo&lights=sim' : '/tv?lights=sim'}&ch=${ch}`} />
         </div>
       )}
 

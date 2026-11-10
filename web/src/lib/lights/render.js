@@ -53,8 +53,8 @@ const PALETTES = {
   56: [[227, 1, 1], [227, 1, 1], [71, 1, 193], [32, 1, 255], [2, 15, 255]], // Retro Clown
   57: [[229, 227, 1], [227, 101, 3], [40, 2, 80], [80, 2, 220], [255, 0, 170]], // Candy
 };
-const palColor = (pal, x) => { // x in 0..1, wraps
-  const p = PALETTES[pal] || PALETTES[6];
+const palColor = (seg, x) => { // x in 0..1, wraps. pal 4 = "Color Gradient": the segment's own colors
+  const p = seg.pal === 4 && seg.col?.length ? seg.col.slice(0, 3).map(toRgb) : PALETTES[seg.pal] || PALETTES[6];
   const f = (((x % 1) + 1) % 1) * p.length;
   const i = Math.floor(f);
   return mix(p[i % p.length], p[(i + 1) % p.length], f - i);
@@ -96,34 +96,34 @@ function pixel(model, seg, i, n, t, now) {
     case FX['Chase Rainbow']: return Math.floor((i + (t / 60) * speed) / 3) % 3 === 0 ? hsv(i * 12 + t / 10) : c0.map(v => v * 0.25);
     case FX.Fade: return mix(c1, c0, 0.5 + 0.5 * Math.sin(t / 900));
     // ambient rotation
-    case FX.Colorwaves: return palColor(seg.pal, x * 1.5 + Math.sin(t / 3000) * 0.5 + t / 9000).map(v => v * (0.6 + 0.4 * Math.sin(x * 9 - t / 600)));
-    case FX.Plasma: return palColor(seg.pal, 0.5 + 0.25 * Math.sin(x * 7 + t / 1300) + 0.25 * Math.sin(x * 3 - t / 900));
+    case FX.Colorwaves: return palColor(seg, x * 1.5 + Math.sin(t / 3000) * 0.5 + t / 9000).map(v => v * (0.6 + 0.4 * Math.sin(x * 9 - t / 600)));
+    case FX.Plasma: return palColor(seg, 0.5 + 0.25 * Math.sin(x * 7 + t / 1300) + 0.25 * Math.sin(x * 3 - t / 900));
     case FX.Pacifica: { const w = 0.5 + 0.5 * Math.sin(x * 11 + t / 700) * Math.sin(x * 5 - t / 1100); return mix([0, 20, 60], [40, 180, 200], w); }
-    case FX.Flow: return palColor(seg.pal, x + t / 5000).map(v => v * (Math.floor(x * 12 + t / 400) % 2 ? 1 : 0.35));
-    case FX.Aurora: { const w = Math.max(0, Math.sin(x * 6 + t / 1500)) * Math.max(0, Math.sin(x * 2.3 - t / 2600 + 1)); return palColor(seg.pal || 50, x * 0.6 + t / 12000).map(v => v * (0.15 + 0.85 * w)); }
-    case FX.Twinklefox: { const slot = Math.floor(t / 900 + hash(i) * 7); const k = Math.sin(((t / 900 + hash(i) * 7) % 1) * Math.PI); return palColor(seg.pal, hash(i, slot)).map(v => v * k * (hash(i, slot + 1) > 0.35 ? 1 : 0.1)); }
+    case FX.Flow: return palColor(seg, x + t / 5000).map(v => v * (Math.floor(x * 12 + t / 400) % 2 ? 1 : 0.35));
+    case FX.Aurora: { const w = Math.max(0, Math.sin(x * 6 + t / 1500)) * Math.max(0, Math.sin(x * 2.3 - t / 2600 + 1)); return palColor(seg, x * 0.6 + t / 12000).map(v => v * (0.15 + 0.85 * w)); }
+    case FX.Twinklefox: { const slot = Math.floor(t / 900 + hash(i) * 7); const k = Math.sin(((t / 900 + hash(i) * 7) % 1) * Math.PI); return palColor(seg, hash(i, slot)).map(v => v * k * (hash(i, slot + 1) > 0.35 ? 1 : 0.1)); }
     case FX['Pride 2015']: return hsv(x * 240 + t / 25, 0.85, 0.55 + 0.45 * Math.sin(x * 4 + t / 800));
     // sound-reactive
     case FX.Gravcentric: { // VU meter from the center out, colored by distance
       const h = model.hist[`grav:${n}`] ||= { peak: 0 };
       h.peak = Math.max(A.level, h.peak * 0.985);
       const d = Math.abs(i - n / 2) / (n / 2);
-      return d <= A.level ? hsv(270 - d * 220, 1, 1) : d <= h.peak && d > h.peak - 0.04 ? [255, 255, 255] : [0, 0, 0];
+      return d <= A.level ? palColor(seg, d) : d <= h.peak && d > h.peak - 0.04 ? [255, 255, 255] : [0, 0, 0];
     }
-    case FX.Gravimeter: return x <= A.level ? hsv(280 - x * 220) : [0, 0, 0];
-    case FX.Waterfall: return history(model, `wf:${n}`, n, now, () => { const b = dominant(A); return A.beat ? [255, 255, 255] : hsv(b * 22, 1, A.level); }, false)[i];
-    case FX.Freqwave: return history(model, `fw:${n}`, n, now, () => hsv(dominant(A) * 22, 1, Math.min(1, A.level * 1.3)), true)[i];
+    case FX.Gravimeter: return x <= A.level ? palColor(seg, x) : [0, 0, 0];
+    case FX.Waterfall: return history(model, `wf:${n}`, n, now, () => { const b = dominant(A); return A.beat ? [255, 255, 255] : palColor(seg, b / 16).map(v => v * A.level); }, false)[i];
+    case FX.Freqwave: return history(model, `fw:${n}`, n, now, () => palColor(seg, dominant(A) / 16).map(v => v * Math.min(1, A.level * 1.3)), true)[i];
     case FX['DJ Light']: return history(model, `dj:${n}`, n, now, () => { const b = A.bands; return [255 * avg(b, 0, 3), 255 * avg(b, 4, 9), 255 * avg(b, 10, 15)].map(v => Math.min(255, v * 1.6)); }, true)[i];
-    case FX.Puddlepeak: { const h = model.hist[`pud:${n}`] ||= { at: -1e9, pos: 0, hue: 0 }; if (A.beat && now - h.at > 120) { h.at = now; h.pos = hash(now) ; h.hue = hash(now, 3) * 360; } const age = (now - h.at) / 600; const d = Math.abs(x - h.pos) * n; return age < 1 && d < 6 * (1 - age) + 1 ? hsv(h.hue, 1, 1 - age) : [0, 0, 0]; }
-    case FX.Pixelwave: return history(model, `pw:${n}`, n, now, () => hsv(280 + A.level * 120, 1, A.level), true)[i];
+    case FX.Puddlepeak: { const h = model.hist[`pud:${n}`] ||= { at: -1e9, pos: 0, hue: 0 }; if (A.beat && now - h.at > 120) { h.at = now; h.pos = hash(now) ; h.hue = hash(now, 3); } const age = (now - h.at) / 600; const d = Math.abs(x - h.pos) * n; return age < 1 && d < 6 * (1 - age) + 1 ? palColor(seg, h.hue).map(v => v * (1 - age)) : [0, 0, 0]; }
+    case FX.Pixelwave: return history(model, `pw:${n}`, n, now, () => palColor(seg, A.level).map(v => v * A.level), true)[i];
     default: return c0;
   }
 }
 const avg = (a, s, e) => { let t = 0; for (let i = s; i <= e; i++) t += a[i] || 0; return t / (e - s + 1); };
 const dominant = A => { let best = 0; (A.bands || []).forEach((v, i) => { if (v > (A.bands[best] || 0)) best = i; }); return best; };
 
-const AMBIENT = (i, n, t) => { // stand-in for Matt's Arcade Attract playlist: purple/magenta/cyan drift
-  const hues = [280, 315, 190];
+const AMBIENT = (i, n, t) => { // stand-in for Matt's Arcade Attract playlist: purple/pink/turquoise drift
+  const hues = [270, 320, 175];
   return hsv(hues[Math.floor(t / 4000) % 3], 0.9, 0.55 + 0.45 * Math.sin(i / 6 + t / 500));
 };
 
@@ -139,8 +139,11 @@ export function renderRange(model, from, to, now, timeScale = 1) {
     if (top && !(model.ambient && AMBIENT_IDS.includes(top.id))) {
       const t = (now - (top.since || 0)) / timeScale;
       const n = top.stop - top.start;
-      const idx = (p - top.start + (top.of || 0)) % n; // WLED's segment offset rotates the pattern
-      c = pixel(model, top, idx, n, t, now).map(v => v * ((top.bri ?? 255) / 255));
+      let idx = (p - top.start + (top.of || 0)) % n; // WLED's segment offset rotates the pattern
+      let len = n;
+      if (top.mi) { len = Math.ceil(n / 2); if (idx >= len) idx = n - 1 - idx; } // mirrored halves
+      if (top.rev) idx = len - 1 - idx;
+      c = pixel(model, top, idx, len, t, now).map(v => v * ((top.bri ?? 255) / 255));
     } else {
       c = model.ambient ? AMBIENT(p - from, to - from, now / timeScale) : [0, 0, 0];
     }

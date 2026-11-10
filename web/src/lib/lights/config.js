@@ -41,18 +41,22 @@ export const LIGHTS = {
   machineSpanPx: 70,
 
   // The state the ambient layers (walls, beam band, curb) return to after an effect (and on party open).
-  partyBase: { fx: 'Colorloop', sx: 60, ix: 128, bri: 170, col: [[157, 77, 255, 0], [0, 229, 255, 0], [255, 0, 170, 0]] },
+  partyBase: { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, bri: 170, col: [[140, 40, 255, 0], [255, 40, 170, 0], [0, 230, 210, 0]] },
   // ...and it rotates through these so the room doesn't get repetitive (all layers switch together).
-  // pal = WLED palette number: 6 Party, 50 Aurora, 56 Retro Clown, 57 Candy.
+  // A cool palette only (purple, blue, pink, teal, turquoise), no rainbows: pal 4 is WLED's
+  // "Color Gradient", which blends the segment's three colors, so each effect gets its own mix.
   ambientCycle: [
-    { fx: 'Colorwaves', pal: 6, sx: 90, ix: 128 },
-    { fx: 'Plasma', pal: 57, sx: 70, ix: 128 },
-    { fx: 'Pacifica', sx: 100, ix: 128 },
-    { fx: 'Flow', pal: 6, sx: 80, ix: 128 },
-    { fx: 'Aurora', pal: 50, sx: 90, ix: 128 },
-    { fx: 'Twinklefox', pal: 56, sx: 100, ix: 160 },
-    { fx: 'Pride 2015', sx: 70, ix: 128 },
+    { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, col: ['purple', 'pink', 'turquoise'] },
+    { fx: 'Plasma', pal: 4, sx: 70, ix: 128, col: ['blue', 'pink', 'teal'] },
+    { fx: 'Pacifica', sx: 100, ix: 128 }, // its own ocean blues and teals
+    { fx: 'Flow', pal: 4, sx: 80, ix: 128, col: ['pink', 'purple', 'turquoise'] },
+    { fx: 'Aurora', pal: 4, sx: 90, ix: 128, col: ['teal', 'purple', 'blue'] },
+    { fx: 'Twinklefox', pal: 4, sx: 100, ix: 160, col: ['pink', 'turquoise', 'purple'] },
   ],
+  coolColors: {
+    purple: [140, 40, 255, 0], blue: [30, 70, 255, 0], pink: [255, 40, 170, 0],
+    teal: [0, 170, 150, 0], turquoise: [0, 230, 210, 0],
+  },
   ambientMinutes: 3, // how long each ambient effect runs
   ambientBri: 170,
   // Full flashes on the strips' dedicated white chip for exciting moments (never faster than 3/s).

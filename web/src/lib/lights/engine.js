@@ -13,6 +13,7 @@
 import { LIGHTS, defaultZones, beamOf, curbOffset } from './config.js';
 
 const MERGE_MS = 50;
+const KEEP_OFF_MS = 5000;
 const SEG_GAP_MS = 1000;
 
 export const DUR = { score: 3000, champion: 5000, leader: 4000, open: 4000 };
@@ -62,15 +63,16 @@ export class LightsEngine {
     if (!this.isBase(id)) return { id, on: false };
     if (this.music) {
       const m = this.cfg.music[this.music];
-      return { id, on: true, fx: this.fx(this.music), sx: m.sx, ix: m.ix, bri: 255, col: this.cfg.partyBase.col };
+      return { id, on: true, fx: this.fx(this.music), sx: m.sx, ix: m.ix, pal: 4, bri: 255, col: this.cfg.partyBase.col };
     }
     const list = this.cfg.ambientCycle;
     if (list?.length) {
       const a = list[this.cycleIdx % list.length];
-      return { id, on: true, fx: this.fx(a.fx), sx: a.sx ?? 128, ix: a.ix ?? 128, pal: a.pal ?? 0, bri: this.cfg.ambientBri ?? 170, col: this.cfg.partyBase.col };
+      const col = a.col ? a.col.map(n => this.cfg.coolColors[n]) : this.cfg.partyBase.col;
+      return { id, on: true, fx: this.fx(a.fx), sx: a.sx ?? 128, ix: a.ix ?? 128, pal: a.pal ?? 0, bri: this.cfg.ambientBri ?? 170, col };
     }
     const b = this.cfg.partyBase;
-    return { id, on: true, fx: this.fx(b.fx), sx: b.sx, ix: b.ix, bri: b.bri, col: b.col };
+    return { id, on: true, fx: this.fx(b.fx), sx: b.sx, ix: b.ix, pal: b.pal ?? 0, bri: b.bri, col: b.col };
   }
 
   // Rotate the ambient effect. Layers at rest switch now (together, so they stay in sync); busy ones
@@ -139,7 +141,9 @@ export class LightsEngine {
     const wasSame = st.prio === prio && st.prio > 0;
     if (st.timer) { clearTimeout(st.timer); this.timers.delete(st.timer); st.timer = null; }
     st.prio = prio;
-    const seg = { id, on: true, ...state };
+    // Machine zones are always symmetric: mirrored around the machine's center, so nothing ever
+    // scrolls one way across a machine (rev + mi = moving out from the center).
+    const seg = this.isBase(id) ? { id, on: true, ...state } : { id, on: true, mi: true, rev: true, ...state };
     // Throttle repeat low-priority effects on the same segment: hold the latest, send it when allowed.
     const since = Date.now() - st.lastSent;
     if (!force && wasSame && prio < 4 && since < SEG_GAP_MS) {
@@ -200,9 +204,22 @@ export class LightsEngine {
   }
 
   // --- party events -----------------------------------------------------------------------------
+  // The broker can drop a message now and then. Every few seconds, re-send "off" to machine zones that
+  // are at rest, so a lost "off" can't leave a machine lit for the rest of the night.
+  startKeepOff() {
+    this.stopKeepOff();
+    this.keepOffTimer = setInterval(() => {
+      const idle = this.allMachineSegs().filter(id => this.seg(id).prio === 0 && !this.pending.has(id));
+      if (!idle.length) return;
+      for (const id of idle) this.queue({ id, on: false });
+    }, KEEP_OFF_MS);
+  }
+  stopKeepOff() { if (this.keepOffTimer) clearInterval(this.keepOffTimer); this.keepOffTimer = null; }
+
   start() { // page load / party open: clean slate, zones pushed, party base on
     this.clearAll();
     this.startCycle();
+    this.startKeepOff();
     this.applyLayout();
     for (const id of this.allMachineSegs()) this.queue({ id, on: false });
     for (const id of this.baseSegs()) this.queue(this.restState(id));
@@ -371,5 +388,11 @@ export class LightsEngine {
     this.flush();
   }
 
-  destroy() { this.clearAll(); this.stopCycle(); if (this.flushTimer) clearTimeout(this.flushTimer); }
+  // Shutting down: anything mid-effect goes back to rest first (never left frozen on a flash frame).
+  destroy() {
+    const busy = [...this.segs.entries()].filter(([, st]) => st.prio > 0).map(([id]) => id);
+    this.clearAll(); this.stopCycle(); this.stopKeepOff();
+    for (const id of busy) this.queue(this.restState(id));
+    this.flush();
+  }
 }

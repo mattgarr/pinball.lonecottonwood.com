@@ -20,7 +20,7 @@ export function readDriver() {
 
 // simOnly (/tv?lights=sim, used by the simulator's TV view): always drives, but only the simulator
 // topic, whatever the host settings say. Real strips are never touched.
-export function useLightsDirector({ settings, party, scores, players, standings, ready, simOnly = false }) {
+export function useLightsDirector({ settings, party, scores, players, standings, ready, simOnly = false, simChannel = null }) {
   const [driver, setDriverState] = useState(readDriver);
   const setDriver = useCallback(on => {
     try { localStorage.setItem(DRIVER_KEY, on ? '1' : '0'); } catch { /* ignore */ }
@@ -37,7 +37,7 @@ export function useLightsDirector({ settings, party, scores, players, standings,
   // Create / tear down the engine when this screen starts or stops driving.
   useEffect(() => {
     if (!active) return undefined;
-    const sendTo = dry ? 'sim' : 'api';
+    const sendTo = simChannel || (dry ? 'sim' : 'api');
     const engine = new LightsEngine({ send: payload => publish(sendTo, payload), zones: settings?.zones || undefined, music: settings?.music || null });
     engineRef.current = engine;
     engine.start(); // clean slate: zones pushed, machine segments off, party base on

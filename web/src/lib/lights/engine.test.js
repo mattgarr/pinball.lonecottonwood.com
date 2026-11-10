@@ -3,6 +3,7 @@ import { LightsEngine } from './engine.js';
 import { LIGHTS } from './config.js';
 
 const MAG = [255, 0, 170, 0];
+const DND_ID = 6;
 const CYAN = [0, 229, 255, 0];
 // Machine segments by physical position: Whirlwind is 3rd from the left → top 4, curb 11; Fathom → top 2, curb 9.
 const WHIRLWIND = 3, FATHOM = 2;
@@ -95,7 +96,7 @@ describe('lights engine', () => {
     const times = [];
     let t = 0;
     // re-run with timestamps
-    sent = []; e.destroy();
+    e.destroy(); sent = [];
     e = new LightsEngine({ send: p => sent.push({ t: Date.now(), p }) });
     const start = Date.now();
     e.revealCue({ color: MAG, final: true });
@@ -190,7 +191,7 @@ describe('lights engine', () => {
 
   it('white flashes for a champion and a new leader stay at 3 per second or slower', () => {
     const times = [];
-    sent = []; e.destroy();
+    e.destroy(); sent = [];
     e = new LightsEngine({ send: p => sent.push({ t: Date.now(), p }) });
     const t0 = Date.now();
     e.champion(WHIRLWIND, MAG);
@@ -207,7 +208,7 @@ describe('lights engine', () => {
     const { newModel, applyMessage, renderRange } = await import('./render.js');
     const { bandOf, defaultZones } = await import('./config.js');
     globalThis.performance ??= { now: () => Date.now() };
-    for (const fx of ['Plasma', 'Colorwaves', 'Pride 2015']) {
+    for (const fx of ['Plasma', 'Colorwaves', 'Flow']) {
       const m = newModel();
       const eng = new LightsEngine({ send: msg => applyMessage(m, msg) });
       eng.start(); eng.setAmbient(LIGHTS.ambientCycle.findIndex(a => a.fx === fx));
@@ -247,5 +248,38 @@ describe('lights engine', () => {
     delete m.segs[1]; // only the single whole-run segment left
     expect(renderRange(m, 0, 235, now)).toEqual(whole);
     eng.destroy();
+  });
+
+  it('machine effects are symmetric (mirrored from the machine center), never one-way', () => {
+    e.start(); sent = [];
+    e.champion(DND_ID, MAG); e.score(DND_ID, MAG);
+    vi.advanceTimersByTime(2000);
+    const mach = sent.flatMap(p => p.seg || []).filter(s => s.id >= 2 && s.id <= 14 && s.id !== 8 && s.on);
+    expect(mach.length).toBeGreaterThan(0);
+    for (const s of mach) expect(s).toMatchObject({ mi: true, rev: true });
+  });
+
+  it('shutting down mid-flash turns the machine off instead of freezing on white', () => {
+    e.start();
+    e.champion(DND_ID, MAG);
+    vi.advanceTimersByTime(60); // the white frame is showing
+    sent = [];
+    e.destroy();
+    const last = sent.flatMap(p => p.seg || []).filter(s => s.id === 7).at(-1);
+    expect(last).toMatchObject({ on: false });
+  });
+
+  it('idle machine zones get "off" re-sent, so a dropped message cannot leave one lit', () => {
+    e.start(); sent = [];
+    vi.advanceTimersByTime(5100);
+    const ids = sent.flatMap(p => p.seg || []).filter(s => s.on === false).map(s => s.id);
+    for (const id of [2, 7, 9, 14]) expect(ids).toContain(id);
+  });
+
+  it('ambient colors stay in the cool palette (no rainbow effects)', () => {
+    for (const a of LIGHTS.ambientCycle) {
+      expect(['Pride 2015', 'Colorloop', 'Rainbow']).not.toContain(a.fx);
+      for (const n of a.col || []) expect(LIGHTS.coolColors[n]).toBeTruthy();
+    }
   });
 });
