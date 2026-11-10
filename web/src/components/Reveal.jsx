@@ -289,8 +289,8 @@ function matchSpin(t) {
   const items = tied.length > 1 ? tied : [t.player, ...(t.pool ?? [])].slice(0, 14);
   const k = tied.length;
   const note = t.exact
-    ? (k > 1 ? `${k} players have a score ending in ${d}: spin for it!` : `Only one score ends in ${d}!`)
-    : (k > 1 ? `Nobody hit ${d}. ${k} players are closest: spin for it!` : `Nobody hit ${d}. The closest score wins…`);
+    ? (k > 1 ? `${k} players' totals end in ${d}: spin for it!` : `Only one total ends in ${d}!`)
+    : (k > 1 ? `Nobody's total ends in ${d}. ${k} players are closest: spin for it!` : `Nobody's total ends in ${d}. The closest wins…`);
   return { drawn: t.drawn, items, note };
 }
 
@@ -378,7 +378,7 @@ function buildSlides({ standings, awards }) {
   push(t
     ? {
       label: 'THE MATCH', confetti: true, hero: hero(t.player), title: t.player.display_name,
-      subtitle: `Match ${String(t.drawn).padStart(2, '0')} · on ${t.machine.name}`,
+      subtitle: `Match ${String(t.drawn).padStart(2, '0')} · total points from ${t.games} game${t.games === 1 ? '' : 's'}`,
       score: t.value, scoreCount: true, accent: '#29d4d4',
       footer: t.tied?.length > 1 ? `won the spin against ${t.tied.length - 1} other match${t.tied.length > 2 ? 'es' : ''} 🎰` : 'pure luck, the best kind 🎰',
       spin: matchSpin(t),

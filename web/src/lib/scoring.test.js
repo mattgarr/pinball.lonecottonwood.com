@@ -19,23 +19,25 @@ describe('scoring', () => {
     expect(standings.ranked[0].rank).toBe(1);
   });
 
-  it('The Match: drawn 00–90, matched on the last two digits, everyone matching is in the tie-break', () => {
+  it('The Match: drawn 00–90, matched on the last two digits of each player\'s total points', () => {
     const PP = Array.from({ length: 6 }, (_, i) => ({ id: i + 1, display_name: `P${i + 1}`, color: '#fff', emoji: '🎯' }));
     // P1 is machine 1's champion and P2 the Grinder, so P3–P6 are free for The Match.
-    const scores = [sc(1, 1, 99_999_990), sc(2, 2, 10), sc(2, 2, 20), sc(2, 3, 30),
-      sc(3, 1, 1_234_540), sc(4, 1, 9_876_440), sc(5, 1, 5_550), sc(5, 1, 2_000_040), sc(6, 1, 70), sc(6, 1, 70), sc(6, 1, 70)];
+    const scores = [sc(1, 1, 99_999_990), sc(2, 2, 10), sc(2, 2, 20), sc(2, 3, 30), sc(2, 3, 30),
+      sc(3, 1, 1_234_540),                 // total ends in 40
+      sc(4, 1, 9_876_420), sc(4, 1, 20),   // 9,876,440: ends in 40 only when added up
+      sc(5, 1, 5_540), sc(5, 1, 110),      // 5,650: one game ends in 40, the total does not
+      sc(6, 1, 70), sc(6, 1, 70), sc(6, 1, 70)]; // P6: most games → The Grinder
     const standings = computeStandings({ machines: M, players: PP, scores });
-    // drawn 47 rounds to 40: P3, P4 and P5 match (P5 with its second game); P6 is the Grinder
-    const a = computeAwards({ machines: M, players: PP, scores, standings, matchDigits: 47 });
+    const a = computeAwards({ machines: M, players: PP, scores, standings, matchDigits: 47 }); // → 40
     expect(a.theMatch.drawn).toBe(40);
     expect(a.theMatch.exact).toBe(true);
-    expect(a.theMatch.tied.map(p => p.id).sort()).toEqual([3, 4, 5]);
+    expect(a.theMatch.tied.map(p => p.id).sort()).toEqual([3, 4]);
     expect(a.theMatch.tied[0].id).toBe(a.theMatch.player.id);
-    expect(a.theMatch.pool).toEqual([]);
-    expect(a.matchDrawn).toBe(true);
+    expect(a.theMatch.pool.map(p => p.id)).toEqual([5]);
+    expect([1_234_540, 9_876_440]).toContain(a.theMatch.value);
   });
 
-  it('The Match: nobody matches exactly → the closest scores are in', () => {
+  it('The Match: nobody matches exactly → the closest totals are in', () => {
     const PP = Array.from({ length: 6 }, (_, i) => ({ id: i + 1, display_name: `P${i + 1}`, color: '#fff', emoji: '🎯' }));
     const scores = [sc(1, 1, 99_999_990), sc(2, 2, 10), sc(2, 2, 20), sc(2, 3, 30), sc(3, 1, 1_234_560), sc(4, 1, 9_876_420), sc(5, 1, 5), sc(5, 1, 5), sc(5, 1, 5)];
     const standings = computeStandings({ machines: M, players: PP, scores });
