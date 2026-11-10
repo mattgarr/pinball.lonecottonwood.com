@@ -137,7 +137,7 @@ export function computeAwards({ machines = [], players = [], scores = [], standi
   // The Match, like a real pinball Match: the app draws 00, 10, 20 … 90 at the start of the reveal and
   // compares it with the last two digits of each player's TOTAL points tonight (all their games added
   // up: one number per person, so more games doesn't mean more chances). Everyone whose total matches is
-  // in the tie-break; if nobody matches exactly, the closest totals are. The tie-break picks one player at
+  // in the tie-break; if nobody matches, everyone still without a prize is. The tie-break picks one player at
   // random (a fixed shuffle of the draw, so every screen agrees) and the TV shows it as a slot-machine spin.
   let theMatch = null;
   if (matchDigits != null && matchDigits !== '') {
@@ -157,10 +157,12 @@ export function computeAwards({ machines = [], players = [], scores = [], standi
     }
     const entries = [...totals].map(([id, t]) => ({ player: playerById.get(id), ...t }));
     if (entries.length) {
-      const min = Math.min(...entries.map(e => dist(e.total)));
-      const tied = entries.filter(e => dist(e.total) === min).sort((a, b) => shuffle(a.player.id) - shuffle(b.player.id));
+      // Nobody matches: everyone still in the running goes into the spin, so the prize is always won.
+      const exact = entries.some(e => dist(e.total) === 0);
+      const min = exact ? 0 : Math.min(...entries.map(e => dist(e.total)));
+      const tied = entries.filter(e => !exact || dist(e.total) === 0).sort((a, b) => shuffle(a.player.id) - shuffle(b.player.id));
       const win = tied[0];
-      const pool = entries.filter(e => dist(e.total) !== min).map(e => e.player).sort((a, b) => shuffle(a.id) - shuffle(b.id));
+      const pool = entries.filter(e => !tied.includes(e)).map(e => e.player).sort((a, b) => shuffle(a.id) - shuffle(b.id));
       theMatch = claim({
         player: win.player, value: win.total, games: win.games, drawn: draw, distance: min, exact: min === 0,
         tied: tied.map(e => e.player), // the tie-break, winner first

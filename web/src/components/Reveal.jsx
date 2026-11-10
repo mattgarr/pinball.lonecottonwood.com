@@ -290,7 +290,7 @@ function matchSpin(t) {
   const k = tied.length;
   const note = t.exact
     ? (k > 1 ? `${k} players' totals end in ${d}: spin for it!` : `Only one total ends in ${d}!`)
-    : (k > 1 ? `Nobody's total ends in ${d}. ${k} players are closest: spin for it!` : `Nobody's total ends in ${d}. The closest wins…`);
+    : (k > 1 ? `Nobody's total ends in ${d}, so everyone left is in the spin!` : `Nobody's total ends in ${d}, and only one player is left…`);
   return { drawn: t.drawn, items, note };
 }
 

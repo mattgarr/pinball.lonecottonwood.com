@@ -375,7 +375,7 @@ function EndOfNight({ party, event, open, busy, run }) {
         </li>
         <li>
           <b>Reveal the winners on the TV.</b>
-          <div className="muted small">The TV goes prize by prize, Grand Champion first. The Match comes last and draws itself (00, 10 … 90, like a real pinball Match), then spins through everyone whose total points tonight end in it.</div>
+          <div className="muted small">The TV goes prize by prize, Grand Champion first. The Match comes last and draws itself (00, 10 … 90, like a real pinball Match), then spins through everyone whose total points tonight end in it (nobody? then everyone left without a prize).</div>
           {!revealing ? (
             <button className="primary big" type="button" disabled={busy} onClick={() => {
               if (open && !confirm('Scores are still ON. Stop scores and start the reveal?')) return;

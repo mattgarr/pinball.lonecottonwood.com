@@ -37,13 +37,14 @@ describe('scoring', () => {
     expect([1_234_540, 9_876_440]).toContain(a.theMatch.value);
   });
 
-  it('The Match: nobody matches exactly → the closest totals are in', () => {
+  it('The Match: nobody matches → everyone left is in the spin', () => {
     const PP = Array.from({ length: 6 }, (_, i) => ({ id: i + 1, display_name: `P${i + 1}`, color: '#fff', emoji: '🎯' }));
     const scores = [sc(1, 1, 99_999_990), sc(2, 2, 10), sc(2, 2, 20), sc(2, 3, 30), sc(3, 1, 1_234_560), sc(4, 1, 9_876_420), sc(5, 1, 5), sc(5, 1, 5), sc(5, 1, 5)];
     const standings = computeStandings({ machines: M, players: PP, scores });
     const a = computeAwards({ machines: M, players: PP, scores, standings, matchDigits: 70 });
     expect(a.theMatch.exact).toBe(false);
-    expect(a.theMatch.player.id).toBe(3); // 60 is 10 away from 70; 20 is 50 away
+    expect(a.theMatch.tied.map(p => p.id).sort()).toEqual([3, 4]);
+    expect(a.theMatch.pool).toEqual([]);
   });
 
   it('The Match tie-break is random by draw, not by who logged first', () => {
