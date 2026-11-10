@@ -1,0 +1,64 @@
+/* TV audio overlays (components/TvAudio.jsx): fixed to the screen, outside the scaled TV canvas. */
+.tva-unlock {
+  position: fixed; left: 50%; bottom: 6vh; transform: translateX(-50%); z-index: 400;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  max-width: calc(100vw - 32px); padding: 18px 28px;
+  background: #000; color: #fcfcfc; border: 4px solid var(--nes-yellow, #f8b800);
+  box-shadow: 0 0 0 4px #000, 0 10px 40px rgba(0, 0, 0, 0.7);
+  font-family: var(--px, monospace); cursor: pointer !important;
+  animation: tva-pulse 1.6s ease-in-out infinite;
+}
+.tva-unlock-big { font-size: var(--t24); line-height: 1.2; color: var(--nes-yellow, #f8b800); text-align: center; }
+.tva-unlock-small { font-size: var(--t12); line-height: 1.5; color: #bcbcbc; text-align: center; }
+@keyframes tva-pulse { 50% { border-color: #fcfcfc; } }
+@media (prefers-reduced-motion: reduce) { .tva-unlock { animation: none; } }
+
+.tva-notice {
+  position: fixed; left: 50%; top: 16px; transform: translateX(-50%); z-index: 400;
+  max-width: calc(100vw - 32px); padding: 12px 18px; background: rgba(0, 0, 0, 0.88);
+  border: 2px solid var(--nes-lime, #58d854); color: #fcfcfc;
+  font-family: var(--px, monospace); font-size: var(--t12); line-height: 1.5; text-align: center;
+}
+
+.tva-corner {
+  position: fixed; left: 16px; bottom: 16px; z-index: 400; display: flex; align-items: center; gap: 8px;
+  max-width: calc(100vw - 32px); flex-wrap: wrap;
+}
+.tva-corner, .tva-corner * { cursor: pointer !important; }
+.tva-now {
+  display: inline-flex; align-items: center; height: 40px; padding: 0 12px; max-width: 520px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-family: var(--px, monospace); font-size: var(--t10); color: #9c9cb4; background: rgba(0, 0, 0, 0.75); border: 1px solid #2a2a38;
+}
+.tva-corner .tva-btn {
+  height: 40px; padding: 0 14px; font-family: var(--px, monospace); font-size: var(--t10);
+  color: #e9e9f2; background: rgba(0, 0, 0, 0.8); border: 1px solid #44445c;
+}
+.tva-corner .tva-btn:hover { border-color: var(--nes-yellow, #f8b800); color: var(--nes-yellow, #f8b800); }
+
+/* Host: the Audio card (components/AudioPanel.jsx). Buttons stay 40px (host rules). */
+.audio-card .audio-now { margin: 4px 0 6px; font-size: var(--t12); color: var(--nes-yellow, #f8b800); line-height: 1.5; overflow-wrap: anywhere; }
+.audio-card .audio-err { color: var(--err, #ef4444); margin: 4px 0; overflow-wrap: anywhere; }
+.audio-card .audio-msg { color: var(--nes-lime, #58d854); margin: 8px 0 0; }
+.audio-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.audio-btns > button { margin: 0; }
+.audio-field { margin-top: 14px; min-width: 0; }
+.audio-field > label, .audio-label { display: block; font-size: var(--t12); color: #e9e9f2; margin-bottom: 6px; }
+.audio-line { display: flex; gap: 8px; align-items: center; min-width: 0; margin-top: 6px; }
+.audio-line > button { margin: 0; flex: 0 0 auto; }
+.audio-line select, .audio-line input {
+  flex: 1 1 auto; min-width: 0; height: 40px; box-sizing: border-box; margin: 0;
+  font-family: var(--px); font-size: var(--t10); background: #000; color: #e9e9f2; border: 2px solid #33334a; padding: 0 8px;
+}
+.audio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.audio-grid > button { width: 100%; margin: 0; }
+.audio-sliders { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 16px; margin-top: 14px; }
+.audio-slider { padding: 10px 12px 4px; border: 2px solid #33334a; min-width: 0; }
+.audio-slider input[type=range] { display: block; width: 100%; margin: 10px 0 8px; accent-color: var(--nes-yellow, #f8b800); }
+.audio-adv { margin-top: 16px; }
+@media (max-width: 520px) {
+  .audio-line { flex-wrap: wrap; }
+  .audio-line select, .audio-line input { flex: 1 1 100%; }
+  .audio-line > button { flex: 1 1 0; }
+  .audio-btns > button { flex: 1 1 calc(50% - 8px); }
+}

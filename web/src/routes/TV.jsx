@@ -8,6 +8,7 @@ import { useLightsDirector } from '../lib/lights/useLightsDirector.js';
 import QR from '../components/QR.jsx';
 import { partyUrl } from '../lib/access.js';
 import Reveal from '../components/Reveal.jsx';
+import TvAudio from '../components/TvAudio.jsx';
 import Avatar from '../components/Avatar.jsx';
 import Icon from '../components/Icon.jsx';
 import Cabinet from '../components/tv/Cabinet.jsx';
@@ -225,6 +226,7 @@ export default function TV() {
       <div className={`tv-frame tv2-frame${cursor ? ' show-cursor' : ''}`}>
         <Reveal standings={standings} awards={awards} onSlide={lights.onRevealSlide}
           step={revealPreview ? 0 : party?.reveal_step || 0} onStep={onStep} preview={revealPreview} />
+        <TvAudio reveal />
       </div>
     );
   }
@@ -234,6 +236,7 @@ export default function TV() {
   const overlays = (
     <>
       {tk && <Takeover key={tk.id} item={tk} queued={live.queued} onDone={live.nextTakeover} />}
+      <TvAudio />
       <FinalLayer party={party} preview={clockParam === 'final'} onTick={n => { lights.onClock?.('tick', n); emitClock({ what: 'tick', side: 'end', n }); }} />
       <button type="button" className={`tv-sound${soundOn ? ' on' : ''}`} onClick={e => { e.stopPropagation(); toggleSound(); }}>
         {soundOn ? '⚙ Sound effects: on (click to mute)' : '⚙ Sound effects: off (click to turn on)'}

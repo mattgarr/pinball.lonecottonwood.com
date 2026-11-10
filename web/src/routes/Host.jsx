@@ -11,6 +11,7 @@ import PixelEmoji from '../components/PixelEmoji.jsx';
 import { hostPixelize } from '../lib/pixelAvatar.js';
 import HostEvents from '../components/HostEvents.jsx';
 import LightsPanel from '../components/LightsPanel.jsx';
+import AudioPanel from '../components/AudioPanel.jsx';
 import HostAccess from '../components/HostAccess.jsx';
 
 const SITE_HOST = 'pinball.lonecottonwood.com';
@@ -191,6 +192,7 @@ function HostPanel({ onLogout }) {
       </div>
 
       <LightsPanel busy={busy} run={run} />
+      <AudioPanel />
 
       <ReviewQueue scores={scores} playerById={playerById} machineById={machineById} busy={busy} run={run} />
 
