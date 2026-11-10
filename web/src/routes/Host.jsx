@@ -9,6 +9,7 @@ import PixelEmoji from '../components/PixelEmoji.jsx';
 import { hostPixelize } from '../lib/pixelAvatar.js';
 import HostEvents from '../components/HostEvents.jsx';
 import LightsPanel from '../components/LightsPanel.jsx';
+import HostAccess from '../components/HostAccess.jsx';
 
 const SITE_HOST = 'pinball.lonecottonwood.com';
 
@@ -144,6 +145,7 @@ function HostPanel({ onLogout }) {
       <nav className="host-nav" aria-label="Host sections">
         <a href="#sec-events" className="host-nav-pill">Events ({events.length})</a>
         <a href="#sec-guests" className="host-nav-pill">Guests</a>
+        <a href="#sec-access" className="host-nav-pill">Access</a>
         <a href="#sec-party" className="host-nav-pill">Party night</a>
         {reviewCount > 0 && <a href="#sec-review" className="host-nav-pill warn">Review ({reviewCount})</a>}
         <a href="#sec-scores" className="host-nav-pill">Scores ({liveScores})</a>
@@ -156,6 +158,8 @@ function HostPanel({ onLogout }) {
       <HostEvents run={run} busy={busy} />
 
       <GuestsCard eventId={party?.current_event_id} eventName={event?.name} />
+
+      <HostAccess run={run} busy={busy} />
 
       <h2 id="sec-party" className="host-section">Party night</h2>
 

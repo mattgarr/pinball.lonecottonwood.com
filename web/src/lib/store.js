@@ -325,8 +325,10 @@ const photoPathFor = opts => opts?.photoPath || (opts?.photo ? photoPaths.get(op
 export const photoUrl = path => (path ? `${SUPABASE_URL}/storage/v1/object/public/score-photos/${path}` : null);
 
 export const actions = {
-  async join({ name, pin, emoji, firstTimer, avatar }) {
-    const r = await rpc('join_party', { p_name: name, p_pin: pin, p_emoji: emoji, p_first_timer: firstTimer, p_avatar: avatar });
+  // access: the party credential (QR key, party password, ticket link token or this phone's player token).
+  async join({ name, pin, emoji, firstTimer, avatar, access = null }) {
+    const r = await rpc('join_party', { p_name: name, p_pin: pin, p_emoji: emoji, p_first_timer: firstTimer, p_avatar: avatar, p_access: access });
+    if (r?.error) throw Object.assign(new Error(r.error), { access: !!r.access });
     return signIn(r);
   },
   async rejoin(playerId, pin) {

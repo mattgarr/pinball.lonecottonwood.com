@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import { Outlet, useNavigate, useLocation, Link, NavLink } from 'react-router-dom';
-import { getHostPass, useParty } from './lib/store.js';
+import { getHostPass, getToken, useParty } from './lib/store.js';
 import { captureFakeFlag } from './lib/scoreReader.js';
+import { captureAccessKey, checkAccess, getAccess, isAuthorized, isOpenToVisitors, rememberDevice, setAccess, takePendingKey } from './lib/access.js';
+import Landing from './routes/Landing.jsx';
 import Avatar from './components/Avatar.jsx';
 import PixelEmoji from './components/PixelEmoji.jsx';
 import PinballIcon from './components/PinballIcon.jsx';
 
 captureFakeFlag(); // read ?fakephoto=… before the join redirect drops the query string
+captureAccessKey(); // party QR codes carry ?k=<key>: remember it and take it off the address bar
 
 // Pages anyone can see without joining.
 function isPublicPath(p) {
@@ -30,15 +33,34 @@ export default function App() {
   const nav = useNavigate();
   const loc = useLocation();
   const online = useOnline();
+  const [, bumpAccess] = useReducer(n => n + 1, 0);
+  const [accessNote, setAccessNote] = useState('');
+  const authorized = !!me || isAuthorized();
+  const gated = meChecked && !authorized && !isOpenToVisitors(loc.pathname, loc.search);
+
+  // A party QR key from the address bar: check it once. A bad or old one is dropped (landing page).
+  useEffect(() => {
+    const k = takePendingKey();
+    if (!k) return;
+    checkAccess(k).then(r => {
+      if (r.ok) return;
+      if (getAccess() === k) setAccess(null);
+      setAccessNote(r.error || 'That QR code is out of date. Ask a host for the party password.');
+      bumpAccess();
+    }).catch(() => {});
+  }, []);
+
+  // Once a phone has joined, it stays let in (even after signing out to add someone).
+  useEffect(() => { if (me) rememberDevice(getToken()); }, [me]);
 
   useEffect(() => {
-    if (!meChecked) return;
+    if (!meChecked || gated) return;
     if (!me && !isPublicPath(loc.pathname)) {
       // Remember where they were headed (e.g. a machine QR) and come back after joining.
       const dest = loc.pathname + (loc.search || '');
       nav(`/join?next=${encodeURIComponent(dest)}`, { replace: true });
     }
-  }, [meChecked, me, loc.pathname, loc.search, nav]);
+  }, [meChecked, me, gated, loc.pathname, loc.search, nav]);
 
   // New screen → start at the top (steps within a machine flow keep their own scroll).
   useEffect(() => { window.scrollTo(0, 0); }, [loc.pathname, loc.state?.step]);
@@ -52,6 +74,8 @@ export default function App() {
       </div>
     );
   }
+
+  if (gated) return <Landing onIn={() => { setAccessNote(''); bumpAccess(); }} notice={accessNote} />;
 
   // Bottom tabs on the main screens only (not mid-score, not while joining).
   const showTabs = !!me && (loc.pathname === '/' || loc.pathname === '/ranks' || loc.pathname === '/me');

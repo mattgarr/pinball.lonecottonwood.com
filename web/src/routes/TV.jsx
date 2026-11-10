@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ensureLightsTopic, getHostPass, host, useAwards, useParty, useStandings } from '../lib/store.js';
 import { useLightsDirector } from '../lib/lights/useLightsDirector.js';
 import QR from '../components/QR.jsx';
+import { partyUrl } from '../lib/access.js';
 import Reveal from '../components/Reveal.jsx';
 import Avatar from '../components/Avatar.jsx';
 import Icon from '../components/Icon.jsx';
@@ -184,7 +185,7 @@ export default function TV() {
     );
   }
 
-  const joinURL = `${location.origin}/`;
+  const joinURL = partyUrl('/'); // carries the party key once a host unlocked this browser
   const champ = awards.champion;
 
   return (

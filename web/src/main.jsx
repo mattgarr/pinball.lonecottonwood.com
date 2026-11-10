@@ -18,6 +18,7 @@ import HostCalibrate from './routes/HostCalibrate.jsx';
 import HostTest from './routes/HostTest.jsx';
 import HostGuests from './routes/HostGuests.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import AccessGate from './components/AccessGate.jsx';
 import './styles.css';
 import './host.css';
 
@@ -26,9 +27,9 @@ createRoot(document.getElementById('root')).render(
     <ErrorBoundary>
     <BrowserRouter>
       <Routes>
-        <Route path="/tv" element={<TV />} />
-        <Route path="/host/qr" element={<HostQR />} />
-        <Route path="/lights-sim" element={<LightsSim />} />
+        <Route path="/tv" element={<AccessGate><TV /></AccessGate>} />
+        <Route path="/host/qr" element={<AccessGate host><HostQR /></AccessGate>} />
+        <Route path="/lights-sim" element={<AccessGate><LightsSim /></AccessGate>} />
         <Route element={<App />}>
           <Route path="/" element={<Home />} />
           <Route path="/join" element={<Join />} />

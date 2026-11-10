@@ -9,6 +9,7 @@ import Confetti from '../components/Confetti.jsx';
 import ShareTicket from '../components/ShareTicket.jsx';
 import { drawPortrait } from '../lib/pixelAvatar.js';
 import { friendlyError } from '../lib/errors.js';
+import { accessCredential, dropAccess } from '../lib/access.js';
 import { fixTicketName, joinNames, stillToJoin, ticketPeople } from '../lib/ticketNames.js';
 
 // 8-bit characters: heroes, villains and monsters (3 rows of 6). Most guests use a selfie anyway.
@@ -45,6 +46,7 @@ export default function Join() {
   const [who, setWho] = useState(''); // couples' tickets: which person this is ("Cina Boitnott")
   const [fixName, setFixName] = useState(''); // their name, if they fixed the spelling
   const [fixing, setFixing] = useState(false);
+  const [needCode, setNeedCode] = useState(false); // the party code was refused: link back to the landing page
   const fileRef = useRef(null);
   const nav = useNavigate();
   const isPhone = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 700px), (pointer: coarse)').matches;
@@ -96,7 +98,7 @@ export default function Join() {
     try {
       // Join with the 8-bit art if it's ready, otherwise no picture yet (the emoji shows): the raw
       // selfie is never published. The art is saved as soon as it's drawn.
-      const me = await actions.join({ name: name.trim(), pin, emoji, firstTimer, avatar: art || null });
+      const me = await actions.join({ name: name.trim(), pin, emoji, firstTimer, avatar: art || null, access: accessCredential(invite) });
       if (invite) await actions.claimInvite(invite, false).catch(() => {});
       if (invite && slot) {
         // Save which person they are, and fix the ticket's spelling if they corrected their name.
@@ -117,7 +119,11 @@ export default function Join() {
           setWelcome(w => ({ ...w, avatar: a }));
         });
       }
-    } catch (e) { setErr(friendlyError(e)); }
+    } catch (e) {
+      // The party code this phone had is no longer good (changed by the host): ask for it again.
+      if (e.access && !invite) { dropAccess(); setNeedCode(true); }
+      setErr(e.access ? e.message : friendlyError(e));
+    }
     finally { setBusy(false); }
   }
 
@@ -379,7 +385,7 @@ export default function Join() {
         </label>
       )}
 
-      {err && <div className="err" role="alert">{err}</div>}
+      {err && <div className="err" role="alert">{err}{needCode && <> <a className="link" href="/">Enter the party password →</a></>}</div>}
       <div className="actionbar">
         <button className="cta" disabled={busy || closed} type="submit">
           {busy ? 'Joining…' : 'Insert coin · Join'}
