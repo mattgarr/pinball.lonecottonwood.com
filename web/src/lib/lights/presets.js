@@ -8,7 +8,7 @@
 //   3 Exciting   fast and bright
 //   4 Music      sound-reactive, from the controller's mic
 //   5 Showcase   each machine glows in its own theme colors, a soft cool glow between them
-//   6 House lights · 7 Cozy (warm, dim amber twinkle)
+//   6 Cozy (warm, dim amber twinkle) · 7 House lights
 //   8 Off · 9 Next mode (cycles 1 → 5; for the controller's button)
 // Presets 1–7 = the remote's seven scene buttons; the remote has its own on/off.
 import { LIGHTS, defaultZones } from './config.js';
@@ -70,8 +70,8 @@ export function buildPresets(zones = defaultZones()) {
     seg: layout(zones, { fx: fx('Aurora'), sx: 60, ix: 128, pal: 4, bri: 90, col: cool(['purple', 'blue', 'teal']) },
       id => ({ fx: fx('Colorwaves'), sx: 60, ix: 128, pal: 4, col: LIGHTS.machineThemes[id]?.colors || LIGHTS.partyBase.col })),
   };
-  p[6] = show(zones, 'House lights', 255, { fx: fx('Solid'), col: [LIGHTS.houseWhite] });
-  p[7] = show(zones, 'Cozy', 110, { fx: fx('Twinklefox'), sx: 40, ix: 180, pal: 4, col: [[255, 110, 10, 40], [255, 60, 0, 0], [200, 120, 40, 60]] });
+  p[6] = show(zones, 'Cozy', 110, { fx: fx('Twinklefox'), sx: 40, ix: 180, pal: 4, col: [[255, 110, 10, 40], [255, 60, 0, 0], [200, 120, 40, 60]] });
+  p[7] = show(zones, 'House lights', 255, { fx: fx('Solid'), col: [LIGHTS.houseWhite] });
   p[8] = { n: 'Off', on: false };
   p[9] = { n: 'Next mode', ps: '1~5~' }; // each press: Attract → Calm → Exciting → Music → Showcase → Attract
   return p;

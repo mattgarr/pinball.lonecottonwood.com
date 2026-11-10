@@ -156,7 +156,7 @@ The lighting plan is the Claude Doc "Pinball Garage Lighting Plan". Its spec ass
   - Rehearsal: `/tv?demo&lights=1` lets demo moments drive the real strips (plain `?demo` never does).
   - Install / commissioning guide (Claude Doc): https://claude.ai/artifact/X7WEoSWVYhKuVQCZzVHkMh
   - Segments are always sent in ascending id order (WLED appends a missing segment at the next free slot). The curb offset follows WLED's rule (effect pixel i drawn at i + offset); `wledOffsetAdds` in config flips it if the bench test disagrees.
-  - Standalone shows: `lib/lights/presets.js` builds WLED presets (1 Attract playlist, 2 Calm, 3 Exciting, 4 Music, 5 Machine showcase, 6 House, 7 Cozy, 8 Off, 9 Next mode = `1~5~`), downloadable from the host lights card; the simulator previews them ("Standalone (no TV)"). Gledopto ESP-NOW remote scene buttons 1–7 = presets 1–7 (check the mapping when it arrives).
+  - Standalone shows: `lib/lights/presets.js` builds WLED presets (1 Attract playlist, 2 Calm, 3 Exciting, 4 Music, 5 Machine showcase, 6 Cozy, 7 House, 8 Off, 9 Next mode = `1~5~`), downloadable from the host lights card; the simulator previews them ("Standalone (no TV)"). Gledopto ESP-NOW remote scene buttons 1–7 = presets 1–7 (check the mapping when it arrives).
   - CLI scripts need `LIGHTS_TOPIC` set to the secret channel.
   - Machine-zone effects are always symmetric (`mi` + `rev`, mirrored from the machine's center); nothing scrolls one way across a machine.
   - Stuck-light safety: `destroy()` returns anything mid-flash to rest, and the driver re-sends "off" to idle machine zones every 5 s (a dropped MQTT message can't leave a machine lit).

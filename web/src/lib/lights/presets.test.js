@@ -34,4 +34,8 @@ describe('standalone presets', () => {
   it('is small enough for the controller', () => {
     expect(JSON.stringify(p).length).toBeLessThan(60000);
   });
+  it('button 6 is Cozy and button 7 is House lights', () => {
+    expect(p[6].n).toBe('Cozy');
+    expect(p[7].n).toBe('House lights');
+  });
 });
