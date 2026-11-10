@@ -1,38 +1,93 @@
 window.CONCEPT_ITEMS = [
   // =========================================================================
-  // SERIES A: THE ALL-GOVEE MAXIMALIST MASTERPIECE (ZERO GLARE, ZERO STRING LIGHTS, ZERO EXTRA FURNITURE)
+  // SERIES A: LATEST 100% FAITHFUL LAYOUT + RAFTER-BACK POSTER STRIP + COVERED STRIPS + CAR-FRIENDLY FLOORS
   // =========================================================================
   {
     cat: 'hero',
-    section: 'SERIES A — THE ALL-GOVEE MAXIMALIST MASTERPIECE (ZERO GLARE • ZERO STRING LIGHTS • ZERO EXTRA FURNITURE)',
-    sectionSub: 'Final locked build: 100% Govee ecosystem controlled by 1 wall switch & app, dark glare-free under-loft wood joists, 10 unbroken Billy Strings posters, Govee H6093 Aurora/Laser Star projector + 8× H7060 floods on rafters, 16" disco ball, Govee Curtain Lights 2 in window, 65" TV on rolling cart, 2 glowing high-tops, and ankle-deep ice fog.',
-    sectionShort: 'ALL-GOVEE MASTER HERO',
+    section: 'SERIES A — LATEST 100% FAITHFUL LAYOUT • RAFTER-BACK POSTER WASH • 100% COVERED STRIPS • CAR-FRIENDLY FLOORS',
+    sectionSub: 'Preserves 100% of your real Rogue squat rack, spin bike, weight bench, tall lockers, 16ft workbench, and wood roof trusses (red tool chest, ladder & swamp cooler removed). Uses 100% covered/diffused Govee strips (H61B6 & H61E6), lights the 10 Billy Strings posters from the back of the front wood rafter, keeps the 5 under-loft joist tubes OFF while the back-wall & perimeter strips glow vividly, adds Govee 3D Hexagon/Glide wall lights, and compares 3 car-safe floor options.',
+    sectionShort: 'LATEST FAITHFUL MASTER',
     code: 'FINAL-1',
-    level: '★ FINAL MASTER (STRAIGHT)',
-    title: 'All-Govee Maximalist Masterpiece — Straight-On Full Room (Zero Glare, Zero String Lights)',
-    desc: 'Zero overhead string lights and zero joist glare over the pinball glass! Features 8× Govee H7060 floods + Govee H6093 Aurora/Star projector on the rafters, 16" disco ball hit by 2× Govee H7065 spotlights, 10 unbroken Billy Strings posters lit by Govee H6089 downlights + H619E strip + UV, Govee H70B3 Curtain Lights in the left window, Govee H61E6 COB strip on the bar lip, 65" leaderboard TV on rolling cart with H6099 halo, and 2 glowing cyan/magenta cocktail tables in ankle-deep ground fog.',
+    level: '★ LATEST MASTER (MOTOFLOOR / RACEDECK)',
+    title: 'Latest Faithful Master — Costco MotoFloor / RaceDeck / Swisstrax Car-Rated Showroom Tiles',
+    desc: '100% faithful to your real garage layout (Rogue rack, bench, spin bike, lockers & 16ft counter intact; red tool chest removed). Features Matte Black + Gunmetal Charcoal 12"×12" rigid car-rated snap tiles (40,000-lb rollover rating), covered Govee strip on the back of the front wood rafter washing the 10 Billy Strings posters, 5 under-loft joist tubes OFF with vivid back-wall & perimeter covered strips (H61B6), Govee 3D Hexagon Pro wall panels (H6066) + Glide bars (H6062), 65" leaderboard TV on rolling cart, and 2 glowing cocktail tables.',
+    img: '/concepts/faithful_01_racedeck_swisstrax_tiles_1794273576178.jpg'
+  },
+  {
+    cat: 'hero',
+    section: 'SERIES A — LATEST 100% FAITHFUL LAYOUT • RAFTER-BACK POSTER WASH • 100% COVERED STRIPS • CAR-FRIENDLY FLOORS',
+    sectionSub: 'Preserves 100% of your real Rogue squat rack, spin bike, weight bench, tall lockers, 16ft workbench, and wood roof trusses (red tool chest, ladder & swamp cooler removed). Uses 100% covered/diffused Govee strips (H61B6 & H61E6), lights the 10 Billy Strings posters from the back of the front wood rafter, keeps the 5 under-loft joist tubes OFF while the back-wall & perimeter strips glow vividly, adds Govee 3D Hexagon/Glide wall lights, and compares 3 car-safe floor options.',
+    sectionShort: 'LATEST FAITHFUL MASTER',
+    code: 'FINAL-2',
+    level: '★ LATEST MASTER (REAL CONCRETE — STRAIGHT)',
+    title: 'Latest Faithful Master — Your Real Smooth Concrete Floor in Center ($0 Flooring Cost)',
+    desc: 'Keeps your existing black rubber runner under the 6 pinball machines and existing black rubber gym mat under the Rogue rack/bench while leaving the center car-parking bay as your real smooth troweled concrete—catching glossy Cyan & Magenta reflections through the ground fog with zero mats to buckle under car tires.',
+    img: '/concepts/faithful_01_real_concrete_floor_1794272971243.jpg'
+  },
+  {
+    cat: 'hero',
+    section: 'SERIES A — LATEST 100% FAITHFUL LAYOUT • RAFTER-BACK POSTER WASH • 100% COVERED STRIPS • CAR-FRIENDLY FLOORS',
+    sectionSub: 'Preserves 100% of your real Rogue squat rack, spin bike, weight bench, tall lockers, 16ft workbench, and wood roof trusses (red tool chest, ladder & swamp cooler removed). Uses 100% covered/diffused Govee strips (H61B6 & H61E6), lights the 10 Billy Strings posters from the back of the front wood rafter, keeps the 5 under-loft joist tubes OFF while the back-wall & perimeter strips glow vividly, adds Govee 3D Hexagon/Glide wall lights, and compares 3 car-safe floor options.',
+    sectionShort: 'LATEST FAITHFUL MASTER',
+    code: 'FINAL-3',
+    level: '★ LATEST MASTER (REAL CONCRETE — DIAGONAL)',
+    title: 'Latest Faithful Master — Wide Diagonal View on Real Smooth Concrete (Red Tool Chest Removed)',
+    desc: 'Wide diagonal view with the red Milwaukee tool stack removed from the front of the 16ft butcher-block workbench, showing the dotless Govee H61E6 COB strip on the counter lip, Govee Curtain Lights 2 in the frosted window, rafter-back wash across the 10 Billy Strings posters, dark under-loft joists, vivid back-wall & perimeter covered strips, Rogue squat rack + spin bike + bench + lockers, and glossy neon reflections on your real concrete floor.',
+    img: '/concepts/faithful_02_real_concrete_floor_1794273037736.jpg'
+  },
+  {
+    cat: 'hero',
+    section: 'SERIES A — LATEST 100% FAITHFUL LAYOUT • RAFTER-BACK POSTER WASH • 100% COVERED STRIPS • CAR-FRIENDLY FLOORS',
+    sectionSub: 'Preserves 100% of your real Rogue squat rack, spin bike, weight bench, tall lockers, 16ft workbench, and wood roof trusses (red tool chest, ladder & swamp cooler removed). Uses 100% covered/diffused Govee strips (H61B6 & H61E6), lights the 10 Billy Strings posters from the back of the front wood rafter, keeps the 5 under-loft joist tubes OFF while the back-wall & perimeter strips glow vividly, adds Govee 3D Hexagon/Glide wall lights, and compares 3 car-safe floor options.',
+    sectionShort: 'LATEST FAITHFUL MASTER',
+    code: 'FINAL-4',
+    level: '★ LATEST MASTER (G-FLOOR POLYVINYL)',
+    title: 'Latest Faithful Master — G-Floor Midnight Black Roll-Out Car Polyvinyl Flooring (~$350)',
+    desc: 'Wide 10ft-wide car-rated solid polyvinyl garage rolls in Midnight Black with a subtle micro-coin texture and crisp straight roll seams (zero puzzle teeth to twist under car tires), reflecting the Cyan & Magenta Govee lighting across the center lounge bay.',
+    img: '/concepts/faithful_01_gfloor_vinyl_1794273071308.jpg'
+  },
+  {
+    cat: 'hero',
+    section: 'SERIES A — LATEST 100% FAITHFUL LAYOUT • RAFTER-BACK POSTER WASH • 100% COVERED STRIPS • CAR-FRIENDLY FLOORS',
+    sectionSub: 'Preserves 100% of your real Rogue squat rack, spin bike, weight bench, tall lockers, 16ft workbench, and wood roof trusses (red tool chest, ladder & swamp cooler removed). Uses 100% covered/diffused Govee strips (H61B6 & H61E6), lights the 10 Billy Strings posters from the back of the front wood rafter, keeps the 5 under-loft joist tubes OFF while the back-wall & perimeter strips glow vividly, adds Govee 3D Hexagon/Glide wall lights, and compares 3 car-safe floor options.',
+    sectionShort: 'LATEST FAITHFUL MASTER',
+    code: 'FINAL-5',
+    level: '★ LATEST MASTER (PINBALL ALCOVE CLOSE-UP)',
+    title: 'Latest Faithful Master — 6-Machine Alcove Close-Up (Back-Wall & Perimeter Covered Strips + 3D Hexagons)',
+    desc: 'Intimate close-up of Fathom, Centaur, Cactus Canyon, Whirlwind, Whitewater & Dungeons & Dragons with the red tool crates/box removed next to Fathom (revealing the stainless utility sink), all 5 front-to-back joist tubes turned OFF for zero playfield glare, vivid covered Govee H61B6 strips across the back wall above the backboxes and around the 3-sided under-loft perimeter, and Govee H6066 3D Hexagon Pro panels on both side walls.',
+    img: '/concepts/faithful_03_alcove_clean_1794269814670.jpg'
+  },
+  {
+    cat: 'hero',
+    section: 'SERIES A — LATEST 100% FAITHFUL LAYOUT • RAFTER-BACK POSTER WASH • 100% COVERED STRIPS • CAR-FRIENDLY FLOORS',
+    sectionSub: 'Preserves 100% of your real Rogue squat rack, spin bike, weight bench, tall lockers, 16ft workbench, and wood roof trusses (red tool chest, ladder & swamp cooler removed). Uses 100% covered/diffused Govee strips (H61B6 & H61E6), lights the 10 Billy Strings posters from the back of the front wood rafter, keeps the 5 under-loft joist tubes OFF while the back-wall & perimeter strips glow vividly, adds Govee 3D Hexagon/Glide wall lights, and compares 3 car-safe floor options.',
+    sectionShort: 'LATEST FAITHFUL MASTER',
+    code: 'FINAL-6',
+    level: 'EARLIER ZERO-GLARE (STRAIGHT)',
+    title: 'Earlier All-Govee Master — Straight-On Room (Before Restoring Rogue Rack & Back-Wall Strip)',
+    desc: 'Earlier iteration for comparison.',
     img: '/concepts/govee_max_zero_glare_straight_1794268308791.jpg'
   },
   {
     cat: 'hero',
-    section: 'SERIES A — THE ALL-GOVEE MAXIMALIST MASTERPIECE (ZERO GLARE • ZERO STRING LIGHTS • ZERO EXTRA FURNITURE)',
-    sectionSub: 'Final locked build: 100% Govee ecosystem controlled by 1 wall switch & app, dark glare-free under-loft wood joists, 10 unbroken Billy Strings posters, Govee H6093 Aurora/Laser Star projector + 8× H7060 floods on rafters, 16" disco ball, Govee Curtain Lights 2 in window, 65" TV on rolling cart, 2 glowing high-tops, and ankle-deep ice fog.',
-    sectionShort: 'ALL-GOVEE MASTER HERO',
-    code: 'FINAL-2',
-    level: '★ FINAL MASTER (DIAGONAL)',
-    title: 'All-Govee Maximalist Masterpiece — Wide Diagonal View (Zero Glare, Zero Extra Furniture)',
-    desc: 'Wide diagonal perspective preserving your exact left-wall tool drawers & butcher-block counter (zero barstools, zero floor lamps, zero string lights), dark glare-free under-loft wood joists above the 6 machines, Govee H6093 Aurora/Laser cloud projection across the peak, 16" disco ball, 10+ Billy Strings posters, Govee Curtain Lights 2 in the window, 65" leaderboard TV on a rolling cart, and 2 glowing cyan & magenta cocktail tables in ankle-deep ground fog.',
+    section: 'SERIES A — LATEST 100% FAITHFUL LAYOUT • RAFTER-BACK POSTER WASH • 100% COVERED STRIPS • CAR-FRIENDLY FLOORS',
+    sectionSub: 'Preserves 100% of your real Rogue squat rack, spin bike, weight bench, tall lockers, 16ft workbench, and wood roof trusses (red tool chest, ladder & swamp cooler removed). Uses 100% covered/diffused Govee strips (H61B6 & H61E6), lights the 10 Billy Strings posters from the back of the front wood rafter, keeps the 5 under-loft joist tubes OFF while the back-wall & perimeter strips glow vividly, adds Govee 3D Hexagon/Glide wall lights, and compares 3 car-safe floor options.',
+    sectionShort: 'LATEST FAITHFUL MASTER',
+    code: 'FINAL-7',
+    level: 'EARLIER ZERO-GLARE (DIAGONAL)',
+    title: 'Earlier All-Govee Master — Wide Diagonal View',
+    desc: 'Earlier iteration for comparison.',
     img: '/concepts/govee_max_zero_glare_diagonal_fixed_1794268576919.jpg'
   },
   {
     cat: 'hero',
-    section: 'SERIES A — THE ALL-GOVEE MAXIMALIST MASTERPIECE (ZERO GLARE • ZERO STRING LIGHTS • ZERO EXTRA FURNITURE)',
-    sectionSub: 'Final locked build: 100% Govee ecosystem controlled by 1 wall switch & app, dark glare-free under-loft wood joists, 10 unbroken Billy Strings posters, Govee H6093 Aurora/Laser Star projector + 8× H7060 floods on rafters, 16" disco ball, Govee Curtain Lights 2 in window, 65" TV on rolling cart, 2 glowing high-tops, and ankle-deep ice fog.',
-    sectionShort: 'ALL-GOVEE MASTER HERO',
-    code: 'FINAL-3',
-    level: '★ FINAL MASTER (ALCOVE)',
-    title: 'All-Govee Maximalist Masterpiece — Zero-Glare 6-Machine Alcove, Sink Switch & Rolling TV Close-Up',
-    desc: 'Close-up of Fathom, Centaur, Cactus Canyon, Whirlwind, Whitewater & D&D under dark, glare-free wood joists (all 5 shop-light tubes turned off + black acoustic foam over the Cactus Canyon cutout), lit 100% indirectly by the hidden 3-sided Govee H619E top perimeter strip, backbox halo strip, and under-cabinet fog strip, plus the Govee H5125 6-Button Switch by the sink and 65" TV on a rolling cart.',
+    section: 'SERIES A — LATEST 100% FAITHFUL LAYOUT • RAFTER-BACK POSTER WASH • 100% COVERED STRIPS • CAR-FRIENDLY FLOORS',
+    sectionSub: 'Preserves 100% of your real Rogue squat rack, spin bike, weight bench, tall lockers, 16ft workbench, and wood roof trusses (red tool chest, ladder & swamp cooler removed). Uses 100% covered/diffused Govee strips (H61B6 & H61E6), lights the 10 Billy Strings posters from the back of the front wood rafter, keeps the 5 under-loft joist tubes OFF while the back-wall & perimeter strips glow vividly, adds Govee 3D Hexagon/Glide wall lights, and compares 3 car-safe floor options.',
+    sectionShort: 'LATEST FAITHFUL MASTER',
+    code: 'FINAL-8',
+    level: 'EARLIER ZERO-GLARE (ALCOVE)',
+    title: 'Earlier All-Govee Master — Alcove Close-Up',
+    desc: 'Earlier iteration for comparison.',
     img: '/concepts/govee_max_zero_glare_alcove_1794268377401.jpg'
   },
   {
