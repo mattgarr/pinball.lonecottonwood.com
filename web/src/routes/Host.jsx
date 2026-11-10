@@ -147,6 +147,7 @@ function HostPanel({ onLogout }) {
         {reviewCount > 0 && <a href="#sec-review" className="host-nav-pill warn">Review ({reviewCount})</a>}
         <a href="#sec-scores" className="host-nav-pill">Scores ({liveScores})</a>
         <a href="#sec-players" className="host-nav-pill">Players ({inCurrentEvent.size})</a>
+        <a href="#sec-lights" className="host-nav-pill">Lights</a>
         <a href="#sec-end" className="host-nav-pill">End of night</a>
         <a href="#sec-setup" className="host-nav-pill">Setup</a>
       </nav>
@@ -176,6 +177,7 @@ function HostPanel({ onLogout }) {
           <div className="row gap">
             <a className="ghost" href="/tv" target="_blank" rel="noreferrer">Open TV board ↗</a>
             <a className="ghost" href="/host/qr" target="_blank" rel="noreferrer">Print machine QR codes ↗</a>
+            <a className="ghost" href="/lights-sim" target="_blank" rel="noreferrer">Lights simulator ↗</a>
           </div>
         </section>
       </div>

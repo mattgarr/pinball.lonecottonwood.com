@@ -29,6 +29,7 @@ export default function LightsSim() {
   const [ambientLabel, setAmbientLabel] = useState('');
   const audioRef = useRef(null);
   const [tvMode, setTvMode] = useState('demo'); // demo | reveal | live | off
+  const [panel, setPanel] = useState('moments'); // moments | offline | look
   // This page's private channel for its TV view, so other open simulators (or test runs) don't mix in.
   const [ch] = useState(() => Math.random().toString(36).slice(2, 12));
   useEffect(() => { ensureLightsTopic(); }, []); // with the host unlock, also show the real controller's traffic
@@ -211,26 +212,142 @@ export default function LightsSim() {
   // Draw the curb directly under the beam band (the stretch of the beam over the machines).
   const curbShift = Math.max(0, bandOf(zones).start - LIGHTS.runs.top.start);
 
+  const MOMENTS = [
+    ['score', 'Score', 'That machine breathes, player color ↔ machine color'],
+    ['champion', 'Machine record', 'White flashes, then the machine\'s colors chase out from its center'],
+    ['leader', 'New #1', 'White bounces top ↔ curb, then the room washes in their color'],
+    ['ranked', 'Player ranked', 'The room breathes once in their color'],
+    ['milestone', 'Milestone', 'A games-played milestone: gold bounces top ↔ curb'],
+    ['shame', 'Wall of Shame', 'The room sags to a slow, dim red'],
+  ];
+  const SHORT = { 1: 'Attract', 2: 'Calm', 3: 'Exciting', 4: 'Music', 5: 'Showcase', 6: 'Cozy', 7: 'House' };
+  const tvSrc = `${tvMode === 'demo' ? '/tv?demo&lights=sim' : tvMode === 'reveal' ? '/tv?reveal&lights=sim' : '/tv?lights=sim'}&ch=${ch}`;
+
   return (
     <div className="ls-page">
       <div className="ls-head">
         <h1>Garage lights simulator</h1>
-        <span className={`ls-dot ${conn ? 'ok' : 'bad'}`} /> {conn ? 'Connected' : 'Connecting…'}
+        <span className="ls-conn"><span className={`ls-dot ${conn ? 'ok' : 'bad'}`} />{conn ? 'Connected' : 'Connecting…'}</span>
         <Link to="/host" className="ls-back">← Host</Link>
       </div>
 
-      <div className="ls-row">
-        <span className="ls-label" style={{ margin: 0 }}>TV board</span>
-        {[['demo', 'TV demo'], ['reveal', 'Winner reveal'], ['live', 'Live party'], ['off', 'Hide TV']].map(([k, l]) => (
-          <label key={k} className="ls-mode"><input type="radio" checked={tvMode === k} onChange={() => setTvMode(k)} /> {l}</label>
-        ))}
-        <span className="ls-dim">The TV's events drive these strips (simulator only, never the real ones).</span>
-      </div>
-      {tvMode !== 'off' && (
-        <div className="ls-tv">
-          <iframe ref={tvFrame} key={tvMode} title="TV board" src={`${tvMode === 'demo' ? '/tv?demo&lights=sim' : tvMode === 'reveal' ? '/tv?reveal&lights=sim' : '/tv?lights=sim'}&ch=${ch}`} />
+      <div className="ls-bar">
+        <div className="ls-seg" role="group" aria-label="Where effects go">
+          <button type="button" className={!hardware ? 'on' : ''} onClick={() => setHardware(false)}>Simulator only</button>
+          <button type="button" className={hardware ? 'on' : ''} onClick={() => setHardware(true)}>Real lights too</button>
         </div>
-      )}
+        <label>Machine
+          <select value={machineId} onChange={e => setMachineId(Number(e.target.value))}>
+            {LIGHTS.machineOrder.map(id => <option key={id} value={id}>{nameOf(id)}</option>)}
+          </select>
+        </label>
+        <div className="ls-colors" aria-label="Test color">
+          {COLORS.map(c => <button key={c} type="button" className={`ls-color${c === color ? ' on' : ''}`} style={{ background: c }} onClick={() => setColor(c)} aria-label={c} />)}
+        </div>
+        <label>Speed
+          <select value={speed} onChange={e => setSpeed(Number(e.target.value))}>
+            <option value={1}>Normal</option><option value={2}>½ speed</option><option value={4}>¼ speed</option>
+          </select>
+        </label>
+      </div>
+
+      <div className={`ls-main${tvMode === 'off' ? ' no-tv' : ''}`}>
+        <div className="ls-tvcol">
+          <div className="ls-seg" role="group" aria-label="TV view">
+            {[['demo', 'TV demo'], ['reveal', 'Winner reveal'], ['live', 'Live party'], ['off', 'Hide TV']].map(([k, l]) => (
+              <button key={k} type="button" className={tvMode === k ? 'on' : ''} onClick={() => setTvMode(k)}>{l}</button>
+            ))}
+          </div>
+          {tvMode !== 'off' && (
+            <div className="ls-tv"><iframe ref={tvFrame} key={tvMode} title="TV board" src={tvSrc} /></div>
+          )}
+          {tvMode === 'reveal' && <div className="ls-dim ls-note">Click the TV to go to the next prize.</div>}
+        </div>
+
+        <div className="ls-panel">
+          <div className="ls-tabs" role="tablist">
+            {[['moments', 'Moments'], ['offline', 'No TV'], ['look', 'Ambient']].map(([k, l]) => (
+              <button key={k} type="button" role="tab" aria-selected={panel === k} className={panel === k ? 'on' : ''} onClick={() => setPanel(k)}>{l}</button>
+            ))}
+          </div>
+
+          {panel === 'moments' && (
+            <div className="ls-tabbody">
+              <div className="ls-grid">
+                {MOMENTS.map(([cmd, label, what]) => <button key={cmd} type="button" title={what} onClick={() => fire(cmd)}>{label}</button>)}
+              </div>
+              <div className="ls-grid">
+                <button type="button" title="A sweep, then the ambient effects start" onClick={() => { fire('open'); setAmbientLabel(engine.ambientName()); }}>Party open</button>
+                <button type="button" title="Machines off, back to your controller's Attract show" onClick={() => fire('close')}>Party close</button>
+                <button type="button" title="Each prize: a 3-2-1, then the winner" onClick={() => (tvMode === 'off' ? revealDemo() : setTvMode('reveal'))}>Winner reveal</button>
+                <button type="button" className={house ? 'on' : ''} onClick={() => { fire('house', { on: !house }); setHouse(!house); }}>{house ? 'House lights: on' : 'House lights'}</button>
+              </div>
+              <div className="ls-dim ls-note">{tvMode === 'off' ? 'TV hidden: buttons go straight to the lights.' : 'Buttons make the TV show the moment; the lights follow the TV.'} Hover a button to see what the lights do.</div>
+            </div>
+          )}
+
+          {panel === 'offline' && (
+            <div className="ls-tabbody">
+              <div className="ls-sub">Wall switch</div>
+              <div className="ls-grid">
+                <button type="button" title="Power on: the Attract show starts" onClick={() => remote({ on: true, ps: 1 })}>On</button>
+                <button type="button" onClick={() => remote({ on: false })}>Off</button>
+              </div>
+              <div className="ls-sub">Remote</div>
+              <div className="ls-grid">
+                <button type="button" onClick={() => remote({ on: true })}>On</button>
+                <button type="button" onClick={() => remote({ on: false })}>Off</button>
+                <button type="button" aria-label="Brightness down" onClick={() => remote({ bri: Math.max(10, bri - 40) })}>Dim −</button>
+                <button type="button" aria-label="Brightness up" onClick={() => remote({ bri: Math.min(255, bri + 40) })}>Bright +</button>
+              </div>
+              <div className="ls-grid">
+                {[1, 2, 3, 4, 5, 6, 7].map(id => (
+                  <button key={id} type="button" className={standalone === String(id) ? 'on' : ''} onClick={() => remote({ ps: id })} title={presets[id].n}>{id} · {SHORT[id]}</button>
+                ))}
+              </div>
+              <div className="ls-sub">Button on the controller</div>
+              <div className="ls-grid ls-grid-3">
+                <button type="button" title="Next show" onClick={() => remote({ ps: presets[9].ps })}>Press</button>
+                <button type="button" title="House lights" onClick={() => remote({ ps: 7 })}>Double</button>
+                <button type="button" title="Off" onClick={() => remote({ ps: 8 })}>Long</button>
+              </div>
+              <div className="ls-dim ls-note">Press: next show · Double: house lights · Long: off. Shows step every 8 s here (minutes on the real lights).</div>
+            </div>
+          )}
+
+          {panel === 'look' && (
+            <div className="ls-tabbody">
+              <label className="ls-field">Ambient effect
+                <select value={ambientLabel} onChange={e => {
+                  const v = e.target.value;
+                  if (v === 'preset') { fire('ambient'); setAmbientLabel('preset'); return; }
+                  if (!engine.cycleTimer) engine.start();
+                  setMusic('');
+                  engine.setAmbient(LIGHTS.ambientCycle.findIndex(a => a.fx === v));
+                  setAmbientLabel(engine.ambientName());
+                }}>
+                  <option value="preset">Your controller's Attract show</option>
+                  {LIGHTS.ambientCycle.map(a => <option key={a.fx} value={a.fx}>{a.fx}</option>)}
+                </select>
+              </label>
+              <div className="ls-grid">
+                <button type="button" onClick={() => { if (!engine.cycleTimer) engine.start(); engine.nextAmbient(); setAmbientLabel(engine.ambientName()); }}>Next ambient</button>
+              </div>
+              <div className="ls-dim ls-note">During the party these rotate every {LIGHTS.ambientMinutes} min.</div>
+              <label className="ls-field">Music mode
+                <select value={music} onChange={e => setMusic(e.target.value)}>
+                  <option value="">Off (ambient effects rotate)</option>
+                  {Object.entries(LIGHTS.music).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
+                </select>
+              </label>
+              <div className="ls-grid ls-grid-1">
+                <button type="button" className={mic === 'on' ? 'on' : ''} onClick={toggleMic}>{mic === 'on' ? 'Stop listening' : 'Listen with mic'}</button>
+              </div>
+              <div className="ls-dim ls-note">{mic === 'on' ? 'Listening to the room.' : mic === 'denied' ? 'Mic blocked: allow it in the browser.' : 'No mic: a fake 120 BPM beat drives the music effects.'}</div>
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="ls-strip">
         <div className="ls-label">Top run ({LIGHTS.runs.top.stop - LIGHTS.runs.top.start} px)</div>
@@ -255,111 +372,10 @@ export default function LightsSim() {
         </div>
       </div>
 
-      <div className="ls-controls">
-        <div className="ls-row">
-          <label className="ls-mode"><input type="radio" checked={!hardware} onChange={() => setHardware(false)} /> Simulator only</label>
-          <label className="ls-mode"><input type="radio" checked={hardware} onChange={() => setHardware(true)} /> Send to hardware</label>
-          <label>Speed
-            <select value={speed} onChange={e => setSpeed(Number(e.target.value))}>
-              <option value={1}>Normal</option><option value={2}>½ speed</option><option value={4}>¼ speed</option>
-            </select>
-          </label>
-        </div>
-        <div className="ls-row">
-          <label>Machine
-            <select value={machineId} onChange={e => setMachineId(Number(e.target.value))}>
-              {LIGHTS.machineOrder.map(id => <option key={id} value={id}>{nameOf(id)}</option>)}
-            </select>
-          </label>
-          <div className="ls-colors">
-            {COLORS.map(c => <button key={c} type="button" className={`ls-color${c === color ? ' on' : ''}`} style={{ background: c }} onClick={() => setColor(c)} aria-label={c} />)}
-          </div>
-        </div>
-        <div className="ls-row">
-          <label>Music mode
-            <select value={music} onChange={e => setMusic(e.target.value)}>
-              <option value="">Off (ambient effects rotate)</option>
-              {Object.entries(LIGHTS.music).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
-            </select>
-          </label>
-          <span className="ls-buttons"><button type="button" onClick={toggleMic}>{mic === 'on' ? 'Stop listening' : 'Listen with this Mac\'s mic'}</button></span>
-          <span className="ls-dim">{mic === 'on' ? 'Listening to the room' : mic === 'denied' ? 'Mic blocked: allow it in the browser' : 'No mic: using a fake 120 BPM beat'}</span>
-        </div>
-        <div className="ls-offline">
-          <div className="ls-offline-head">Lights on their own (no TV, no app): wall switch, remote and the controller's button</div>
-          <div className="ls-row ls-buttons">
-            <button type="button" onClick={() => remote({ on: true, ps: 1 })}>Wall switch on (boots into Attract)</button>
-            <button type="button" onClick={() => remote({ on: false })}>Wall switch off</button>
-          </div>
-          <div className="ls-remote">
-            <div className="ls-remote-label">Remote</div>
-            <div className="ls-row ls-buttons">
-              <button type="button" onClick={() => remote({ on: true })}>On</button>
-              <button type="button" onClick={() => remote({ on: false })}>Off</button>
-              <button type="button" onClick={() => remote({ bri: Math.max(10, bri - 40) })}>Brightness −</button>
-              <button type="button" onClick={() => remote({ bri: Math.min(255, bri + 40) })}>Brightness +</button>
-            </div>
-            <div className="ls-row ls-buttons">
-              {[1, 2, 3, 4, 5, 6, 7].map(id => (
-                <button key={id} type="button" className={standalone === String(id) ? 'on' : ''} onClick={() => remote({ ps: id })}>{id} {presets[id].n}</button>
-              ))}
-            </div>
-          </div>
-          <div className="ls-row ls-buttons">
-            <span className="ls-remote-label">Controller button</span>
-            <button type="button" onClick={() => remote({ ps: presets[9].ps })}>Press (next show)</button>
-            <button type="button" onClick={() => remote({ ps: 7 })}>Double press (house lights)</button>
-            <button type="button" onClick={() => remote({ ps: 8 })}>Long press (off)</button>
-          </div>
-          <div className="ls-dim">{hardware ? 'These go to the real controller.' : 'Preview only; choose "Send to hardware" above to work the real lights like the remote does.'} Playlists step every 8 s here (3 min, 5 min, 1 min and 45 s on the real lights).</div>
-        </div>
-        <div className="ls-row">
-          <label>Ambient
-            <select value={ambientLabel} onChange={e => {
-              const v = e.target.value;
-              if (v === 'preset') { fire('ambient'); setAmbientLabel('preset'); return; }
-              if (!engine.cycleTimer) engine.start(); // the party base has to be on to preview it
-              setMusic('');
-              engine.setAmbient(LIGHTS.ambientCycle.findIndex(a => a.fx === v));
-              setAmbientLabel(engine.ambientName());
-            }}>
-              <option value="preset">Your attract loop (WLED preset 1)</option>
-              {LIGHTS.ambientCycle.map(a => <option key={a.fx} value={a.fx}>{a.fx}</option>)}
-            </select>
-          </label>
-          <span className="ls-buttons"><button type="button" onClick={() => { if (!engine.cycleTimer) engine.start(); engine.nextAmbient(); setAmbientLabel(engine.ambientName()); }}>Next ambient effect</button></span>
-          <span className="ls-dim">During the party these rotate every {LIGHTS.ambientMinutes} min.</span>
-        </div>
-        <div className="ls-row ls-buttons">
-          <button type="button" onClick={() => fire('score')}>Score</button>
-          <button type="button" onClick={() => fire('champion')}>Machine record</button>
-          <button type="button" onClick={() => fire('leader')}>New #1</button>
-          <button type="button" onClick={() => fire('ranked')}>Player ranked</button>
-          <button type="button" onClick={() => fire('milestone')}>Games milestone</button>
-          <button type="button" onClick={() => fire('shame')}>Wall of Shame</button>
-          <button type="button" onClick={() => { fire('open'); setAmbientLabel(engine.ambientName()); }}>Party open</button>
-          <button type="button" onClick={() => fire('close')}>Party close</button>
-          <button type="button" onClick={() => (tvMode === 'off' ? revealDemo() : setTvMode('reveal'))}>Winner reveal</button>
-          <button type="button" onClick={() => { fire('house', { on: !house }); setHouse(!house); }}>{house ? 'House lights off' : 'House lights'}</button>
-        </div>
-        <dl className="ls-legend">
-          <dt>Score on a cabinet</dt><dd>that machine breathes, player color ↔ machine color (top and curb)</dd>
-          <dt>Machine record</dt><dd>white flashes, then the machine's colors chase out from its center</dd>
-          <dt>New #1</dt><dd>white bounces top ↔ curb, then the room washes in their color</dd>
-          <dt>Player ranked</dt><dd>the room breathes once in their color</dd>
-          <dt>Games milestone</dt><dd>gold bounces top ↔ curb</dd>
-          <dt>Wall of Shame</dt><dd>the room sags to a slow, dim red</dd>
-          <dt>Party open</dt><dd>a sweep, then the ambient effects start</dd>
-          <dt>Party close</dt><dd>machines off, back to your WLED attract preset</dd>
-          <dt>Winner reveal</dt><dd>follows each reveal slide; the grand champion gets a build, a burst and three white flashes</dd>
-          <dt>Joins, PBs, climbs, spotlights</dt><dd>no extra effect</dd>
-        </dl>
-      </div>
-
-      <div className="ls-log">
-        <div className="ls-label">Live commands (from the TV and this page)</div>
-        {log.length ? log.map((l, i) => <div key={i}><b>{l.at}</b> [{l.src}] {l.msg}</div>) : <div className="ls-dim">Nothing yet. Commands the TV sends show up here.</div>}
-      </div>
+      <details className="ls-log">
+        <summary>Command log ({log.length})</summary>
+        {log.length ? log.map((l, i) => <div key={i}><b>{l.at}</b> [{l.src}] {l.msg}</div>) : <div className="ls-dim">Nothing yet.</div>}
+      </details>
     </div>
   );
 }

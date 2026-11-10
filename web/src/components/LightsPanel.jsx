@@ -61,8 +61,11 @@ export default function LightsPanel({ busy, run }) {
   const dot = (ok, label) => <span className="lights-stat"><span className={`ls-dot ${ok === null ? 'idle' : ok ? 'ok' : 'bad'}`} />{label}</span>;
 
   return (
-    <section className="card lights-card">
-      <h2>Garage lights</h2>
+    <section id="sec-lights" className="card lights-card">
+      <div className="host-card-head">
+        <h2>Garage lights</h2>
+        <a className="ghost" href="/lights-sim" target="_blank" rel="noreferrer">Open simulator ↗</a>
+      </div>
       <div className="lights-status">
         {dot(wled === null ? null : wled === 'online', wled === 'online' ? 'Lights online' : wled === 'offline' ? 'Lights offline' : 'Lights: not heard from yet')}
         {dot(tvDriving ? true : (driver ? false : null), tvDriving ? `TV driving${driver.dry ? ' (simulator only)' : ''}` : 'No TV driving the lights')}
@@ -116,7 +119,6 @@ export default function LightsPanel({ busy, run }) {
         </div>
       </div>
       <div className="row gap lights-row">
-        <a className="ghost" href="/lights-sim" target="_blank" rel="noreferrer">Open simulator ↗</a>
         <Link className="ghost" to="/host/calibrate">Calibrate machine zones</Link>
       </div>
       <div className="row gap lights-row">

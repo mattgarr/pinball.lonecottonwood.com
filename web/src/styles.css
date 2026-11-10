@@ -2796,3 +2796,31 @@ button.link { background: none; border: 0; border-bottom: 2px dotted currentColo
 .ls-tv iframe { width: 100%; height: 100%; border: 0; display: block; }
 
 .reveal-controls { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 12px; }
+
+/* --- lights simulator: compact layout (bar, TV + tabbed panel, strips, folded log) --- */
+.ls-conn { display: inline-flex; align-items: center; color: #9c9cb4; }
+.ls-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 10px 12px; margin-bottom: 14px; border: 1px solid #22222e; background: #0b0b14; }
+.ls-bar label, .ls-field { display: inline-flex; align-items: center; gap: 8px; color: #9c9cb4; }
+.ls-bar select, .ls-field select { font-family: var(--px); font-size: var(--t10); height: 40px; background: #111; color: #eee; border: 2px solid #33334a; min-width: 0; max-width: 100%; }
+.ls-seg { display: inline-flex; flex-wrap: wrap; gap: 0; border: 2px solid #33334a; }
+.ls-seg button, .ls-tabs button { font-family: var(--px); font-size: var(--t10); height: 40px; padding: 0 12px; background: #111; color: #9c9cb4; border: 0; cursor: pointer; }
+.ls-seg button.on, .ls-tabs button.on { background: var(--nes-yellow); color: #000; }
+.ls-main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; margin-bottom: 16px; }
+.ls-main.no-tv { grid-template-columns: minmax(0, 1fr) 380px; }
+.ls-tvcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ls-tvcol .ls-tv { margin-bottom: 0; max-width: none; }
+.ls-panel { border: 1px solid #22222e; background: #0b0b14; min-width: 0; }
+.ls-tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 2px solid #22222e; }
+.ls-tabbody { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.ls-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ls-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ls-grid-1 { grid-template-columns: minmax(0, 1fr); }
+.ls-grid button { font-family: var(--px); font-size: var(--t10); height: 40px; padding: 0 8px; background: var(--nes-yellow); color: #000; border: 0; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ls-grid button.on { background: #fff; outline: 2px solid var(--nes-yellow); outline-offset: -2px; }
+.ls-sub { color: #e9e9f2; margin-top: 4px; }
+.ls-note { line-height: 1.6; }
+.ls-field { flex-direction: column; align-items: stretch; gap: 6px; }
+details.ls-log summary { cursor: pointer; color: #9c9cb4; margin-bottom: 8px; }
+@media (max-width: 900px) {
+  .ls-main, .ls-main.no-tv { grid-template-columns: minmax(0, 1fr); }
+}
