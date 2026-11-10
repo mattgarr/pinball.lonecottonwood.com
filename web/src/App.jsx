@@ -45,7 +45,7 @@ export default function App() {
     checkAccess(k).then(r => {
       if (r.ok) return;
       if (getAccess() === k) setAccess(null);
-      setAccessNote(r.error || 'That QR code is out of date. Ask a host for the party password.');
+      setAccessNote(r.kind === 'bad' ? 'That QR code is out of date. Ask a host for the party password.' : r.error);
       bumpAccess();
     }).catch(() => {});
   }, []);

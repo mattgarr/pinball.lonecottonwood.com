@@ -105,3 +105,5 @@
 .help-meta { font-size: var(--b10) !important; color: var(--muted); overflow-wrap: anywhere; }
 .help-item .ghost { flex: 0 0 auto; }
 .landing-foot > * { vertical-align: -2px; margin-right: 6px; }
+.host-grid-2 > .card.access-card { justify-content: flex-start; }
+.access-grid { margin-bottom: 16px; }

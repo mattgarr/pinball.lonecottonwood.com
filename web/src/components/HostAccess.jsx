@@ -5,7 +5,7 @@ import '../landing.css';
 // Host page: who can join (party password, party QR key, pause sign-ups) and the "Need help?" inbox.
 export default function HostAccess({ run, busy }) {
   return (
-    <div className="host-grid-2" id="sec-access">
+    <div className="host-grid-2 access-grid" id="sec-access">
       <AccessCard run={run} busy={busy} />
       <HelpCard run={run} busy={busy} />
     </div>
@@ -30,7 +30,7 @@ function AccessCard({ run, busy }) {
   }
   const locked = a.locked_until && new Date(a.locked_until) > new Date();
   return (
-    <section className="card">
+    <section className="card access-card">
       <h2>Party access</h2>
       <div className="access-pills">
         <span className={`access-pill${a.signups_open ? '' : ' off'}`}>{a.signups_open ? 'Sign-ups open' : 'Sign-ups paused'}</span>
@@ -84,7 +84,7 @@ function HelpCard({ run, busy }) {
   const open = list?.filter(x => !x.handled_at).length ?? 0;
   const mark = (id, done) => run(async () => { await hostAccess.helpDone(id, done); await load(); });
   return (
-    <section className="card">
+    <section className="card access-card">
       <div className="row spread">
         <h2>Help requests<span className={`help-badge${open ? '' : ' zero'}`} aria-label={`${open} new`}>{open}</span></h2>
         <button className="ghost" type="button" disabled={busy} onClick={load}>Refresh</button>
