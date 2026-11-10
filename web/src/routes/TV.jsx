@@ -300,7 +300,7 @@ function PrizePanel({ awards }) {
           <Prize icon="medal" name="2nd Place" crit="2nd-best rating" who={awards.second?.player} stat={st(awards.second, c => `${c.rating}/100`)} />
           <Prize icon="medal" name="3rd Place" crit="3rd-best rating" who={awards.third?.player} stat={st(awards.third, c => `${c.rating}/100`)} />
           <Prize icon="grind" name="The Grinder" crit="most games" who={awards.grinder?.player} stat={st(awards.grinder, g => `${g.plays} games`)} />
-          <Prize icon="burst" name="The Big Whiff" crit="lowest rating" who={awards.bigWhiff?.player} stat={st(awards.bigWhiff, w => `${w.rating}/100`)} dim />
+          <Prize icon="burst" name="The Big Whiff" crit="lowest rating, no other prize" who={awards.bigWhiff?.player} stat={st(awards.bigWhiff, w => `${w.rating}/100`)} dim />
           <Prize icon="ticket" name="The Match" crit="random draw" stat="at the end" pending />
         </> : (awards.machineChamps ?? []).map(c => (
           <Prize key={c.machine.id} icon="crown" name={c.machine.name} crit={c.player && c.rank > 1 ? 'next in line' : 'top score'}

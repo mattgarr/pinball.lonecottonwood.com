@@ -9,7 +9,7 @@ import Scanner from './Scanner.jsx';
 // in photo.js (scanFrames) so the reader can combine them.
 const canScan = () => typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && window.isSecureContext;
 
-export default function PhotoButton({ onPhoto, onError, className = 'snap-btn', children, disabled }) {
+export default function PhotoButton({ onPhoto, onError, onType, className = 'snap-btn', children, disabled }) {
   const [busy, setBusy] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [noLive, setNoLive] = useState(false); // live camera was refused: use the regular camera
@@ -43,6 +43,7 @@ export default function PhotoButton({ onPhoto, onError, className = 'snap-btn', 
       {scanning && createPortal(
         <Scanner
           onCancel={() => setScanning(false)}
+          onType={onType ? () => { setScanning(false); onType(); } : undefined}
           onFallback={fromTap => {
             setScanning(false); setNoLive(true);
             if (fromTap) input.current?.click(); // must run inside the tap for iOS

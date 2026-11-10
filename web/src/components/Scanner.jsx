@@ -68,7 +68,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const machineIdFromUrl = () => Number((location.pathname.match(/\/machine\/(\d+)/) || [])[1]) || null;
 
 // testMode = { mode: 'frames'|'video', fps, machineId } for host calibration; then onResult gets the raw read.
-export default function Scanner({ onDone, onFallback, onCancel, testMode, onResult }) {
+export default function Scanner({ onDone, onFallback, onCancel, onType, testMode, onResult }) {
   const { machines } = useParty();
   const machineId = testMode?.machineId ?? machineIdFromUrl();
   const machine = machines.find(m => m.id === machineId);
@@ -432,7 +432,7 @@ export default function Scanner({ onDone, onFallback, onCancel, testMode, onResu
           <>
             <div className="scanner-sub">Scan right after the game, while scores show.</div>
             <button type="button" className="scanner-go" onClick={retry}>↻ Scan again</button>
-            <button type="button" className="linkbtn small scanner-alt" onClick={() => { alive.current = false; onCancel(); }}>Type it instead</button>
+            <button type="button" className="linkbtn small scanner-alt" onClick={() => { alive.current = false; (onType || onCancel)(); }}>Type it instead</button>
           </>
         ) : (
           <button type="button" className="linkbtn small scanner-alt" onClick={() => { alive.current = false; onFallback(true); }}>Trouble? Take a normal photo instead</button>

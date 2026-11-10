@@ -129,6 +129,7 @@ function HostPanel({ onLogout }) {
               const id = Number(e.target.value);
               const ev = events.find(x => x.id === id);
               if (id && id !== party?.current_event_id) {
+                if (!confirm(`Make "${ev?.name || 'that event'}" the active event? Every phone and the TV switch to it right away.`)) { e.target.value = String(party?.current_event_id || ''); return; }
                 run(() => host.setCurrentEvent(id), `${ev?.name || 'Event'} is now the active event.`);
               }
             }}
@@ -348,7 +349,7 @@ function RevealControls({ party, busy, run }) {
   const [asked, setAsked] = useState(null);
   useEffect(() => { setAsked(null); }, [party?.reveal_step]);
   const step = Math.min(asked ?? party?.reveal_step ?? 0, Math.max(0, plan.length - 1));
-  const goTo = (n, msg) => { setAsked(n); run(() => host.revealStep(n), msg); };
+  const goTo = (n, msg) => { setAsked(n); run(() => host.revealStep(n).catch(e => { setAsked(null); throw e; }), msg); };
   const cur = plan[step], next = plan[step + 1];
   return (
     <div className="reveal-controls">
@@ -376,11 +377,12 @@ function EndOfNight({ party, event, open, busy, run }) {
         <li>
           <b>Reveal the winners on the TV.</b>
           <label className="field">
-            <span>The Match (optional): someone draws a number from 00 to 99. The score whose last two digits are closest to it wins.</span>
+            <span>The Match (optional): someone draws a number from 00 to 99. The score whose last two digits are closest to it wins (ignoring the final 0, since nearly every pinball score ends in 0).</span>
             <input type="number" min="0" max="99" value={matchDigits} onChange={e => setMatchDigits(e.target.value)} placeholder="e.g. 42" />
           </label>
           {!revealing ? (
             <button className="primary big" type="button" disabled={busy} onClick={() => {
+              if (matchDigits !== '' && !(Number(matchDigits) >= 0 && Number(matchDigits) <= 99 && Number.isInteger(Number(matchDigits)))) { alert('The Match number must be a whole number from 00 to 99.'); return; }
               if (open && !confirm('Scores are still ON. Stop scores and start the reveal?')) return;
               run(async () => {
                 if (open) await host.setStatus('closed');
@@ -390,7 +392,10 @@ function EndOfNight({ party, event, open, busy, run }) {
           ) : (
             <>
               <RevealControls party={party} busy={busy} run={run} />
-              <button className="secondary big" type="button" disabled={busy} onClick={() => run(() => host.reveal(false), 'TV is back to the leaderboard.')}>End the reveal</button>
+              <button className="secondary big" type="button" disabled={busy} onClick={() => {
+                if (!confirm('End the reveal? The TV goes back to the leaderboard (starting again begins at the first prize).')) return;
+                run(() => host.reveal(false), 'TV is back to the leaderboard.');
+              }}>End the reveal</button>
             </>
           )}
         </li>

@@ -87,6 +87,13 @@ export const sfx = {
   shame: () => play(() => run([[67, 3], [66, 3], [65, 3], [64, 10]], 0.11, { type: 'sawtooth', vol: 0.05 })),
 };
 
+// After the Mac sleeps, the browser can suspend the audio: wake it again when the page is visible.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && on && ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
+  });
+}
+
 export const sound = {
   wanted: () => { try { return localStorage.getItem(KEY) === '1'; } catch { return false; } },
   isOn: () => on && !!ctx && ctx.state === 'running',

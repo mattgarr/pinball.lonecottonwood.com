@@ -458,7 +458,7 @@ function StartStep({ machine, mineHere, closed, onSwitch, onSnap, onType, onPhot
         <div className="err">Scoring's closed. Finals are on the TV.</div>
       ) : (
         <div className="start-actions">
-          <PhotoButton className="snap-btn" onPhoto={onSnap} onError={onPhotoError}>
+          <PhotoButton className="snap-btn" onPhoto={onSnap} onError={onPhotoError} onType={onType}>
             <span className="snap-icon" aria-hidden="true"><PixelEmoji e="📸" size={40} /></span>
             <span className="snap-text">
               <span className="snap-title">Snap the score</span>

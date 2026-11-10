@@ -55,6 +55,6 @@ export async function readScoreFromPhoto(jpegDataUrl, machine, opts = {}) {
   if (!data) return null;
   data.uploadMs = upDone ? Math.round(upDone - t0) : null;
   if (data.photoPath) photoPaths.set(jpegDataUrl, data.photoPath);
-  if (data.error) return { scores: [], confidence: 'low', note: data.error, photoPath: null, uploadMs: data.uploadMs };
+  if (data.error) return { scores: [], confidence: 'low', note: data.error, error: data.error, photoPath: null, uploadMs: data.uploadMs };
   return data;
 }

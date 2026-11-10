@@ -119,6 +119,8 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
   const base = useRef(null);
   const lastActivityRef = useRef(Date.now());
   const spotCursorRef = useRef(0);
+  const dataRef = useRef({ standings, scores, players });
+  dataRef.current = { standings, scores, players };
 
   const addNews = useCallback(items => {
     if (!items.length) return;
@@ -134,7 +136,10 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
   const pushToasts = useCallback(list => {
     if (!list.length) return;
     const t = Date.now();
-    setToasts(q => [...q, ...list.map((n, i) => ({ ...n, id: `${t}-${i}-${n.player?.id ?? n.kind}` }))].slice(-6));
+    setToasts(q => {
+      const all = [...q, ...list.map((n, i) => ({ ...n, id: `${t}-${i}-${n.player?.id ?? n.kind}` }))];
+      return all.length > 6 ? [all[0], ...all.slice(-5)] : all; // never cut off the one on screen
+    });
   }, []);
 
   useEffect(() => {
@@ -156,11 +161,17 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
       shame: standings.bottomPlayers?.[0]?.player ?? null,
       playerIds: new Set(players.map(p => p.id)),
       maxScoreId: scores.reduce((m, s) => Math.max(m, s.id), 0),
+      seen: new Set(scores.map(s => s.id)),
       games: standings.meta.totalScores,
     };
     const prev = base.current;
     base.current = snap;
     if (!prev) return; // baseline
+    // A big jump all at once (the Mac woke from sleep, or the host switched events) is a catch-up,
+    // not a burst of live moments: take it as the new baseline without a parade of takeovers.
+    const newCount = scores.reduce((n, s) => n + (prev.seen.has(s.id) || s.voided ? 0 : 1), 0);
+    const newlyRanked = standings.ranked.reduce((n, st) => n + (prev.rankedIds.has(st.player.id) ? 0 : 1), 0);
+    if (newCount > 6 || newlyRanked > 4) return;
 
     const pById = new Map(players.map(p => [p.id, p]));
     const headlines = [];
@@ -171,15 +182,18 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
     const machineEntry = new Map(standings.machines.map(m => [m.machine.id, m]));
     let lastNewScore = null;
     for (const s of scores) {
-      if (s.id <= prev.maxScoreId || s.voided) continue;
+      if (prev.seen.has(s.id) || s.voided) continue; // (ids can arrive out of order)
       lastActivityRef.current = Date.now();
       const entry = machineEntry.get(s.machine_id), player = pById.get(s.player_id);
       if (!entry || !player) continue;
       lastNewScore = { score: s, entry, player };
-      const rank = entry.top.find(t => t.player.id === player.id)?.rank ?? null;
+      // Where THIS game lands on the machine (not the player's best), among everyone who played it.
+      const champScore = entry.champion?.score ?? 0;
+      const rank = s.value >= champScore && champScore > 0
+        ? 1
+        : 1 + (entry.rows || []).filter(r => r.best > s.value && r.playerId !== player.id).length;
       const prevBest = prev.playerMachineBest.get(`${s.player_id}:${s.machine_id}`) ?? null;
       const isPB = prevBest != null && s.value > prevBest && rank !== 1;
-      const champScore = entry.champion?.score ?? 0;
       const isClose = rank === 2 && champScore > 0 && s.value >= champScore * 0.85 && s.value < champScore;
 
       addHit({ id: `hit-${s.id}`, machine: entry.machine, player, value: s.value, rank, isPB, isClose });
@@ -260,7 +274,16 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
     // If any real live event happened, preempt any active attract spotlight immediately!
     if (fresh.length) {
       lastActivityRef.current = Date.now();
-      setTakeovers(q => [...q.filter(x => x.kind !== 'spotlight'), ...fresh.filter(f => !q.some(x => x.id === f.id))]);
+      setTakeovers(q => {
+        const all = [...q.filter(x => x.kind !== 'spotlight'), ...fresh.filter(f => !q.some(x => x.id === f.id))];
+        // Keep the queue short: past 4 waiting, drop "newly ranked" cards first (records and #1 stay).
+        while (all.length > 4) {
+          const i = all.findIndex((x, k) => k > 0 && x.kind === 'ranked');
+          if (i < 0) break;
+          all.splice(i, 1);
+        }
+        return all;
+      });
     } else if (lastNewScore) {
       // Even a non-record score clears an attract spotlight so the player sees their score hit on the board
       setTakeovers(q => q.filter(x => x.kind !== 'spotlight'));
@@ -335,18 +358,19 @@ export function useLiveEvents({ standings, scores, players, ready, demo = false 
       return;
     }
 
+    // (Reads the latest data through a ref: the 60 s data refresh must not keep restarting this timer.)
     const iv = setInterval(() => {
       if (Date.now() - lastActivityRef.current < ATTRACT_QUIET_MS) return;
       setTakeovers(q => {
         if (q.length > 0) return q;
         const cur = spotCursorRef.current++;
-        const cards = buildSpotlights({ standings, scores, players }, cur);
+        const cards = buildSpotlights(dataRef.current, cur);
         if (!cards.length) return q;
         return [cards[cur % cards.length]];
       });
     }, ATTRACT_CHECK_MS);
     return () => clearInterval(iv);
-  }, [ready, demo, standings, scores, players]);
+  }, [ready, demo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Demo: cycle through every effect using real players and machines.
   useEffect(() => {

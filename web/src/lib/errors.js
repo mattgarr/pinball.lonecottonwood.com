@@ -10,6 +10,7 @@ export function friendlyError(e, forFriend = false) {
       ? "Logging for other players is off right now. They can log it on their phone, or ask the host."
       : 'Scoreboard is updating. Try again in a minute.';
   }
+  if (/duplicate key.*players_name_ci|players_name_ci/i.test(m)) return 'That nickname is taken. If it\'s you, tap "Joined before?".';
   if (/bad image/i.test(m)) return "That photo didn't work — try another.";
   if (/last 15 minutes can be undone/i.test(m)) return 'Too late to undo (15 min limit) — ask the host to fix it.';
   if (/join \(or rejoin\) first/i.test(m)) return "You're signed out. Go to Me → Sign out / switch player, sign back in, then try again.";

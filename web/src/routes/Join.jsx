@@ -94,8 +94,9 @@ export default function Join() {
     if (email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) { setErr("That email doesn't look right."); return; }
     setBusy(true); setErr('');
     try {
-      // Join with the original selfie (kept for redraws), then swap in the 8-bit art when it's ready.
-      const me = await actions.join({ name: name.trim(), pin, emoji, firstTimer, avatar });
+      // Join with the 8-bit art if it's ready, otherwise no picture yet (the emoji shows): the raw
+      // selfie is never published. The art is saved as soon as it's drawn.
+      const me = await actions.join({ name: name.trim(), pin, emoji, firstTimer, avatar: art || null });
       if (invite) await actions.claimInvite(invite, false).catch(() => {});
       if (invite && slot) {
         // Save which person they are, and fix the ticket's spelling if they corrected their name.

@@ -68,9 +68,9 @@ export function computeStandings({ machines = [], players = [], scores = [] }) {
   const eligible = [...stats.values()]
     .filter(st => st.rating != null)
     .sort((a, b) => b.rating - a.rating || b.crowns - a.crowns || b.machinesPlayed - a.machinesPlayed || a.player.id - b.player.id);
-  eligible.forEach((st, i) => {
-    st.rank = i > 0 && st.rating === eligible[i - 1].rating ? eligible[i - 1].rank : i + 1;
-  });
+  // Ranks follow exactly this order (rating, then crowns, then machines played), so the board, the
+  // Ranks page, the emails and the prizes always agree on who is #1, #2 and #3: no shared ranks.
+  eligible.forEach((st, i) => { st.rank = i + 1; });
 
   const topPlayers = eligible.slice(0, 10);
   // Wall of Shame: lowest ratings. It skips only the top 3 (not the whole Top Players board)
@@ -134,12 +134,20 @@ export function computeAwards({ machines = [], players = [], scores = [], standi
     .sort((a, b) => a.rating - b.rating || b.machinesPlayed - a.machinesPlayed)[0];
   const bigWhiff = claim(whiffSt ? { player: whiffSt.player, rating: whiffSt.rating, machinesPlayed: whiffSt.machinesPlayed, worst: whiffSt.worst } : null, whiffSt?.player);
 
-  // The Match: the host draws 00–99; the score whose last two digits are closest wins.
+  // The Match: the host draws 00–99; the score whose last two digits are closest wins. Pinball scores
+  // nearly always end in 0, so the final 0 is ignored (12,345,670 → "67"). Ties are broken by a fixed
+  // shuffle of the draw, not by who logged first.
   let theMatch = null;
   if (matchDigits != null && matchDigits !== '') {
     const draw = ((Number(matchDigits) % 100) + 100) % 100;
-    const dist = v => { const d = Math.abs((v % 100) - draw); return Math.min(d, 100 - d); };
-    const best = [...live].sort((a, b) => dist(a.value) - dist(b.value) || a.id - b.id)
+    const digits = v => (v % 10 === 0 ? Math.floor(v / 10) : v) % 100;
+    const dist = v => { const d = Math.abs(digits(v) - draw); return Math.min(d, 100 - d); };
+    const shuffle = id => { // a fixed mix of (score id, draw): fair, and the same on every screen
+      let h = Math.imul(id ^ Math.imul(draw + 1, 0x9e3779b1), 0x85ebca6b);
+      h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+      return h >>> 0;
+    };
+    const best = [...live].sort((a, b) => dist(a.value) - dist(b.value) || shuffle(a.id) - shuffle(b.id))
       .find(s => free(playerById.get(s.player_id)));
     if (best) theMatch = claim({ player: playerById.get(best.player_id), value: best.value, machine: machineById.get(best.machine_id), drawn: draw, distance: dist(best.value) }, playerById.get(best.player_id));
   }
@@ -164,7 +172,7 @@ export function prizesFor(awards, playerId) {
 export const fmt = n => Number(n).toLocaleString();
 export const fmtShort = n => {
   const v = Number(n);
-  if (v >= 1e9) return (v / 1e9).toFixed(1).replace(/\.0$/, '') + 'B';
+  if (v >= 1e9) return (v / 1e9).toFixed(2).replace(/\.?0+$/, '') + 'B'; // 1.04B vs 1.01B, not both "1B"
   if (v >= 1e6) return (v / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
   if (v >= 1e3) return (v / 1e3).toFixed(0) + 'K';
   return String(v);

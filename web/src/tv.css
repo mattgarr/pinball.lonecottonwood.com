@@ -908,8 +908,8 @@
 .cab2-scores { padding: 5px 4px 8px !important; }
 .cab2-scores li { padding: 0 3px !important; gap: 3px !important; }
 .cab2-scores li .avatar { display: none; }
-.cab2-scores li:not(.slot):not(.cab2-empty) { grid-template-columns: 14px minmax(0, 1fr) auto !important; }
-.cab2-scores li.slot { grid-template-columns: 14px minmax(0, 1fr) !important; }
+.cab2-scores li:not(.slot):not(.cab2-empty) { grid-template-columns: 20px minmax(0, 1fr) auto !important; }
+.cab2-scores li.slot { grid-template-columns: 20px minmax(0, 1fr) !important; }
 .cab2-rank, .cab2-scores li.slot .cab2-rank {
   font-family: var(--px) !important; font-size: var(--t10) !important; font-weight: 400 !important;
   line-height: 1 !important; letter-spacing: -1px;

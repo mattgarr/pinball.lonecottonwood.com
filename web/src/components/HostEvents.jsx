@@ -121,6 +121,7 @@ export default function HostEvents({ run, busy }) {
                 {live
                   ? <button className="ghost ev-active-btn" type="button" disabled>★ Active</button>
                   : <button className="primary" type="button" disabled={busy} onClick={() => {
+                      if (!confirm(`Make "${e.name}" the active event? Every phone and the TV switch to it right away.`)) return;
                       run(() => host.setCurrentEvent(e.id), `${e.name} is now the active event.`);
                     }}>Make active</button>}
                 <button className={`ghost${rosterOpen ? ' on' : ''}`} type="button" onClick={() => setOpenRosterId(rosterOpen ? null : e.id)}>

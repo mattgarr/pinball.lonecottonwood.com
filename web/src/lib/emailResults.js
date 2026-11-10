@@ -9,8 +9,10 @@ export async function emailResults(eventId, { testTo } = {}) {
   const s = getState();
   const event = s.events.find(e => e.id === eventId);
   const mids = new Set(s.eventMachines.filter(x => x.event_id === eventId).map(x => x.machine_id));
-  const machines = s.allMachines.filter(m => mids.has(m.id));
-  const scores = s.allScores.filter(x => x.event_id === eventId);
+  // Same as the TV: an event with no machines attached uses all of them.
+  const machines = mids.size ? s.allMachines.filter(m => mids.has(m.id)) : s.allMachines;
+  const isCurrent = eventId === s.party?.current_event_id;
+  const scores = s.allScores.filter(x => x.event_id === eventId || (isCurrent && x.event_id == null));
   const entrants = new Set(s.entries.filter(x => x.event_id === eventId).map(x => x.player_id));
   for (const x of scores) entrants.add(x.player_id);
   const players = s.players.filter(p => entrants.has(p.id));

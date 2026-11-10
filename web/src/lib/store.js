@@ -123,13 +123,18 @@ export function refreshAll() {
       ]);
       if (m.error) throw m.error;
       if (p.error) throw p.error;
+      // A players list can be a moment behind (e.g. it left before this guest's join committed), so it
+      // never signs anyone out: only whoami does that. If I'm missing from it, just re-check.
       const found = state.me ? players.find(x => x.id === state.me.id) ?? null : null;
-      const me = state.me ? (found ? { ...state.me, ...found } : null) : state.me;
+      const me = state.me && found ? { ...state.me, ...found } : state.me;
+      // Keep scores logged after this fetch left (they'd briefly vanish otherwise).
+      const maxId = scores.reduce((mx, s) => Math.max(mx, s.id), 0);
+      const newer = state.allScores.filter(s => s.id > maxId);
       set({
-        ready: true, error: null, allMachines: m.data, players, allScores: scores, party: p.data, me,
+        ready: true, error: null, allMachines: m.data, players, allScores: newer.length ? [...scores, ...newer] : scores, party: p.data, me,
         events: ev.data || [], eventMachines: em.data || [], entries: en.data || [],
       });
-      if (state.me && !me) { setToken(null); }
+      if ((state.me && !found) || (getToken() && !state.me && !checking)) checkMe();
       refreshLights();
     } catch (e) {
       set({ error: e.message || String(e) });
@@ -147,16 +152,32 @@ export function refreshLights() {
     .catch(() => {});
 }
 
+// Who is this phone? Only a definite "no such player" from the server signs a guest out. A network
+// failure keeps the token and tries again (2 s, 4 s, … up to 30 s); the app shows its loading screen
+// meanwhile rather than sending a signed-in guest to Join.
+let checking = false, retryMs = 2000, retryTimer = null;
 async function checkMe() {
   const token = getToken();
   if (!token) { set({ me: null, meChecked: true }); return; }
-  const { data, error } = await sb.rpc('whoami', { p_token: token });
-  if (error) { set({ meChecked: true }); return; } // offline: keep token, try later
+  if (checking) return;
+  checking = true;
+  let data = null, error = null;
+  try { ({ data, error } = await sb.rpc('whoami', { p_token: token })); } catch (e) { error = e; }
+  checking = false;
+  if (error) {
+    if (state.me) return; // already signed in: keep going, the next refresh re-checks
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(checkMe, retryMs);
+    retryMs = Math.min(retryMs * 2, 30000);
+    return;
+  }
+  retryMs = 2000;
   if (!data) setToken(null);
   set({ me: data || null, meChecked: true });
 }
 
 let started = false;
+let playersTimer = null;
 function start() {
   if (started) return;
   started = true;
@@ -175,13 +196,16 @@ function start() {
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => {
-      // Re-read players (rows carry selfies, so we don't trust the realtime payload size).
-      fetchPlayers().then(players => {
-        const found = state.me ? players.find(x => x.id === state.me.id) ?? null : null;
-        const me = state.me && found ? { ...state.me, ...found } : null;
-        set({ players, me: state.me ? me : null });
-        if (state.me && !me) setToken(null);
-      }).catch(() => {});
+      // Re-read players (rows carry avatars, so we don't trust the realtime payload size). Debounced:
+      // during the arrival rush a burst of joins becomes one download per phone, not one per join.
+      clearTimeout(playersTimer);
+      playersTimer = setTimeout(() => {
+        fetchPlayers().then(players => {
+          const found = state.me ? players.find(x => x.id === state.me.id) ?? null : null;
+          set({ players, me: state.me && found ? { ...state.me, ...found } : state.me });
+          if (state.me && !found) checkMe(); // removed by the host? whoami decides
+        }).catch(() => {});
+      }, 1500);
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'party' }, ev => {
       if (ev.new && ev.new.id === 1) {
@@ -415,7 +439,16 @@ function patchAvatar(playerId, avatar) {
   });
 }
 
-const hostCall = (name, args = {}) => rpc(name, { p_pass: getHostPass(), ...args });
+// Each successful host action renews the 2-day unlock, so an unlock never runs out mid-party.
+const touchHost = () => safe(() => {
+  const v = JSON.parse(localStorage.getItem(HOST_KEY) || 'null');
+  if (v?.p) localStorage.setItem(HOST_KEY, JSON.stringify({ p: v.p, t: Date.now() }));
+});
+const hostCall = (name, args = {}) => {
+  const pass = getHostPass();
+  if (!pass) return Promise.reject(new Error('Wrong host passcode.')); // locked: don't even ask the server
+  return rpc(name, { p_pass: pass, ...args }).then(r => { touchHost(); return r; });
+};
 export const host = {
   check: pass => rpc('host_check', { p_pass: pass }),
   setStatus: status => hostCall('host_set_status', { p_status: status }),
