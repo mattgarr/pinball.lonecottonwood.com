@@ -134,22 +134,43 @@ export function computeAwards({ machines = [], players = [], scores = [], standi
     .sort((a, b) => a.rating - b.rating || b.machinesPlayed - a.machinesPlayed)[0];
   const bigWhiff = claim(whiffSt ? { player: whiffSt.player, rating: whiffSt.rating, machinesPlayed: whiffSt.machinesPlayed, worst: whiffSt.worst } : null, whiffSt?.player);
 
-  // The Match: the host draws 00–99; the score whose last two digits are closest wins. Pinball scores
-  // nearly always end in 0, so the final 0 is ignored (12,345,670 → "67"). Ties are broken by a fixed
-  // shuffle of the draw, not by who logged first.
+  // The Match, like a real pinball Match: the app draws 00, 10, 20 … 90 at the start of the reveal and
+  // compares it with the last two digits of every score (scores end in 0, so in practice the tens digit
+  // decides). Everyone with a matching score is in the tie-break; if nobody matches exactly, the closest
+  // scores are. The tie-break picks one player at random (a fixed shuffle of the draw, so every screen
+  // agrees) and the TV shows it as a slot-machine spin through the tied players.
   let theMatch = null;
   if (matchDigits != null && matchDigits !== '') {
-    const draw = ((Number(matchDigits) % 100) + 100) % 100;
-    const digits = v => (v % 10 === 0 ? Math.floor(v / 10) : v) % 100;
+    const draw = Math.floor((((Number(matchDigits) % 100) + 100) % 100) / 10) * 10;
+    const digits = v => v % 100;
     const dist = v => { const d = Math.abs(digits(v) - draw); return Math.min(d, 100 - d); };
-    const shuffle = id => { // a fixed mix of (score id, draw): fair, and the same on every screen
+    const shuffle = id => {
       let h = Math.imul(id ^ Math.imul(draw + 1, 0x9e3779b1), 0x85ebca6b);
       h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
       return h >>> 0;
     };
-    const best = [...live].sort((a, b) => dist(a.value) - dist(b.value) || shuffle(a.id) - shuffle(b.id))
-      .find(s => free(playerById.get(s.player_id)));
-    if (best) theMatch = claim({ player: playerById.get(best.player_id), value: best.value, machine: machineById.get(best.machine_id), drawn: draw, distance: dist(best.value) }, playerById.get(best.player_id));
+    // Each player's closest score (one entry per player, however many games they logged).
+    const bestOf = new Map();
+    for (const s of live) {
+      const p = playerById.get(s.player_id);
+      if (!free(p)) continue;
+      const cur = bestOf.get(p.id);
+      if (!cur || dist(s.value) < dist(cur.value)) bestOf.set(p.id, s);
+    }
+    const entries = [...bestOf.values()];
+    if (entries.length) {
+      const min = Math.min(...entries.map(s => dist(s.value)));
+      const tied = entries.filter(s => dist(s.value) === min).sort((a, b) => shuffle(a.player_id) - shuffle(b.player_id));
+      const win = tied[0];
+      const others = entries.filter(s => dist(s.value) !== min).map(s => playerById.get(s.player_id))
+        .sort((a, b) => shuffle(a.id) - shuffle(b.id));
+      theMatch = claim({
+        player: playerById.get(win.player_id), value: win.value, machine: machineById.get(win.machine_id),
+        drawn: draw, distance: min, exact: min === 0,
+        tied: tied.map(s => playerById.get(s.player_id)), // the tie-break, winner first
+        pool: others,                                   // everyone else still in the running
+      }, playerById.get(win.player_id));
+    }
   }
 
   const matchDrawn = matchDigits != null && matchDigits !== '';

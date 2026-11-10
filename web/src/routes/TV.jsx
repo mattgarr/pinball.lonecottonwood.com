@@ -19,9 +19,14 @@ import '../tv.css';
 
 export default function TV() {
   const { machines, players, scores, party, ready, standings, event } = useStandings();
-  const awards = useAwards(standings, party?.reveal_active ? party.match_digits : null);
   const demo = typeof location !== 'undefined' && new URLSearchParams(location.search).has('demo');
   const revealPreview = typeof location !== 'undefined' && new URLSearchParams(location.search).has('reveal');
+  // A preview (/tv?reveal, or ?reveal=40) draws its own Match number; the real reveal uses the host's draw.
+  const [previewDraw] = useState(() => {
+    const v = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('reveal') : '';
+    return /^\d{1,2}$/.test(v || '') ? Number(v) : Math.floor(Math.random() * 10) * 10;
+  });
+  const awards = useAwards(standings, party?.reveal_active ? party.match_digits : revealPreview ? previewDraw : null);
   const { lights: lightsSettings } = useParty();
   useEffect(() => { ensureLightsTopic(); }, []); // learns the lights channel if this browser has the host unlock
   // Garage lights: only the screen marked as the lights driver (the TV on the Mac) sends anything.

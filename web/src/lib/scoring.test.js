@@ -19,23 +19,36 @@ describe('scoring', () => {
     expect(standings.ranked[0].rank).toBe(1);
   });
 
-  it('The Match ignores the final 0 (pinball scores end in 0)', () => {
+  it('The Match: drawn 00–90, matched on the last two digits, everyone matching is in the tie-break', () => {
     const PP = Array.from({ length: 6 }, (_, i) => ({ id: i + 1, display_name: `P${i + 1}`, color: '#fff', emoji: '🎯' }));
-    // P1 is machine 1's champion and P2 the Grinder, so P3 and P4 are free for The Match.
-    const scores = [sc(1, 1, 99_999_990), sc(2, 2, 10), sc(2, 2, 20), sc(2, 3, 30), sc(3, 1, 1_234_510), sc(4, 1, 9_876_420)];
+    // P1 is machine 1's champion and P2 the Grinder, so P3–P6 are free for The Match.
+    const scores = [sc(1, 1, 99_999_990), sc(2, 2, 10), sc(2, 2, 20), sc(2, 3, 30),
+      sc(3, 1, 1_234_540), sc(4, 1, 9_876_440), sc(5, 1, 5_550), sc(5, 1, 2_000_040), sc(6, 1, 70), sc(6, 1, 70), sc(6, 1, 70)];
     const standings = computeStandings({ machines: M, players: PP, scores });
-    // drawn 42 → 9,876,420 ("42" before the last 0) wins over 1,234,510 ("51")
-    const a = computeAwards({ machines: M, players: PP, scores, standings, matchDigits: 42 });
-    expect(a.theMatch.player.id).toBe(4);
+    // drawn 47 rounds to 40: P3, P4 and P5 match (P5 with its second game); P6 is the Grinder
+    const a = computeAwards({ machines: M, players: PP, scores, standings, matchDigits: 47 });
+    expect(a.theMatch.drawn).toBe(40);
+    expect(a.theMatch.exact).toBe(true);
+    expect(a.theMatch.tied.map(p => p.id).sort()).toEqual([3, 4, 5]);
+    expect(a.theMatch.tied[0].id).toBe(a.theMatch.player.id);
+    expect(a.theMatch.pool).toEqual([]);
     expect(a.matchDrawn).toBe(true);
   });
 
-  it('The Match tie is not decided by who logged first', () => {
-    const PP = Array.from({ length: 10 }, (_, i) => ({ id: i + 1, display_name: `P${i + 1}`, color: '#fff', emoji: '🎯' }));
-    // Every score has the same two digits ("00"): the winner should depend on the draw.
-    const scores = PP.map(p => sc(p.id, 1, 1_000_000 + p.id * 1000));
+  it('The Match: nobody matches exactly → the closest scores are in', () => {
+    const PP = Array.from({ length: 6 }, (_, i) => ({ id: i + 1, display_name: `P${i + 1}`, color: '#fff', emoji: '🎯' }));
+    const scores = [sc(1, 1, 99_999_990), sc(2, 2, 10), sc(2, 2, 20), sc(2, 3, 30), sc(3, 1, 1_234_560), sc(4, 1, 9_876_420), sc(5, 1, 5), sc(5, 1, 5), sc(5, 1, 5)];
     const standings = computeStandings({ machines: M, players: PP, scores });
-    const winners = new Set([0, 1, 2, 3, 4, 5, 6, 7].map(d => computeAwards({ machines: M, players: PP, scores, standings, matchDigits: d }).theMatch?.player.id));
+    const a = computeAwards({ machines: M, players: PP, scores, standings, matchDigits: 70 });
+    expect(a.theMatch.exact).toBe(false);
+    expect(a.theMatch.player.id).toBe(3); // 60 is 10 away from 70; 20 is 50 away
+  });
+
+  it('The Match tie-break is random by draw, not by who logged first', () => {
+    const PP = Array.from({ length: 10 }, (_, i) => ({ id: i + 1, display_name: `P${i + 1}`, color: '#fff', emoji: '🎯' }));
+    const scores = PP.map(p => sc(p.id, 1, 1_000_000 + p.id * 1000)); // every score ends in "00"
+    const standings = computeStandings({ machines: M, players: PP, scores });
+    const winners = new Set([0, 10, 20, 30, 40, 50, 60, 70, 80, 90].map(d => computeAwards({ machines: M, players: PP, scores, standings, matchDigits: d }).theMatch?.player.id));
     expect(winners.size).toBeGreaterThan(1);
   });
 

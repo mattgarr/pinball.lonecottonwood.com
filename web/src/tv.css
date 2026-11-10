@@ -1183,3 +1183,42 @@
   text-shadow: 4px 4px 0 color-mix(in srgb, var(--accent) 60%, #000); animation: rv-count-pop 1s steps(6, end) both; }
 @keyframes rv-count-pop { 0% { transform: scale(3.4); opacity: 0; } 25% { transform: scale(2.4); opacity: 1; } 85% { opacity: 1; } 100% { transform: scale(2.2); opacity: 0.2; } }
 .rv { cursor: default; }
+
+/* The Match: number roll, then a slot-machine reel through the tie-break. */
+.rv-spin { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 120px 0 70px; box-sizing: border-box; }
+.rv-spin-draw { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.rv-spin-num { font-size: 88px; }
+.rv-spin-num.on { box-shadow: 0 0 40px color-mix(in srgb, var(--accent) 50%, transparent); }
+.rv-spin-note { font-family: var(--px); font-size: var(--t24); color: #fff; opacity: 0; min-height: 1.5em; text-align: center; }
+.rv-spin-note.on { opacity: 1; }
+.rv-reel { position: relative; width: 1100px; height: 360px; flex: none; overflow: hidden; opacity: 0;
+  border: 4px solid color-mix(in srgb, var(--accent) 70%, #000); background: rgba(0,0,0,0.55);
+  clip-path: var(--notch); }
+.rv-reel.on { opacity: 1; }
+.rv-reel::before, .rv-reel::after { content: ''; position: absolute; left: 0; right: 0; height: 120px; z-index: 2; pointer-events: none; }
+.rv-reel::before { top: 0; background: linear-gradient(#000c, #0000); }
+.rv-reel::after { bottom: 0; background: linear-gradient(#0000, #000c); }
+.rv-reel-strip { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
+.rv-reel-item { height: 120px; display: flex; align-items: center; gap: 28px; padding: 0 48px; box-sizing: border-box;
+  font-family: var(--px); font-size: 48px; line-height: 1; color: #fff; white-space: nowrap; overflow: hidden; }
+.rv-reel-item span { overflow: hidden; text-overflow: ellipsis; }
+.rv-reel-item.win { color: var(--accent); text-shadow: 4px 4px 0 color-mix(in srgb, var(--accent) 45%, #000); animation: rv-reel-win 400ms steps(2, end) 3; }
+@keyframes rv-reel-win { 50% { opacity: 0.35; } }
+.rv-reel.stopped { border-color: var(--accent); box-shadow: 0 0 60px color-mix(in srgb, var(--accent) 60%, transparent); }
+
+/* The walk down a prize's standings before each winner. */
+.rv-walk { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; }
+.rv-walk-box { position: relative; width: 1100px; overflow: hidden; transition: height 200ms; }
+.rv-walk-list { list-style: none; margin: 0; padding: 0; transition: transform 260ms steps(4, end); }
+.rv-walk-row { height: 92px; box-sizing: border-box; display: flex; align-items: center; gap: 24px; padding: 0 28px;
+  border: 3px solid transparent; font-family: var(--px); font-size: var(--t24); color: #fff; background: rgba(0,0,0,0.35); margin: 0; }
+.rv-walk-rank { width: 56px; text-align: right; color: var(--ink-2, #9c9cb4); }
+.rv-walk-name { flex: 1; text-align: left; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-walk-val { color: color-mix(in srgb, var(--accent) 70%, #fff); }
+.rv-walk-won { color: #ff5b5b; font-size: var(--t16); border: 2px solid currentColor; padding: 6px 10px; transform: rotate(-3deg); }
+.rv-walk-row.taken { opacity: 0.45; }
+.rv-walk-row.taken .rv-walk-name { text-decoration: line-through; text-decoration-thickness: 4px; }
+.rv-walk-row.here { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, #000); }
+.rv-walk-row.win { box-shadow: 0 0 50px color-mix(in srgb, var(--accent) 60%, transparent); animation: rv-reel-win 400ms steps(2, end) 3; }
+.rv-walk-note { font-family: var(--px); font-size: var(--t24); color: var(--accent); opacity: 0; min-height: 1.5em; }
+.rv-walk-note.on { opacity: 1; }

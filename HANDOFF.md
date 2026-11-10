@@ -185,3 +185,8 @@ Four review agents (lights, guest flows, host/backend security, TV/scoring) plus
 - Migration 0023: a score photo counts as proof only for whoever first used it (no borrowing someone else's photo to skip review). Run Nov 10.
 Known, accepted (low risk at a friends' party): `link_by_email` can link anyone who types a listed guest's email; PIN-lockout griefing on rejoin; `host_check` is guessable only if the passcode is weak; `reveal_step` is shared across events.
 
+
+## Reveal v2 + Match + PIN (Nov 10)
+- Reveal order = prize precedence: Grand Champion, 2nd, 3rd, six machine champions (board order), The Grinder, The Big Whiff, The Match. Before each winner the TV walks that prize's standings from the top, stamps "WON <prize>" on anyone who already has one, and stops on the highest person without a prize (`WalkList` in `components/Reveal.jsx`). Empty prizes walk off the end ("Everyone here already has a prize!").
+- The Match works like a real pinball Match: the host page draws 00/10/…/90 at "Start the reveal" (kept if the reveal is restarted). Scores match on their last two digits; everyone with a matching score (one entry per player) is in the tie-break, else the closest. The tie-break is a fixed shuffle of the draw; the TV shows the number roll and a slot-machine reel (`MatchSpin`). `/tv?reveal=40` previews with a given draw.
+- Rejoin PIN: 10 wrong tries before the 2-minute lock, "N tries left" for the last 3 (migration 0024, run in production).

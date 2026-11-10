@@ -364,7 +364,6 @@ function RevealControls({ party, busy, run }) {
 }
 
 function EndOfNight({ party, event, open, busy, run }) {
-  const [matchDigits, setMatchDigits] = useState('');
   const revealing = !!party?.reveal_active;
   return (
     <section className="card">
@@ -376,17 +375,15 @@ function EndOfNight({ party, event, open, busy, run }) {
         </li>
         <li>
           <b>Reveal the winners on the TV.</b>
-          <label className="field">
-            <span>The Match (optional): someone draws a number from 00 to 99. The score whose last two digits are closest to it wins (ignoring the final 0, since nearly every pinball score ends in 0).</span>
-            <input type="number" min="0" max="99" value={matchDigits} onChange={e => setMatchDigits(e.target.value)} placeholder="e.g. 42" />
-          </label>
+          <div className="muted small">The TV goes prize by prize, Grand Champion first. The Match comes last and draws itself (00, 10 … 90, like a real pinball Match), then spins through everyone whose score ends in it.</div>
           {!revealing ? (
             <button className="primary big" type="button" disabled={busy} onClick={() => {
-              if (matchDigits !== '' && !(Number(matchDigits) >= 0 && Number(matchDigits) <= 99 && Number.isInteger(Number(matchDigits)))) { alert('The Match number must be a whole number from 00 to 99.'); return; }
               if (open && !confirm('Scores are still ON. Stop scores and start the reveal?')) return;
               run(async () => {
                 if (open) await host.setStatus('closed');
-                await host.reveal(true, matchDigits === '' ? null : Number(matchDigits));
+                // Draw once: starting the reveal again keeps the same number, so The Match winner never changes.
+                const drawn = party?.match_digits ?? (crypto.getRandomValues(new Uint32Array(1))[0] % 10) * 10; // 00, 10 … 90
+                await host.reveal(true, drawn);
               }, 'The reveal is playing on the TV.');
             }}>🎉 Start the reveal</button>
           ) : (

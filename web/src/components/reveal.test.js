@@ -5,7 +5,7 @@ import { revealPlan } from './Reveal.jsx';
 const MACHINES = [
   [2, 'Fathom'], [1, 'Centaur'], [3, 'Whirlwind'], [4, 'Whitewater'], [5, 'Cactus Canyon'], [6, 'Dungeons & Dragons'],
 ].map(([id, name], i) => ({ id, name, manufacturer: 'Bally', year: 1990, sort_order: i + 1, active: true }));
-const ORDER = ['THE MATCH', 'THE BIG WHIFF', 'THE GRINDER', ...MACHINES.map(m => `${m.name.toUpperCase()} CHAMPION`), '3RD PLACE', '2ND PLACE', 'GRAND CHAMPION'];
+const ORDER = ['GRAND CHAMPION', '2ND PLACE', '3RD PLACE', ...MACHINES.map(m => `${m.name.toUpperCase()} CHAMPION`), 'THE GRINDER', 'THE BIG WHIFF', 'THE MATCH'];
 
 function party(nPlayers, { machinesEach = 3, matchDigits = null } = {}) {
   const players = Array.from({ length: nPlayers }, (_, i) => ({ id: i + 1, display_name: `P${i + 1}`, color: '#ff00aa', emoji: '🎯' }));
@@ -36,10 +36,22 @@ describe('winner reveal', () => {
   });
   it('with no number drawn, The Match still has its slide', () => {
     const plan = party(40);
-    expect(plan[0]).toMatchObject({ label: 'THE MATCH', title: 'No winner tonight' });
+    expect(plan[11]).toMatchObject({ label: 'THE MATCH', title: 'No winner tonight' });
     expect(plan.length).toBe(12);
   });
   it('with nobody playing, the reveal still walks all 12 prizes', () => {
     expect(party(0).map(s => s.label)).toEqual(ORDER);
+  });
+  it('each walk stops on the winner, and everyone above already won an earlier prize', () => {
+    for (const plan of [party(40, { matchDigits: 40 }), party(6), party(13, { machinesEach: 2 })]) {
+      const seen = new Set();
+      for (const s of plan) {
+        if (s.walk) {
+          if (s.title !== 'No winner tonight') expect(s.walk.stopsOn).toBe(s.title);
+          for (const w of s.walk.above) { expect(w).toBeTruthy(); expect(seen.has(w)).toBe(true); }
+        }
+        if (s.title !== 'No winner tonight') seen.add(s.label);
+      }
+    }
   });
 });

@@ -12,8 +12,9 @@ const fmt = n => Number(n).toLocaleString();
 const COUNT_MS = 1000; // each number of the 3-2-1
 const ordinal = n => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
 
-// The reveal, one prize at a time: fun prizes, then machine champions, then 3rd, 2nd and the Grand
-// Champion last. Each prize: its name and a 3-2-1 countdown, then the winner, then it waits for the
+// The reveal, one prize at a time, in the order prizes are decided: Grand Champion, 2nd, 3rd, the
+// machine champions, The Grinder, The Big Whiff, The Match. Each prize: its standings walked from the
+// top to the highest person without a prize (The Match: a draw and a slot-machine spin), then the winner, then it waits for the
 // host (`step` from the party, via the host page's Next / Back) or a click / Space / arrow key here.
 export default function Reveal({ standings, awards, onSlide, step = 0, onStep, preview = false }) {
   const slides = buildSlides({ standings, awards });
@@ -49,9 +50,12 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, p
   const count = cd.k === cueKey ? cd.n : 3;
   useEffect(() => {
     if (!cur) return undefined;
+    // The Match swaps the 3-2-1 for its draw and slot-machine spin; the lights still get 3, 2, 1.
+    const t = cur.spin ? spinTimes(cur.spin) : cur.walk?.rows.length ? walkTimes(cur.walk)
+      : { at: [0, COUNT_MS, COUNT_MS * 2], show: COUNT_MS * 3 };
     const ts = [setTimeout(() => onSlide?.(cur, 'count', 3), 0)]; // after the lights engine is up
-    [2, 1].forEach((n, k) => ts.push(setTimeout(() => { setCd({ k: cueKey, n }); onSlide?.(cur, 'count', n); }, COUNT_MS * (k + 1))));
-    ts.push(setTimeout(() => { setCd({ k: cueKey, n: 0 }); onSlide?.(cur, 'show'); }, COUNT_MS * 3));
+    [2, 1].forEach((n, k) => ts.push(setTimeout(() => { setCd({ k: cueKey, n }); onSlide?.(cur, 'count', n); }, t.at[k + 1])));
+    ts.push(setTimeout(() => { setCd({ k: cueKey, n: 0 }); onSlide?.(cur, 'show'); }, t.show));
     return () => ts.forEach(clearTimeout);
   }, [cueKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -60,6 +64,29 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, p
 
   const accent = slide.accent || '#ffcc33';
   const split = !!slide.machine;
+
+  if (count > 0 && slide.spin) {
+    return (
+      <div className="reveal-tv rv rv-counting" style={{ '--accent': accent }} onClick={() => go(idx + 1)}>
+        <div className="rv-shade" />
+        <div className="rv-top" key={`top${idx}`}><div className="rv-pill">{slide.label}</div></div>
+        <MatchSpin key={cueKey} spin={slide.spin} />
+        <Dots slides={slides} idx={idx} />
+      </div>
+    );
+  }
+
+  if (count > 0 && slide.walk?.rows.length) {
+    return (
+      <div className="reveal-tv rv rv-counting" style={{ '--accent': accent }} onClick={() => go(idx + 1)}>
+        {slide.machine && <img key={`bg${idx}`} className="rv-bg" src={machineArt(slide.machine.name)} alt="" onError={e => artFallback(e, slide.machine.name)} />}
+        <div className="rv-shade" />
+        <div className="rv-top" key={`top${idx}`}><div className="rv-pill">{slide.label}</div></div>
+        <WalkList key={cueKey} walk={slide.walk} />
+        <Dots slides={slides} idx={idx} />
+      </div>
+    );
+  }
 
   if (count > 0) {
     return (
@@ -120,6 +147,111 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, p
   );
 }
 
+// The Match on the TV: the number rolls like a pinball Match (00 … 90) and lands on the draw, then a
+// slot-machine reel spins through the players in the tie-break (or everyone still in the running, when
+// only one matched), slows down and stops on the winner.
+const DRAW_MS = 2600, REEL_MS = 6200, SHORT_REEL_MS = 1800, HOLD_MS = 1300;
+function spinTimes(spin) {
+  const reel = spin.items.length > 1 ? REEL_MS : SHORT_REEL_MS;
+  return { at: [0, DRAW_MS, DRAW_MS + reel * 0.55], show: DRAW_MS + reel + HOLD_MS, reel };
+}
+const ease = x => 1 - Math.pow(1 - x, 4);
+const ITEM_H = 120;
+
+function MatchSpin({ spin }) {
+  const [t, setT] = useState(0);
+  useEffect(() => {
+    const t0 = performance.now();
+    const iv = setInterval(() => setT(performance.now() - t0), 30);
+    return () => clearInterval(iv);
+  }, []);
+  const { reel } = spinTimes(spin);
+  const draw2 = String(spin.drawn).padStart(2, '0');
+  // Number roll: ticks through 00 … 90, slowing, and lands on the draw.
+  let shown = draw2;
+  if (t < DRAW_MS) {
+    const ticks = Math.floor(ease(t / DRAW_MS) * 24);
+    shown = String(((spin.drawn / 10 + ticks - 24) % 10 + 10) % 10 * 10).padStart(2, '0');
+  }
+  const landed = t >= DRAW_MS;
+  // The reel: the items repeated, ending on the winner (items[0]).
+  const n = spin.items.length;
+  const base = [...spin.items.slice(1), spin.items[0]];
+  const reps = n > 1 ? Math.max(2, Math.ceil(26 / n)) : 1;
+  const strip = Array.from({ length: reps }, () => base).flat();
+  const L = strip.length;
+  const x = landed ? Math.min(1, (t - DRAW_MS) / reel) : 0;
+  const pos = (L - 1) * ease(x);
+  const stopped = x >= 1;
+  return (
+    <div className="rv-spin">
+      <div className="rv-spin-draw">
+        <div className="rv-count-lead">The Match number is…</div>
+        <Dmd ghost tone="hot" className={`rv-spin-num${landed ? ' on' : ''}`} reserve="00">{shown}</Dmd>
+      </div>
+      <div className={`rv-spin-note${landed ? ' on' : ''}`}>{spin.note}</div>
+      <div className={`rv-reel${landed ? ' on' : ''}${stopped ? ' stopped' : ''}`}>
+        <div className="rv-reel-strip" style={{ transform: `translateY(${(1 - pos) * ITEM_H}px)` }}>
+          {strip.map((p, k) => (
+            <div key={k} className={`rv-reel-item${stopped && k === L - 1 ? ' win' : ''}`} style={{ opacity: Math.max(0.15, 1 - Math.abs(k - pos) * 0.55) }}>
+              <Avatar avatar={p.avatar} emoji={p.emoji} name={p.display_name} color={p.color} size={84} />
+              <span>{p.display_name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The walk down a prize's standings: a cursor starts at the top, marks each person who already won a
+// prize ("WON: 2ND PLACE") and moves on, and stops on the winner (or runs off the end: nobody left).
+const WALK_IN = 1100, WALK_HOLD = 1400, ROW_H = 92, ROWS_SHOWN = 6;
+function walkTimes(w) {
+  const steps = w.win >= 0 ? w.win : w.rows.length; // -1: walk past everyone
+  const step = steps ? Math.max(380, Math.min(800, 4200 / steps)) : 0;
+  const land = WALK_IN + steps * step;
+  const show = Math.max(3200, land + WALK_HOLD);
+  return { at: [0, show / 3, (show * 2) / 3], show, step, land };
+}
+
+function WalkList({ walk }) {
+  const [t, setT] = useState(0);
+  useEffect(() => {
+    const t0 = performance.now();
+    const iv = setInterval(() => setT(performance.now() - t0), 50);
+    return () => clearInterval(iv);
+  }, []);
+  const { step, land } = walkTimes(walk);
+  const end = walk.win >= 0 ? walk.win : walk.rows.length;
+  const cur = t < WALK_IN ? 0 : Math.min(end, step ? Math.floor((t - WALK_IN) / step) : 0);
+  const landed = t >= land;
+  const top = Math.max(0, Math.min(cur - 2, walk.rows.length - ROWS_SHOWN));
+  return (
+    <div className="rv-walk">
+      <div className="rv-count-lead">{walk.lead}</div>
+      <div className="rv-walk-box" style={{ height: ROW_H * Math.min(ROWS_SHOWN, walk.rows.length) }}>
+        <ol className="rv-walk-list" style={{ transform: `translateY(${-top * ROW_H}px)` }}>
+          {walk.rows.map((r, k) => {
+            const passed = k < cur || (k === cur && landed && walk.win < 0);
+            const here = k === cur && !(landed && walk.win < 0);
+            const cls = `rv-walk-row${here ? ' here' : ''}${here && landed ? ' win' : ''}${passed && r.won ? ' taken' : ''}`;
+            return (
+              <li key={k} className={cls}>
+                <span className="rv-walk-rank">{k + 1}</span>
+                <Avatar avatar={r.player.avatar} emoji={r.player.emoji} name={r.player.display_name} color={r.player.color} size={60} />
+                <span className="rv-walk-name">{r.player.display_name}</span>
+                {passed && r.won ? <span className="rv-walk-won">WON {r.won}</span> : <span className="rv-walk-val">{r.value}</span>}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+      <div className={`rv-walk-note${landed ? ' on' : ''}`}>{walk.win >= 0 ? 'Highest without a prize…' : 'Everyone here already has a prize!'}</div>
+    </div>
+  );
+}
+
 function Dots({ slides, idx }) {
   return (
     <div className="rv-dots">
@@ -130,7 +262,10 @@ function Dots({ slides, idx }) {
 
 // For the host page: what each step of the reveal shows.
 export function revealPlan({ standings, awards }) {
-  return buildSlides({ standings, awards }).map(s => ({ label: s.label, title: s.title }));
+  return buildSlides({ standings, awards }).map(s => ({
+    label: s.label, title: s.title,
+    walk: s.walk && { stopsOn: s.walk.rows[s.walk.win]?.player.display_name ?? null, above: s.walk.rows.slice(0, s.walk.win < 0 ? undefined : s.walk.win).map(r => r.won) },
+  }));
 }
 
 function Ramp({ value }) {
@@ -139,80 +274,115 @@ function Ramp({ value }) {
 
 const hero = p => p && { avatar: p.avatar, emoji: p.emoji, name: p.display_name, color: p.color };
 
-// Always all 12 prizes, in reveal order: The Match, The Big Whiff, The Grinder, the six machine
-// champions, then 3rd, 2nd and the Grand Champion. A prize nobody could win (everyone eligible already
-// has a prize: one prize each) still gets its slide, saying so, so the reveal never skips one.
+// All 12 prizes in the order they're decided (one prize each, best prize first): Grand Champion, 2nd,
+// 3rd, the six machine champions, The Grinder, The Big Whiff, The Match. Before each winner, the TV
+// shows that prize's standings and walks down from the top: anyone who already won a prize is marked
+// and skipped, and it stops on the highest person still without one. A prize nobody can win still gets
+// its slide (the walk runs off the end), so the reveal never skips one.
 const noWinner = (label, accent, why, extra = {}) => ({
   label, empty: true, title: 'No winner tonight', subtitle: why, accent, confetti: false, ...extra,
 });
 
+function matchSpin(t) {
+  const d = String(t.drawn).padStart(2, '0');
+  const tied = t.tied?.length ? t.tied : [t.player];
+  const items = tied.length > 1 ? tied : [t.player, ...(t.pool ?? [])].slice(0, 14);
+  const k = tied.length;
+  const note = t.exact
+    ? (k > 1 ? `${k} players have a score ending in ${d}: spin for it!` : `Only one score ends in ${d}!`)
+    : (k > 1 ? `Nobody hit ${d}. ${k} players are closest: spin for it!` : `Nobody hit ${d}. The closest score wins…`);
+  return { drawn: t.drawn, items, note };
+}
+
 function buildSlides({ standings, awards }) {
   const slides = [];
   const NOBODY = 'everyone eligible already won a prize';
+  const stats = [...(standings?.stats?.values?.() ?? [])];
+  const playerOf = id => standings?.stats?.get(id)?.player;
+  const won = new Map(); // playerId -> the prize they won on an earlier slide
+  // A walk: the standings rows for this prize, and where it stops (-1: nobody left).
+  const walk = (lead, rows, winner) => {
+    const list = rows.filter(r => r.player);
+    const win = winner ? list.findIndex(r => r.player.id === winner.id) : -1;
+    return { lead, rows: list.map(r => ({ ...r, won: won.get(r.player.id) || null })), win };
+  };
+  const push = (slide, winner) => { slides.push(slide); if (winner) won.set(winner.id, slide.label); };
 
-  // Fun prizes first.
-  const t = awards?.theMatch;
-  slides.push(t
-    ? {
-      label: 'THE MATCH', confetti: true, hero: hero(t.player), title: t.player.display_name,
-      subtitle: `Drawn: ${String(t.drawn).padStart(2, '0')} · on ${t.machine.name}`,
-      score: t.value, scoreCount: true, accent: '#29d4d4', footer: 'pure luck, the best kind 🎰',
-    }
-    : noWinner('THE MATCH', '#29d4d4', awards?.matchDrawn ? NOBODY : 'no number was drawn tonight'));
-  const w = awards?.bigWhiff;
-  slides.push(w
-    ? {
-      label: 'THE BIG WHIFF', confetti: false, hero: hero(w.player), title: w.player.display_name,
-      subtitle: w.worst
-        ? `Lowlight: ${ordinal(w.worst.rank)} of ${w.worst.N} on ${w.worst.machineName}`
-        : `${w.machinesPlayed} machines played`,
-      score: `${w.rating}/100`, accent: '#ff5b5b', footer: 'a humble effort, bravely made 🤝',
-    }
-    : noWinner('THE BIG WHIFF', '#ff5b5b', NOBODY));
-  const g = awards?.grinder;
-  slides.push(g
-    ? {
-      label: 'THE GRINDER', confetti: true, hero: hero(g.player), title: g.player.display_name,
-      subtitle: `${g.plays} games logged`, accent: '#4d8bff', footer: 'absolutely sent it 💪',
-    }
-    : noWinner('THE GRINDER', '#4d8bff', NOBODY));
+  // The podium.
+  const ranked = standings?.ranked ?? [];
+  const byRating = ranked.map(st => ({ player: st.player, value: `${st.rating}/100` }));
+  const podium = [
+    [awards?.champion, 'GRAND CHAMPION', '#ffcc33', '🎉 Woodside Pinball 2026 🎉', 'nobody has played 2+ machines yet'],
+    [awards?.second, '2ND PLACE', '#c0c7d4', '🥈', 'not enough ranked players (2+ machines each)'],
+    [awards?.third, '3RD PLACE', '#cd7f32', '🥉', 'not enough ranked players (2+ machines each)'],
+  ];
+  for (const [st, label, accent, footer, why] of podium) {
+    const w = walk('Overall rating', byRating, st?.player);
+    if (!st) { push(noWinner(label, accent, why, { walk: w })); continue; }
+    const grand = label === 'GRAND CHAMPION';
+    push({
+      label, confetti: true, hero: hero(st.player), title: st.player.display_name, accent, footer, walk: w,
+      trophy: grand, rays: grand,
+      subtitle: grand ? `The Pinball Wizard · ${st.crowns} crown${st.crowns === 1 ? '' : 's'}` : `${st.machinesPlayed} machines played`,
+      score: `${st.rating}/100`,
+    }, st.player);
+  }
 
-  // A champion for each machine.
+  // A champion for each machine (in the machines' order on the board).
   const champs = awards?.machineChamps?.length ? awards.machineChamps : (standings?.machines ?? []).map(m => ({ machine: m.machine, player: null }));
   for (const c of champs) {
     const m = c.machine;
+    const rows = (standings?.machines?.find(x => x.machine.id === m.id)?.rows ?? []).map(r => ({ player: playerOf(r.playerId), value: fmt(r.best) }));
+    const w = walk(`Best score on ${m.name}`, rows, c.player);
     if (!c.player) {
-      slides.push(noWinner(`${m.name.toUpperCase()} CHAMPION`, machineGlow(m.name), c.noScores ? 'nobody played it' : NOBODY, { machine: m }));
+      push(noWinner(`${m.name.toUpperCase()} CHAMPION`, machineGlow(m.name), c.noScores ? 'nobody played it' : NOBODY, { machine: m, walk: w }));
       continue;
     }
-    slides.push({
+    push({
       label: `${m.name.toUpperCase()} CHAMPION`, confetti: true, hero: hero(c.player), machine: m,
       title: c.player.display_name, subtitle: `${m.manufacturer} · ${m.year}`,
-      score: c.score, scoreCount: true, accent: machineGlow(m.name),
-      footer: c.rank > 1 ? 'next in line: the top scorer already won a prize 👑' : '👑',
-    });
+      score: c.score, scoreCount: true, accent: machineGlow(m.name), walk: w,
+      footer: c.rank > 1 ? 'top score still without a prize 👑' : '👑',
+    }, c.player);
   }
 
-  // The podium, saving the best for last.
-  const podium = [
-    [awards?.third, '3RD PLACE', '#cd7f32', '🥉'],
-    [awards?.second, '2ND PLACE', '#c0c7d4', '🥈'],
-  ];
-  for (const [st, label, accent, footer] of podium) {
-    if (!st) { slides.push(noWinner(label, accent, 'not enough ranked players (2+ machines each)')); continue; }
-    slides.push({
-      label, confetti: true, hero: hero(st.player), title: st.player.display_name,
-      subtitle: `${st.machinesPlayed} machines played`, score: `${st.rating}/100`, accent, footer,
-    });
-  }
-  const champ = awards?.champion;
-  slides.push(champ
+  // The Grinder: most games logged.
+  const g = awards?.grinder;
+  const byPlays = stats.filter(st => st.plays > 0).sort((a, b) => b.plays - a.plays || a.player.id - b.player.id)
+    .map(st => ({ player: st.player, value: `${st.plays} games` }));
+  const gw = walk('Most games logged', byPlays, g?.player);
+  push(g
     ? {
-      label: 'GRAND CHAMPION', trophy: true, confetti: true, rays: true, hero: hero(champ.player),
-      title: champ.player.display_name,
-      subtitle: `The Pinball Wizard · ${champ.crowns} crown${champ.crowns === 1 ? '' : 's'}`,
-      score: `${champ.rating}/100`, accent: '#ffcc33', footer: '🎉 Woodside Pinball 2026 🎉',
+      label: 'THE GRINDER', confetti: true, hero: hero(g.player), title: g.player.display_name, walk: gw,
+      subtitle: `${g.plays} games logged`, accent: '#4d8bff', footer: 'absolutely sent it 💪',
     }
-    : noWinner('GRAND CHAMPION', '#ffcc33', 'nobody has played 2+ machines yet'));
+    : noWinner('THE GRINDER', '#4d8bff', NOBODY, { walk: gw }), g?.player);
+
+  // The Big Whiff: lowest rating.
+  const wh = awards?.bigWhiff;
+  const byLow = [...ranked].sort((a, b) => a.rating - b.rating || b.machinesPlayed - a.machinesPlayed)
+    .map(st => ({ player: st.player, value: `${st.rating}/100` }));
+  const ww = walk('Lowest overall rating', byLow, wh?.player);
+  push(wh
+    ? {
+      label: 'THE BIG WHIFF', confetti: false, hero: hero(wh.player), title: wh.player.display_name, walk: ww,
+      subtitle: wh.worst
+        ? `Lowlight: ${ordinal(wh.worst.rank)} of ${wh.worst.N} on ${wh.worst.machineName}`
+        : `${wh.machinesPlayed} machines played`,
+      score: `${wh.rating}/100`, accent: '#ff5b5b', footer: 'a humble effort, bravely made 🤝',
+    }
+    : noWinner('THE BIG WHIFF', '#ff5b5b', NOBODY, { walk: ww }), wh?.player);
+
+  // The Match, last: the draw and a slot-machine spin through everyone who matched.
+  const t = awards?.theMatch;
+  push(t
+    ? {
+      label: 'THE MATCH', confetti: true, hero: hero(t.player), title: t.player.display_name,
+      subtitle: `Match ${String(t.drawn).padStart(2, '0')} · on ${t.machine.name}`,
+      score: t.value, scoreCount: true, accent: '#29d4d4',
+      footer: t.tied?.length > 1 ? `won the spin against ${t.tied.length - 1} other match${t.tied.length > 2 ? 'es' : ''} 🎰` : 'pure luck, the best kind 🎰',
+      spin: matchSpin(t),
+    }
+    : noWinner('THE MATCH', '#29d4d4', awards?.matchDrawn ? NOBODY : 'no number was drawn tonight'), t?.player);
   return slides;
 }
