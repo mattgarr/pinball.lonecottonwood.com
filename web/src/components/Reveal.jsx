@@ -6,12 +6,11 @@ import Backbox from './tv/Backbox.jsx';
 import Dmd from './tv/Dmd.jsx';
 import { artFallback, machineArt, machineGlow } from './tv/theme.js';
 import { useRamp } from './tv/Takeover.jsx';
-import { PODIUM_MIN, podiumOk, tieBreakNote } from '../lib/scoring.js';
+import { PODIUM_MIN, ordinal, podiumOk, tieBreakNote } from '../lib/scoring.js';
 import '../tv.css';
 
 const fmt = n => Number(n).toLocaleString();
 const COUNT_MS = 1000; // each number of the 3-2-1
-const ordinal = n => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
 
 // The reveal, one slide at a time (`step`, from party.reveal_step): 0 = the intro ("AWARDS CEREMONY",
 // held until Next), 1–12 = the prizes in the order they're decided (Grand Champion, 2nd, 3rd, the machine
@@ -450,7 +449,7 @@ function buildSlides({ standings, awards }) {
     push({
       label, confetti: true, hero: hero(st.player), title: st.player.display_name, accent, footer, walk: gw, walkOnly: !grand,
       trophy: grand, rays: grand,
-      subtitle: grand ? `The Pinball Wizard · ${st.crowns} crown${st.crowns === 1 ? '' : 's'}` : `${st.machinesPlayed} machines played`,
+      subtitle: grand ? `The Pinball Wizard${st.crowns ? ` · ${st.crowns} machine crown${st.crowns === 1 ? '' : 's'}` : ''}` : `${st.machinesPlayed} machines played`,
       score: `${st.rating}/100`,
       tie: tieBreakNote(st, next),
     }, st.player);
@@ -511,7 +510,7 @@ function buildSlides({ standings, awards }) {
       footer: t.tied?.length > 1 ? `won the spin against ${t.tied.length - 1} other match${t.tied.length > 2 ? 'es' : ''} 🎰` : 'pure luck, the best kind 🎰',
       spin: matchSpin(t),
     }
-    : noWinner('THE MATCH', '#29d4d4', awards?.matchDrawn ? NOBODY : 'no number was drawn tonight'), t?.player);
+    : noWinner('THE MATCH', '#29d4d4', !stats.some(st => st.plays > 0) ? 'nobody played tonight' : awards?.matchDrawn ? NOBODY : 'no number was drawn tonight'), t?.player);
 
   // The finale: every winner, then free play.
   const prizes = slides.filter(x => !x.intro);

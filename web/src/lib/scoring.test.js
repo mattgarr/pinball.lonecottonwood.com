@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeStandings, computeAwards, fmtShort, tieBreakNote, winnersList, PODIUM_MIN } from './scoring.js';
+import { computeStandings, computeAwards, fmtShort, ordinal, tieBreakNote, winnersList, PODIUM_MIN } from './scoring.js';
 
 const M = [1, 2, 3].map(id => ({ id, name: `M${id}`, manufacturer: 'X', year: 1990, sort_order: id, active: true }));
 const P = [1, 2, 3, 4].map(id => ({ id, display_name: `P${id}`, color: '#fff', emoji: '🎯' }));
@@ -132,5 +132,9 @@ describe('scoring', () => {
     for (const w of list) if (!w.player) expect(w.stat).toBe('');
     if (awards.theMatch) expect(list.at(-1).stat).toBe('Match 00');
     expect(winnersList({}).every(w => w.player === null)).toBe(true);
+  });
+
+  it('ordinals (the Big Whiff\'s "lowlight: 22nd of 22")', () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 112].map(ordinal)).toEqual(['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '23rd', '101st', '112th']);
   });
 });
