@@ -128,3 +128,23 @@ Suggested design, if it's ever needed (confirm with Matt before building):
 - **Before the party:** clear test scores and test players (the Host page has "Clear test scores"), check the TV at `/tv`, and test the score scanner on each machine.
 - **Party night:** close scoring, then run the reveal. The Match needs a drawn number from 00 to 99. Then send results with "Email results", which goes only to players who opted in. Avoid sending any other emails that day because of the quota.
 - **Cina Boitnott asked** whether both she and Chris can sign up. Yes: both can use the same link on their own phones, and both will now show in the guest list.
+
+## Garage lights (built Nov 9, Claude Code)
+
+The lighting plan is the Claude Doc "Pinball Garage Lighting Plan". Its spec assumed a local server; **the app is cloud-hosted, so the build talks to the lights through a public MQTT broker instead.**
+
+- **How it works:**
+  - The WLED controller (Gledopto) subscribes to `broker.hivemq.com:1883`, topic `woodsidepinball/0574bee021207a68cb` (see `web/src/lib/lights/config.js`).
+  - The **TV page on the Mac** drives the lights: it watches scores, machine champions, leader changes, party open/close and the reveal, and publishes WLED JSON state to `<topic>/api` over secure WebSockets (`wss://broker.hivemq.com:8884/mqtt`).
+  - Only a screen marked as the lights driver sends anything: move the mouse on the TV and click "Lights: … drive the garage lights from this screen", or open `/tv?lights=1`. It's stored in that browser.
+- **Code:** `web/src/lib/lights/` (`config.js` zones/topic/effects; `engine.js` priorities, restore timers, merging, throttle, reveal choreography; `useLightsDirector.js` the TV driver; `mqtt.js`; `render.js` for the simulator). Tests: `cd web && npm test` (11 engine tests).
+- **Pages:**
+  - `/host` "Garage lights" card: on/off, simulator-only vs real strips, attract loop, house lights, brightness, a test flash per machine, status dots.
+  - `/lights-sim`: live simulator with event buttons.
+  - `/host/calibrate`: walk a one-pixel pointer to tape marks, then save the zones.
+- **Database:** migration `0018_lights.sql` (`lights_settings` row: `enabled`, `dry_run`, `zones`; RPC `host_set_lights`). **Run Nov 9.** Defaults: effects OFF, simulator only.
+- **Topics:** `/api` (real controller), `/sim` (simulator-only mode), `/status` (WLED online/offline), `/director` (TV heartbeat), `/control` (host commands for the TV).
+- **CLI:** `npm run lights:test -- --machine whirlwind --event score --color magenta [--hardware]`, and `npm run lights:mock`.
+- **Physical machine order** (left to right) is `machineOrder` in `config.js`: Fathom, Centaur, Whirlwind, Whitewater, Cactus Canyon, D&D (ids 2,1,3,4,5,6). Change it there if the machines move.
+- **WLED setup Matt still needs to do:** Config → Sync Interfaces → MQTT: enable, broker `broker.hivemq.com`, port 1883, no user/pass, Device Topic `woodsidepinball/0574bee021207a68cb`, Group Topic anything. The rest follows the doc (LED prefs, 12,000 mA, presets 1–5, boot preset 1).
+- **Not done:** the optional "live mirror" of real LED colors (needs a LAN connection to WLED, which a cloud page can't reach). Effect IDs are fixed in `config.js`, because MQTT can't fetch `/json/eff`; WLED keeps IDs stable.
