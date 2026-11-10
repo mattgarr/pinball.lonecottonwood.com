@@ -42,7 +42,8 @@ export async function emailResults(eventId, { testTo } = {}) {
       }),
       prizes: prizesFor(awards, p.id),
     };
-  }).sort((a, b) => (a.rank ? parseInt(a.rank) : 1e9) - (b.rank ? parseInt(b.rank) : 1e9));
+  }).filter(x => x.games > 0) // only people who actually played (no results to sign-ups that never logged a game)
+    .sort((a, b) => (a.rank ? parseInt(a.rank) : 1e9) - (b.rank ? parseInt(b.rank) : 1e9));
   const board = standings.ranked.slice(0, 10).map(st => ({ rank: st.rank, name: st.player.display_name, rating: st.rating }));
 
   const r = await fetch(`${SUPABASE_URL}/functions/v1/email-results`, {

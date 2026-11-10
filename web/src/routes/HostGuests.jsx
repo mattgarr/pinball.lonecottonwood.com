@@ -416,7 +416,8 @@ function Composer({ event, guests, busy, onSend, onTicketUrl, onClose }) {
   const [subject, setSubject] = useState('');
   const [testTo, setTestTo] = useState('');
   const [ticket, setTicket] = useState(event?.ticket_url || '');
-  const to = kind === 'auto' ? unsent : guests.filter(AUDIENCES.find(a => a.id === aud).keep);
+  // Bulk sends skip addresses that bounced (send to them one at a time from their row if fixed).
+  const to = (kind === 'auto' ? unsent : guests.filter(AUDIENCES.find(a => a.id === aud).keep)).filter(g => !g.bounce_at);
   const unpaid = to.filter(g => !g.paid).length;
   const needTicket = kind === 'auto' && unpaid > 0 && !ticket.trim();
   const plural = n => `${n} guest${n === 1 ? '' : 's'}`;
@@ -462,7 +463,8 @@ function Composer({ event, guests, busy, onSend, onTicketUrl, onClose }) {
           <button type="button" className="gm-btn" onClick={onClose}>Cancel</button>
           <button type="button" className="gm-btn gm-primary" disabled={busy || !to.length || needTicket} onClick={async () => {
             if (!confirm(`Send the ${kind === 'auto' ? 'first email' : 'news update'} to ${plural(to.length)} now? This can't be undone.`)) return;
-            await saveTicket(); onSend(opts);
+            // Send exactly the people listed here (the server would otherwise pick its own list).
+            await saveTicket(); onSend({ ...opts, inviteIds: to.map(g => g.id) });
           }}>Send to {plural(to.length)}</button>
         </div>
       </div>

@@ -175,3 +175,13 @@ The lighting plan is the Claude Doc "Pinball Garage Lighting Plan". Its spec ass
 - **Physical machine order** (left to right) is `machineOrder` in `config.js`: Fathom, Centaur, Whirlwind, Whitewater, Cactus Canyon, D&D (ids 2,1,3,4,5,6). Change it there if the machines move.
 - **WLED setup Matt still needs to do:** Config → Sync Interfaces → MQTT: enable, broker `broker.hivemq.com`, port 1883, no user/pass, Device Topic and Group Topic as shown on the host lights card. The rest follows the doc (LED prefs, 12,000 mA, presets 1–5, boot preset 1).
 - **Not done:** the optional "live mirror" of real LED colors (needs a LAN connection to WLED, which a cloud page can't reach). Effect IDs are fixed in `config.js`, because MQTT can't fetch `/json/eff`; WLED keeps IDs stable.
+
+## Full bug bash (Nov 10)
+Four review agents (lights, guest flows, host/backend security, TV/scoring) plus a Playwright sweep of every route as visitor and host at phone and desktop sizes (51 checks, all clean). Fixed and deployed:
+- Reveal always walks all 12 prizes (no-winner slides when the one-prize-each rule or no Match number leaves a prize empty).
+- Guests: sign-in survives network blips (whoami retries; a stale players list never signs anyone out), raw selfies are never published (join sends only the pixel art), scanner sees server errors, "Type it instead" opens the keypad, duplicate-nickname race message, debounced player refetch, newly logged scores don't vanish on refresh.
+- Host: unlock renews on every host action (no mid-party expiry), confirms for switching events and ending the reveal, Match number check, no host calls when locked, phone overflow fixes, bulk emails send exactly the confirmed list (skip bounced), results emails only to players with games.
+- Scoring/TV: ranks follow the prize order (no shared #1), The Match ignores the final 0 with a fair tie-break, attract spotlights actually run, no takeover parade after the Mac sleeps or an event switch, correct TOP SCORE badge and ranks for all players, toast and audio-after-sleep fixes, email machine fallback.
+- Migration 0023: a score photo counts as proof only for whoever first used it (no borrowing someone else's photo to skip review). Run Nov 10.
+Known, accepted (low risk at a friends' party): `link_by_email` can link anyone who types a listed guest's email; PIN-lockout griefing on rejoin; `host_check` is guessable only if the passcode is weak; `reveal_step` is shared across events.
+
