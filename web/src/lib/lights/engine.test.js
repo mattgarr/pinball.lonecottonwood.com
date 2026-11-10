@@ -299,4 +299,13 @@ describe('lights engine', () => {
       expect(new Set(fx).size).toBe(1); // back to the shared ambient effect
     }
   });
+
+  it('after the controller reboots, resync pushes the zones and the look again', () => {
+    e.start(); sent = [];
+    e.resync();
+    vi.advanceTimersByTime(60);
+    const segs = sent.flatMap(p => p.seg || []);
+    for (const id of [0, 1, 8, 2, 7, 9, 14]) expect(segs.some(s => s.id === id && s.start !== undefined)).toBe(true);
+    expect(segs.find(s => s.id === 8 && s.fx !== undefined)).toBeTruthy();
+  });
 });

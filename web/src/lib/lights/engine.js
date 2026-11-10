@@ -230,6 +230,15 @@ export class LightsEngine {
     this.flush();
   }
 
+  // The controller came back (power cut, reboot): it has forgotten the app's segments. Push the
+  // zones again and put the current look back, without interrupting anything the app is doing.
+  resync() {
+    this.applyLayout();
+    if (this.house) for (const id of this.baseSegs()) this.queue({ id, on: true, fx: this.fx('Solid'), bri: 255, col: [this.cfg.houseWhite] });
+    else if (!this.revealing) for (const id of this.baseSegs()) if (this.seg(id).prio === 0) this.queue(this.restState(id));
+    this.flush();
+  }
+
   partyOpen() {
     this.start();
     const sweep = { fx: this.fx('Wipe'), sx: 200, ix: 128, bri: 255, col: [[0, 229, 255, 0], [157, 77, 255, 0]] };

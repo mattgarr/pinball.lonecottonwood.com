@@ -44,10 +44,19 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     const beat = () => { if (!simOnly) publish('director', { at: Date.now(), dry, page: 'tv' }, { retain: true }); };
     beat();
     const iv = setInterval(beat, HEARTBEAT_MS);
+    // WLED announces "online" every time it (re)connects. The first message is just the retained
+    // current state; any later "online" means it rebooted and lost our segments, so push them again.
+    let heard = false;
+    const unStatus = simOnly ? () => {} : subscribe('status', m => {
+      const online = String(m).toLowerCase().includes('online');
+      if (heard && online) engine.resync();
+      heard = true;
+    });
     const bye = () => { engine.stop(); if (!simOnly) publish('director', { at: Date.now(), off: true }, { retain: true }); };
     window.addEventListener('pagehide', bye);
     return () => {
       clearInterval(iv);
+      unStatus();
       window.removeEventListener('pagehide', bye);
       bye();
       engine.destroy();

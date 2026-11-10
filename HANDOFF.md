@@ -137,7 +137,7 @@ The lighting plan is the Claude Doc "Pinball Garage Lighting Plan". Its spec ass
   - The WLED controller (Gledopto) subscribes to `broker.hivemq.com:1883`, topic `woodsidepinball/0574bee021207a68cb` (see `web/src/lib/lights/config.js`).
   - The **TV page on the Mac** drives the lights: it watches scores, machine champions, leader changes, party open/close and the reveal, and publishes WLED JSON state to `<topic>/api` over secure WebSockets (`wss://broker.hivemq.com:8884/mqtt`).
   - Only a screen marked as the lights driver sends anything: move the mouse on the TV and click "Lights: … drive the garage lights from this screen", or open `/tv?lights=1`. It's stored in that browser.
-- **Code:** `web/src/lib/lights/` (`config.js` zones/topic/effects; `engine.js` priorities, restore timers, merging, throttle, reveal choreography; `useLightsDirector.js` the TV driver; `mqtt.js`; `render.js` for the simulator). Tests: `cd web && npm test` (24 engine tests).
+- **Code:** `web/src/lib/lights/` (`config.js` zones/topic/effects; `engine.js` priorities, restore timers, merging, throttle, reveal choreography; `useLightsDirector.js` the TV driver; `mqtt.js`; `render.js` for the simulator). Tests: `cd web && npm test` (25 engine tests).
 - **Pages:**
   - `/host` "Garage lights" card: on/off, simulator-only vs real strips, attract loop, house lights, brightness, a test flash per machine, status dots.
   - `/lights-sim`: live simulator with event buttons.
@@ -152,6 +152,9 @@ The lighting plan is the Claude Doc "Pinball Garage Lighting Plan". Its spec ass
   - The TV uses the same machine colors (`machineColors` in `components/tv/theme.js` reads `machineThemes`): a cabinet hit breathes player color ↔ machine color, and a record cycles the machine's three colors.
   - Machine highlights light the top and curb zones together (`scoreAlsoOnTop: true`).
   - The TV's sound and lights buttons appear only while the mouse is in the bottom-right corner (never in the simulator's TV view).
+  - After a controller reboot (WLED re-announces "online" on `/status`), the TV calls `engine.resync()` to push the zones and the current look again.
+  - Rehearsal: `/tv?demo&lights=1` lets demo moments drive the real strips (plain `?demo` never does).
+  - Install / commissioning guide (Claude Doc): https://claude.ai/artifact/X7WEoSWVYhKuVQCZzVHkMh
   - Machine-zone effects are always symmetric (`mi` + `rev`, mirrored from the machine's center); nothing scrolls one way across a machine.
   - Stuck-light safety: `destroy()` returns anything mid-flash to rest, and the driver re-sends "off" to idle machine zones every 5 s (a dropped MQTT message can't leave a machine lit).
   - The simulator's TV view publishes on a private channel (`sim/<random>`), so open simulators and test runs don't light each other up. Only the real TV in simulator-only mode uses the shared `sim` topic.

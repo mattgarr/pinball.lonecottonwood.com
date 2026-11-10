@@ -25,9 +25,11 @@ export default function TV() {
   // Garage lights: only the screen marked as the lights driver (the TV on the Mac) sends anything.
   // /tv?lights=sim (the simulator's TV view) drives the simulated strips only, including demo events.
   const lightsSim = typeof location !== 'undefined' && new URLSearchParams(location.search).get('lights') === 'sim';
+  // /tv?demo&lights=1: rehearsal, the demo's moments drive the real strips (normally demo never does).
+  const lightsRehearsal = demo && new URLSearchParams(location.search).get('lights') === '1';
   // The simulator's TV view passes its own private channel (?ch=…), so test pages don't light up each other.
   const simCh = lightsSim ? (new URLSearchParams(location.search).get('ch') || '').replace(/[^a-z0-9]/gi, '').slice(0, 16) : '';
-  const lights = useLightsDirector({ settings: lightsSettings, party, scores, players, standings, ready: ready && (!demo || lightsSim), simOnly: lightsSim, simChannel: simCh ? `sim/${simCh}` : null });
+  const lights = useLightsDirector({ settings: lightsSettings, party, scores, players, standings, ready: ready && (!demo || lightsSim || lightsRehearsal), simOnly: lightsSim, simChannel: simCh ? `sim/${simCh}` : null });
   const live = useLiveEvents({ standings, scores, players, ready, demo });
   // The garage lights follow what's on screen, as it appears.
   useEffect(() => { if (live.takeover) lights.onTakeover(live.takeover); }, [live.takeover?.id]); // eslint-disable-line react-hooks/exhaustive-deps
