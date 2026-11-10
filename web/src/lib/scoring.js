@@ -118,7 +118,7 @@ export function computeAwards({ machines = [], players = [], scores = [], standi
   const machineChamps = [];
   for (const m of standings.machines) {
     const row = m.rows.find(r => free(playerById.get(r.playerId)));
-    if (!row) { machineChamps.push({ machine: m.machine, player: null }); continue; }
+    if (!row) { machineChamps.push({ machine: m.machine, player: null, noScores: !m.rows.length }); continue; }
     const player = playerById.get(row.playerId);
     claim(row, player);
     machineChamps.push({ machine: m.machine, player, score: row.best, rank: row.rank, topScore: m.rows[0]?.best ?? null });
@@ -144,7 +144,8 @@ export function computeAwards({ machines = [], players = [], scores = [], standi
     if (best) theMatch = claim({ player: playerById.get(best.player_id), value: best.value, machine: machineById.get(best.machine_id), drawn: draw, distance: dist(best.value) }, playerById.get(best.player_id));
   }
 
-  return { champion, second, third, machineChamps, grinder, bigWhiff, theMatch };
+  const matchDrawn = matchDigits != null && matchDigits !== '';
+  return { champion, second, third, machineChamps, grinder, bigWhiff, theMatch, matchDrawn };
 }
 
 // Prize names a player is holding right now (for the ME tab and the results email).

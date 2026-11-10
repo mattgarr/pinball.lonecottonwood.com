@@ -139,40 +139,52 @@ function Ramp({ value }) {
 
 const hero = p => p && { avatar: p.avatar, emoji: p.emoji, name: p.display_name, color: p.color };
 
+// Always all 12 prizes, in reveal order: The Match, The Big Whiff, The Grinder, the six machine
+// champions, then 3rd, 2nd and the Grand Champion. A prize nobody could win (everyone eligible already
+// has a prize: one prize each) still gets its slide, saying so, so the reveal never skips one.
+const noWinner = (label, accent, why, extra = {}) => ({
+  label, empty: true, title: 'No winner tonight', subtitle: why, accent, confetti: false, ...extra,
+});
+
 function buildSlides({ standings, awards }) {
   const slides = [];
+  const NOBODY = 'everyone eligible already won a prize';
 
   // Fun prizes first.
-  if (awards?.theMatch) {
-    const t = awards.theMatch;
-    slides.push({
+  const t = awards?.theMatch;
+  slides.push(t
+    ? {
       label: 'THE MATCH', confetti: true, hero: hero(t.player), title: t.player.display_name,
       subtitle: `Drawn: ${String(t.drawn).padStart(2, '0')} · on ${t.machine.name}`,
       score: t.value, scoreCount: true, accent: '#29d4d4', footer: 'pure luck, the best kind 🎰',
-    });
-  }
-  if (awards?.bigWhiff) {
-    const w = awards.bigWhiff;
-    slides.push({
+    }
+    : noWinner('THE MATCH', '#29d4d4', awards?.matchDrawn ? NOBODY : 'no number was drawn tonight'));
+  const w = awards?.bigWhiff;
+  slides.push(w
+    ? {
       label: 'THE BIG WHIFF', confetti: false, hero: hero(w.player), title: w.player.display_name,
       subtitle: w.worst
         ? `Lowlight: ${ordinal(w.worst.rank)} of ${w.worst.N} on ${w.worst.machineName}`
         : `${w.machinesPlayed} machines played`,
       score: `${w.rating}/100`, accent: '#ff5b5b', footer: 'a humble effort, bravely made 🤝',
-    });
-  }
-  if (awards?.grinder) {
-    const g = awards.grinder;
-    slides.push({
+    }
+    : noWinner('THE BIG WHIFF', '#ff5b5b', NOBODY));
+  const g = awards?.grinder;
+  slides.push(g
+    ? {
       label: 'THE GRINDER', confetti: true, hero: hero(g.player), title: g.player.display_name,
       subtitle: `${g.plays} games logged`, accent: '#4d8bff', footer: 'absolutely sent it 💪',
-    });
-  }
+    }
+    : noWinner('THE GRINDER', '#4d8bff', NOBODY));
 
   // A champion for each machine.
-  for (const c of awards?.machineChamps ?? []) {
-    if (!c.player) continue;
+  const champs = awards?.machineChamps?.length ? awards.machineChamps : (standings?.machines ?? []).map(m => ({ machine: m.machine, player: null }));
+  for (const c of champs) {
     const m = c.machine;
+    if (!c.player) {
+      slides.push(noWinner(`${m.name.toUpperCase()} CHAMPION`, machineGlow(m.name), c.noScores ? 'nobody played it' : NOBODY, { machine: m }));
+      continue;
+    }
     slides.push({
       label: `${m.name.toUpperCase()} CHAMPION`, confetti: true, hero: hero(c.player), machine: m,
       title: c.player.display_name, subtitle: `${m.manufacturer} · ${m.year}`,
@@ -187,20 +199,20 @@ function buildSlides({ standings, awards }) {
     [awards?.second, '2ND PLACE', '#c0c7d4', '🥈'],
   ];
   for (const [st, label, accent, footer] of podium) {
-    if (!st) continue;
+    if (!st) { slides.push(noWinner(label, accent, 'not enough ranked players (2+ machines each)')); continue; }
     slides.push({
       label, confetti: true, hero: hero(st.player), title: st.player.display_name,
       subtitle: `${st.machinesPlayed} machines played`, score: `${st.rating}/100`, accent, footer,
     });
   }
   const champ = awards?.champion;
-  if (champ) {
-    slides.push({
+  slides.push(champ
+    ? {
       label: 'GRAND CHAMPION', trophy: true, confetti: true, rays: true, hero: hero(champ.player),
       title: champ.player.display_name,
       subtitle: `The Pinball Wizard · ${champ.crowns} crown${champ.crowns === 1 ? '' : 's'}`,
       score: `${champ.rating}/100`, accent: '#ffcc33', footer: '🎉 Woodside Pinball 2026 🎉',
-    });
-  }
+    }
+    : noWinner('GRAND CHAMPION', '#ffcc33', 'nobody has played 2+ machines yet'));
   return slides;
 }

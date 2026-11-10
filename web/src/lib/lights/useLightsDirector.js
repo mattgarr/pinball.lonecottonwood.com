@@ -125,6 +125,7 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     if (!e) return;
     const hex = slide.hero?.color || slide.list?.[0]?.player?.color || slide.accent;
     if (phase === 'count') e.revealTick(n, hexToRgbw(slide.accent || hex));
+    else if (slide.empty) e.revealCue({ color: [40, 40, 70, 0] }); // no winner for this prize: a quiet, dim glow
     else e.revealCue({ color: hexToRgbw(hex), machineId: slide.machine?.id, final: slide.label === 'GRAND CHAMPION' });
   }, []);
 
