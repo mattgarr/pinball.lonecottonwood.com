@@ -88,6 +88,24 @@ const PACKS: Record<string, { name: string; gender: string; lang: string; prompt
       + 'stretching key words for effect.',
     style: 'booming and dramatic, like an arena announcer',
   },
+  valley: {
+    name: 'Woodside valley girl', gender: 'female', lang: 'en-US', prebuilt: 'Leda',
+    prompt: 'A bubbly 1990s Southern California teenage girl from the valley, about seventeen: fast, upbeat, sing-song upspeak, '
+      + 'dramatic and fun, totally enthusiastic about everything. An original character.',
+    style: 'bubbly, fast and upbeat valley-girl delivery',
+  },
+  vj: {
+    name: 'Woodside music-TV VJ', gender: 'female', lang: 'en-US', prebuilt: 'Aoede',
+    prompt: 'A cool 1990s music-television VJ in her twenties: confident, quick and a little raspy, rock-and-roll attitude, '
+      + 'high energy but effortlessly cool.',
+    style: 'cool, quick and confident, like a music-TV host',
+  },
+  rink: {
+    name: 'Woodside roller-rink DJ', gender: 'female', lang: 'en-US', prebuilt: 'Sulafat',
+    prompt: 'A warm, smooth 1980s roller-rink DJ in her thirties on the microphone: a rich, glittery alto, friendly and a '
+      + 'little cheesy, gliding through announcements like a disco ball is spinning.',
+    style: 'warm, smooth and glittery, like a roller-rink DJ',
+  },
 };
 
 function serviceDb() {

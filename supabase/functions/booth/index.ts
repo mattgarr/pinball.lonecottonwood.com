@@ -1,10 +1,10 @@
 // booth: the two-host announce booth. The TV sends a short digest of what's happening tonight; Gemini
-// writes a 2-5 line exchange between DONNIE (the fun-center DJ voice: cheesy hype dad) and DASH (the
-// arcade hype voice: fast play-by-play), every line is checked (family party: no bad words, no teasing
+// writes a 2-5 line exchange between two hosts (any two announcer voices, each a character; default
+// ROXY the aerobics instructor + DASH the arcade play-by-play), every line is checked (family party: no bad words, no teasing
 // people about anything but their pinball), voiced with the two designed voices and stitched into one
 // WAV in the public `tts` bucket. Deploy with "Verify JWT" OFF. Secret: GEMINI_API_KEY.
-//   { pass | token, digest, roast?: 'gentle'|'spicy', names?: "Stacia=Stay-sha, …", avoid?: [lines] }
-//     -> { url, ms, lines: [{ host, text }], took }
+//   { pass | token, digest, hosts?: ['aerobics', 'hype'], short?, roast?: 'gentle'|'spicy', names?: "Stacia=Stay-sha, …", avoid?: [lines] }
+//     -> { url, ms, lines: [{ host, text }], hosts: ['ROXY', 'DASH'], how, took }
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const TEXT_MODEL = 'gemini-3.8-flash';
@@ -18,11 +18,32 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
-// The hosts: which announcer voice each one uses, and how they talk.
-const HOSTS: Record<string, { pack: string; prebuilt: string; style: string }> = {
-  DONNIE: { pack: 'dj', prebuilt: 'Puck', style: 'cheesy, warm and upbeat, a fun-center DJ on the mic, chatting with his co-host' },
-  DASH: { pack: 'hype', prebuilt: 'Fenrir', style: 'fast, excited play-by-play sportscaster, chatting with his co-host' },
+// Who can sit in the booth: every announcer voice is a character (keep the names in sync with
+// web/src/lib/audio/booth.js BOOTH_PERSONAS). The TV picks two (default: Roxy + Dash).
+const PERSONAS: Record<string, { name: string; prebuilt: string; who: string; style: string }> = {
+  aerobics: { name: 'ROXY', prebuilt: 'Laomedeia', who: 'a peppy 80s aerobics instructor in leg warmers: cheers everyone on, workout puns ("feel the burn", "and reach!", "five more!"), treats every game like a workout', style: 'peppy, bubbly and encouraging, chatting with her co-host' },
+  hype: { name: 'DASH', prebuilt: 'Fenrir', who: 'a fast play-by-play sportscaster: stats, drama, calls every game like a championship', style: 'fast, excited play-by-play, chatting with his co-host' },
+  dj: { name: 'DONNIE', prebuilt: 'Puck', who: 'a cheesy fun-center DJ: warm hype-dad energy, puns, "Alllll right!", loves everybody', style: 'cheesy, warm and upbeat, chatting with his co-host' },
+  british: { name: 'STERLING', prebuilt: 'Algieba', who: 'a suave British secret-agent type: dry wit, understatement, unflappable', style: 'smooth, dry and amused, chatting with his co-host' },
+  ship: { name: 'ORBIT', prebuilt: 'Iapetus', who: 'a calm, polite spaceship computer: deadpan, precise, takes everything literally', style: 'calm, even and deadpan, chatting with its co-host' },
+  '8bit': { name: 'BYTE', prebuilt: 'Orus', who: 'a retro 8-bit robot: literal, says "beep boop", calls people "humans", loves high scores', style: 'flat robotic voice, chatting with its co-host' },
+  newsreel: { name: 'BUZZ', prebuilt: 'Sadachbia', who: 'a 1940s newsreel narrator: breathless headlines, "folks!", everything is big news', style: 'fast and dramatic, chatting with his co-host' },
+  wedding: { name: 'RICKY', prebuilt: 'Achird', who: 'an 80s wedding-reception DJ: dance-floor hype, cheesy toasts, "everybody on the floor!"', style: 'warm and cheesy, chatting with his co-host' },
+  drivetime: { name: 'MIKEY', prebuilt: 'Sadachbia', who: 'a 90s morning-drive radio guy: shout-outs, call-in-show energy, quick jokes', style: 'fast and bright radio voice, chatting with his co-host' },
+  countdown: { name: 'CHUCK', prebuilt: 'Algieba', who: 'a smooth top-40 countdown host: warm, sincere, talks about scores like chart positions', style: 'smooth and warm, chatting with his co-host' },
+  rumble: { name: 'THUNDER', prebuilt: 'Algenib', who: 'a booming monster-truck and boxing arena announcer: dramatic, everything is the main event', style: 'booming and dramatic, chatting with his co-host' },
+  valley: { name: 'TIFFANI', prebuilt: 'Leda', who: 'a 90s Beverly Hills valley girl: "totally", "like", "as if!", "way harsh", rates scores like outfits, upbeat and fast (an original character)', style: 'bubbly, fast valley-girl voice, chatting with her co-host' },
+  vj: { name: 'KAT', prebuilt: 'Aoede', who: 'a cool 90s music-TV VJ: quick, confident, rock-and-roll energy, introduces every game like a world-premiere video', style: 'cool, quick and confident, chatting with her co-host' },
+  rink: { name: 'STARLA', prebuilt: 'Sulafat', who: 'an 80s roller-rink DJ: disco-ball glow, couples-skate cheese, "clear the floor!", warm and smooth', style: 'warm, smooth and glittery, chatting with her co-host' },
 };
+const DUO = ['aerobics', 'hype'];
+function duoOf(hosts: unknown) {
+  const h = Array.isArray(hosts) ? hosts.filter(x => PERSONAS[x as string]) as string[] : [];
+  const a = h[0] || DUO[0];
+  let b = h[1] || DUO[1];
+  if (b === a) b = a === DUO[1] ? DUO[0] : DUO[1];
+  return [a, b];
+}
 // Names the voices get wrong (keep in sync with web/src/lib/audio/pronounce.json).
 const PRONOUNCE: Record<string, string> = { Stacia: 'Stay-sha' };
 
@@ -46,27 +67,30 @@ export function unsafe(text: string) {
   return false;
 }
 
-const SCHEMA = {
+const schema = (names: string[]) => ({
   type: 'object',
   properties: {
     lines: {
       type: 'array',
-      items: { type: 'object', properties: { host: { type: 'string', enum: ['DONNIE', 'DASH'] }, text: { type: 'string' } }, required: ['host', 'text'] },
+      items: { type: 'object', properties: { host: { type: 'string', enum: names }, text: { type: 'string' } }, required: ['host', 'text'] },
     },
   },
   required: ['lines'],
-};
+});
 
-function prompt(digest: unknown, roast: string, avoid: string[]) {
+function prompt(digest: unknown, roast: string, avoid: string[], duo: string[], short: boolean) {
+  const [A, B] = duo.map(k => PERSONAS[k]);
   return `You write the next short bit for a two-person announce booth at a home pinball party tonight, played over the
 speakers in the garage. Families are there, including kids.
 
-The hosts:
-- DONNIE: a cheesy fun-center DJ, warm hype dad energy, puns, "Alllll right!", loves everybody.
-- DASH: a fast play-by-play sportscaster, stats and drama, calls it like a big game.
+The hosts (use exactly these names in "host"):
+- ${A.name}: ${A.who}.
+- ${B.name}: ${B.who}.
 They riff off each other like real broadcast partners: short back-and-forth, natural, contractions, never stiff.
 
-Write 2 to 5 lines, alternating hosts, about 15 to 20 seconds out loud in total (40 to 55 words, never more than 60).
+${short
+    ? 'Keep it SHORT: 2 or 3 lines, alternating hosts, about 10 seconds out loud (20 to 35 words).'
+    : 'Write 2 to 5 lines, alternating hosts, about 15 to 20 seconds out loud in total (40 to 55 words, never more than 60).'}
 Each line is one or two short sentences, easy to hear in a noisy room.
 
 Use ONLY facts in the digest below: real names, machines and numbers exactly as given (numbers are already written as
@@ -161,25 +185,26 @@ function pronounce(text: string, extra: string) {
 }
 
 type Line = { host: string; text: string };
-function check(out: unknown, sealed = false): Line[] | null {
+function check(out: unknown, names: string[], sealed = false, short = false): Line[] | null {
   const lines = (out as { lines?: Line[] })?.lines;
   if (!Array.isArray(lines) || lines.length < 2 || lines.length > 5) return null;
   const clean = lines.map(l => ({ host: String(l?.host || '').toUpperCase(), text: String(l?.text || '').replace(/\s+/g, ' ').trim() }));
-  if (clean.some(l => !HOSTS[l.host] || !l.text || l.text.length > 220 || /[<>{}[\]*_#]/.test(l.text) || unsafe(l.text) || (sealed && SEALED.test(l.text)))) return null;
+  if (clean.some(l => !names.includes(l.host) || !l.text || l.text.length > 220 || /[<>{}[\]*_#]/.test(l.text) || unsafe(l.text) || (sealed && SEALED.test(l.text)))) return null;
   const words = clean.reduce((n, l) => n + l.text.split(' ').length, 0);
-  if (words < 12 || words > 70) return null;
+  if (words < 10 || words > (short ? 45 : 70)) return null;
   return clean;
 }
 
-async function write(key: string, digest: unknown, roast: string, avoid: string[]) {
+async function write(key: string, digest: unknown, roast: string, avoid: string[], duo: string[], short: boolean) {
+  const names = duo.map(k => PERSONAS[k].name);
   for (let attempt = 0; attempt < 2; attempt++) {
     const r = await fetch(`${API}/interactions`, {
       method: 'POST', signal: AbortSignal.timeout(30000),
       headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json', 'Api-Revision': '2026-05-20' },
       body: JSON.stringify({
         model: TEXT_MODEL, store: false,
-        input: [{ type: 'text', text: prompt(digest, roast, avoid) }],
-        response_format: { type: 'text', mime_type: 'application/json', schema: SCHEMA },
+        input: [{ type: 'text', text: prompt(digest, roast, avoid, duo, short) }],
+        response_format: { type: 'text', mime_type: 'application/json', schema: schema(names) },
         generation_config: { thinking_level: 'low', temperature: 1.0 },
       }),
     });
@@ -188,11 +213,32 @@ async function write(key: string, digest: unknown, roast: string, avoid: string[
     const txt = findText(out);
     let parsed: unknown = null;
     try { parsed = txt ? JSON.parse(txt) : null; } catch { /* bad JSON */ }
-    const lines = check(parsed, !!(digest as { sealed?: boolean })?.sealed);
+    const lines = check(parsed, names, !!(digest as { sealed?: boolean })?.sealed, short);
     if (lines) return lines;
     console.error('booth rejected', txt?.slice(0, 600));
   }
   return null;
+}
+
+// Both hosts in one call (Gemini multi-speaker TTS: one natural conversation). Null if it can't.
+async function together(key: string, lines: { speaker: string; voice: string; text: string; style: string }[]) {
+  try {
+    const voices = [...new Map(lines.map(l => [l.speaker, l.voice])).entries()].map(([speaker, voice]) => ({ speaker, voice }));
+    const r = await fetch(`${API}/interactions`, {
+      method: 'POST', signal: AbortSignal.timeout(40000),
+      headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: TTS_MODEL, store: false,
+        input: [{ type: 'user_input', content: lines.map(l => ({ type: 'text', text: l.text, annotations: [{ type: 'speech_metadata', speaker: l.speaker, style: l.style }] })) }],
+        response_format: { type: 'audio' },
+        generation_config: { speech_config: { speakers: voices } },
+      }),
+    });
+    const out = await r.json().catch(() => null);
+    if (!r.ok) { console.error('multi-speaker error', r.status, JSON.stringify(out)?.slice(0, 400)); return null; }
+    const b64 = findAudio(out);
+    return b64 ? pcmOf(b64bytes(b64)) : null;
+  } catch (e) { console.error('multi-speaker', String(e)); return null; }
 }
 
 async function voice(key: string, voiceId: string, text: string, style: string) {
@@ -229,31 +275,40 @@ Deno.serve(async req => {
     const digest = body.digest && typeof body.digest === 'object' ? body.digest : {};
     if (JSON.stringify(digest).length > 8000) return json({ error: 'Digest too big.' }, 400);
     const roast = body.roast === 'spicy' ? 'spicy' : 'gentle';
+    const duo = duoOf(body.hosts);
+    const short = body.short === true;
     const avoid = (Array.isArray(body.avoid) ? body.avoid : []).filter((x: unknown) => typeof x === 'string').slice(0, 8).map((x: string) => x.slice(0, 200));
     const gate = await db.rpc('tts_count');
     if (gate.error) return json({ error: gate.error.message }, 429);
 
-    const lines = await write(key, digest, roast, avoid);
+    const lines = await write(key, digest, roast, avoid, duo, short);
     if (!lines) return json({ error: 'No usable bit this time.' }, 422);
     const t1 = Date.now();
 
     const { data: rows } = await db.from('tts_voices').select('pack, voice');
-    const vid = (pack: string, fallback: string) => rows?.find(r => r.pack === pack)?.voice || fallback;
+    const packOf = (name: string) => duo.find(k => PERSONAS[k].name === name)!;
+    const vid = (pack: string) => rows?.find(r => r.pack === pack)?.voice || PERSONAS[pack].prebuilt;
     const names = typeof body.names === 'string' ? body.names.slice(0, 1000) : '';
-    const pcms = await Promise.all(lines.map(l => voice(key, vid(HOSTS[l.host].pack, HOSTS[l.host].prebuilt), pronounce(l.text, names), HOSTS[l.host].style)));
-    const gap = new Uint8Array(Math.round(24000 * 0.22) * 2); // a breath between hosts
-    const total = pcms.reduce((n, p) => n + p.length, 0) + gap.length * (pcms.length - 1);
-    const pcm = new Uint8Array(total);
-    let off = 0;
-    pcms.forEach((p, i) => { pcm.set(p, off); off += p.length; if (i < pcms.length - 1) off += gap.length; });
+    const spoken = lines.map(l => { const k = packOf(l.host); return { speaker: PERSONAS[k].name, voice: vid(k), text: pronounce(l.text, names), style: PERSONAS[k].style }; });
+    // One conversation in a single call if Gemini takes these two voices together; else line by line, stitched.
+    let pcm = await together(key, spoken);
+    let how = 'together';
+    if (!pcm) {
+      how = 'stitched';
+      const pcms = await Promise.all(spoken.map(l => voice(key, l.voice, l.text, l.style)));
+      const gap = new Uint8Array(Math.round(24000 * 0.22) * 2); // a breath between hosts
+      pcm = new Uint8Array(pcms.reduce((n, p) => n + p.length, 0) + gap.length * (pcms.length - 1));
+      let off = 0;
+      pcms.forEach((p, i) => { pcm!.set(p, off); off += p.length; if (i < pcms.length - 1) off += gap.length; });
+    }
     const file = wav(pcm);
     const path = `booth/${await sha(JSON.stringify(lines) + Date.now())}.wav`;
     const up = await db.storage.from('tts').upload(path, file, { contentType: 'audio/wav', upsert: true });
     if (up.error) { console.error('upload', up.error.message); return json({ error: "Couldn't save the bit." }, 502); }
     const url = db.storage.from('tts').getPublicUrl(path).data.publicUrl;
     const ms = Math.round((pcm.length / 48000) * 1000);
-    console.log('booth', JSON.stringify({ lines: lines.length, ms, write: t1 - t0, voice: Date.now() - t1 }));
-    return json({ url, ms, lines, took: Date.now() - t0 });
+    console.log('booth', JSON.stringify({ duo, how, lines: lines.length, ms, write: t1 - t0, voice: Date.now() - t1 }));
+    return json({ url, ms, lines, hosts: duo.map(k => PERSONAS[k].name), how, took: Date.now() - t0 });
   } catch (e) {
     console.error(e);
     return json({ error: "Couldn't make a booth bit right now." }, 502);
