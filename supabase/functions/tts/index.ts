@@ -60,6 +60,34 @@ const PACKS: Record<string, { name: string; gender: string; lang: string; prompt
       + 'with a big smile, playful and a little cheesy, stretching out words for fun.',
     style: 'cheesy, upbeat and enthusiastic, like a roller-rink DJ on the mic',
   },
+  // 80s / 90s party voices.
+  wedding: {
+    name: 'Woodside wedding DJ', gender: 'male', lang: 'en-US', prebuilt: 'Achird',
+    prompt: 'A cheesy 1980s wedding-reception DJ in his forties: a warm, smooth, upbeat male voice with a big friendly grin, a little '
+      + 'goofy, hyping the room like it is the last dance of the night.',
+    style: 'upbeat, warm and a little cheesy, like a wedding DJ on the mic',
+  },
+  drivetime: {
+    name: 'Woodside drive-time radio', gender: 'male', lang: 'en-US', prebuilt: 'Sadachbia',
+    prompt: 'A 1990s morning-drive radio host in his thirties: a fast, bright, punchy male radio voice full of energy, with a playful wink.',
+    style: 'fast, bright and punchy, like a radio host',
+  },
+  countdown: {
+    name: 'Woodside countdown host', gender: 'male', lang: 'en-US', prebuilt: 'Algieba',
+    prompt: 'A smooth, warm 1980s top-40 radio countdown host: a friendly, intimate, rich baritone, unhurried and sincere.',
+    style: 'smooth, warm and unhurried',
+  },
+  aerobics: {
+    name: 'Woodside aerobics instructor', gender: 'female', lang: 'en-US', prebuilt: 'Laomedeia',
+    prompt: 'A peppy 1980s aerobics-video instructor in her twenties: a bright, bubbly, encouraging female voice, upbeat and full of energy.',
+    style: 'peppy, bubbly and encouraging',
+  },
+  rumble: {
+    name: 'Woodside arena announcer', gender: 'male', lang: 'en-US', prebuilt: 'Algenib',
+    prompt: 'A booming arena announcer for monster-truck rallies and championship boxing: a huge, deep male voice, dramatic, '
+      + 'stretching key words for effect.',
+    style: 'booming and dramatic, like an arena announcer',
+  },
 };
 
 function serviceDb() {
