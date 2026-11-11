@@ -343,7 +343,7 @@ function createHost() {
     fetchBit: async (digest, s, avoid, extras = {}) => {
       const a = await auth();
       if (!a) return null;
-      return post({ ...a, digest, roast: s.boothRoast, short: s.boothShort, hosts: s.duo.split('+'), names: settings.sayNames || '', avoid, local: extras.local, rivalry: extras.rivalry }, 60000, BOOTH_URL);
+      return post({ ...a, digest, roast: s.boothRoast, short: s.boothShort, hosts: s.duo.split('+'), names: settings.sayNames || '', avoid, local: extras.local, rivalry: extras.rivalry, avoidPhrases: extras.avoidPhrases, repertoire: extras.repertoire }, 60000, BOOTH_URL);
     },
     // Tonight's used local-color items survive a TV reload (forgotten the next day).
     usedLocal: (() => { try { const v = JSON.parse(localStorage.getItem('pw.boothLocal') || 'null'); return new Set(v?.day === new Date().toDateString() ? v.ids : []); } catch { return new Set(); } })(),

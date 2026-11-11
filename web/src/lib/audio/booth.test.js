@@ -256,3 +256,32 @@ describe('booth local color + rivalry', () => {
     expect(sent[1].rivalry).toBe(false);
   });
 });
+
+describe('booth repeats: repertoire + distinctive phrases', () => {
+  it('every repertoire catchphrase counts (bodacious included)', async () => {
+    const { CATCHPHRASES, repeatsCatchphrase, repertoireFor } = await import('./booth.js');
+    expect(CATCHPHRASES).toContain('bodacious');
+    expect(CATCHPHRASES).toContain('mini golf windmill');
+    expect(repeatsCatchphrase([{ host: 'TIFFANI', text: 'Completely bodacious!' }], ['That is bodacious, Theo!'])).toBe(true);
+    expect(repertoireFor(['valley', 'dj'])).toMatchObject({ TIFFANI: expect.arrayContaining(['bodacious']), DONNIE: expect.arrayContaining(['cowabunga']) });
+  });
+  it('pulls distinctive phrases from recent bits, not names or game words', async () => {
+    const { keyPhrases, reusesPhrase } = await import('./booth.js');
+    const recent = ['Big Dave is spinning faster than a mini-golf windmill!', 'Omar just put up one point two million on Cactus Canyon, last place.', 'Unlike your neon fanny pack, Donnie.'];
+    const p = keyPhrases(recent, { names: ['Big Dave', 'Omar'] });
+    expect(p).toContain('neon fanny pack');
+    expect(p).toContain('fanny pack');
+    expect(p.some(x => /dave|omar|million|place/.test(x))).toBe(false);
+    expect(reusesPhrase([{ host: 'TIFFANI', text: 'Nice neon fanny pack, Donnie!' }], p)).toBe(true);
+    expect(reusesPhrase([{ host: 'TIFFANI', text: 'Nice shoulder pads, Donnie!' }], p)).toBe(false);
+  });
+  it('the runner sends the last bits\' phrases and the duo\'s repertoire', async () => {
+    let t = Date.parse('2026-11-15T03:00:00Z'); const sent = [];
+    const r = new BoothRunner({ now: () => t, rand: () => 0.1, settings: () => ({ boothOn: true, duo: 'valley+dj' }), room: () => ({ mode: 'tournament', quiet: true, digest: () => ({}) }),
+      fetchBit: (d, s, avoid, extras) => { sent.push(extras); return null; }, play: () => true });
+    r.log = [{ at: t, lines: [{ host: 'DONNIE', text: 'Spinning like a mini-golf windmill!' }] }];
+    r.playNow(); r.tick(); await new Promise(res => setTimeout(res, 0));
+    expect(sent[0].avoidPhrases.length).toBeGreaterThan(0);
+    expect(Object.keys(sent[0].repertoire)).toEqual(['TIFFANI', 'DONNIE']);
+  });
+});

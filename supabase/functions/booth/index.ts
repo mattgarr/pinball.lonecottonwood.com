@@ -23,7 +23,7 @@ const json = (body: unknown, status = 200) =>
 const PERSONAS: Record<string, { name: string; prebuilt: string; who: string; style: string }> = {
   aerobics: { name: 'ROXY', prebuilt: 'Laomedeia', who: 'a peppy 80s aerobics instructor in leg warmers: cheers everyone on, workout puns ("feel the burn", "and reach!", "five more!"), treats every game like a workout', style: 'peppy, bubbly and encouraging, chatting with her co-host' },
   hype: { name: 'DASH', prebuilt: 'Fenrir', who: 'a fast play-by-play sportscaster: stats, drama, calls every game like a championship', style: 'fast, excited play-by-play, chatting with his co-host' },
-  dj: { name: 'DONNIE', prebuilt: 'Puck', who: 'a cheesy fun-center DJ: warm hype-dad energy, puns, loves everybody. He mixes up how he jumps in ("Whoa, whoa, whoa!", "Folks, are you seeing this?", "Hold the phone!", "Get this:", "Oh, buddy!", "Ladies and gentlemen of the garage", "Somebody check that tilt!", "Well, butter my flippers!", or straight in with the news) and never uses the same one twice in a row. He sprinkles short 80s sayings into his own lines, rotating them: radical, gnarly, cowabunga, where\'s the beef, I pity the fool, rad to the max, totally awesome, don\'t have a cow, psych, hasta la vista, party on. And fun-center jokes: couples skate, skee-ball, mini-golf windmills, tickets for the prize counter, "that\'s how we roll at the fun center". At most one catchphrase per line', style: 'warm, upbeat cheesy-dad energy, smiling but not laughing, chatting with his co-host' },
+  dj: { name: 'DONNIE', prebuilt: 'Puck', who: 'a cheesy fun-center DJ: warm hype-dad energy, puns, loves everybody. He mixes up how he jumps in (or goes straight in with the news) and never uses the same opener twice in a row. He sprinkles short 80s sayings and fun-center jokes (couples skate, skee-ball, mini-golf, tickets for the prize counter) into his own lines. At most one catchphrase per line', style: 'warm, upbeat cheesy-dad energy, smiling but not laughing, chatting with his co-host' },
   british: { name: 'STERLING', prebuilt: 'Algieba', who: 'a suave British secret-agent type: dry wit, understatement, unflappable', style: 'smooth, dry and amused, chatting with his co-host' },
   ship: { name: 'ORBIT', prebuilt: 'Iapetus', who: 'a calm, polite spaceship computer: deadpan, precise, takes everything literally', style: 'calm, even and deadpan, chatting with its co-host' },
   '8bit': { name: 'BYTE', prebuilt: 'Orus', who: 'a retro 8-bit robot: literal, says "beep boop", calls people "humans", loves high scores', style: 'flat robotic voice, chatting with its co-host' },
@@ -32,7 +32,7 @@ const PERSONAS: Record<string, { name: string; prebuilt: string; who: string; st
   drivetime: { name: 'MIKEY', prebuilt: 'Sadachbia', who: 'a 90s morning-drive radio guy: shout-outs, call-in-show energy, quick jokes', style: 'fast and bright radio voice, chatting with his co-host' },
   countdown: { name: 'CHUCK', prebuilt: 'Algieba', who: 'a smooth top-40 countdown host: warm, sincere, talks about scores like chart positions', style: 'smooth and warm, chatting with his co-host' },
   rumble: { name: 'THUNDER', prebuilt: 'Algenib', who: 'a booming monster-truck and boxing arena announcer: dramatic, everything is the main event', style: 'booming and dramatic, chatting with his co-host' },
-  valley: { name: 'TIFFANI', prebuilt: 'Leda', who: 'a 90s Beverly Hills valley girl (an original character, no movie quotes or movie names): upbeat and fast, rates every score like an outfit or a mall haul (makeovers, "that score is so last season", "the red carpet", "the food court", "a total wardrobe malfunction on the playfield"), and sprinkles short 80s/90s slang into her own lines, rotating it: as if, whatever, totally buggin\', way harsh, gag me with a spoon, grody to the max, bodacious, tubular, most triumphant, excellent, talk to the hand, not, gnarly, radical, party on, all that and a bag of chips, da bomb, psych, take a chill pill. At most one catchphrase per line, never the same one twice in a row', style: 'bubbly, fast valley-girl voice, chatting with her co-host' },
+  valley: { name: 'TIFFANI', prebuilt: 'Leda', who: 'a 90s Beverly Hills valley girl (an original character, no movie quotes or movie names): upbeat, fast and sassy, rates every score like an outfit or a mall haul (makeovers, "so last season", the red carpet, the food court, a wardrobe malfunction on the playfield), and sprinkles short 80s/90s slang into her own lines. At most one catchphrase per line', style: 'bubbly, fast valley-girl voice, chatting with her co-host' },
   vj: { name: 'KAT', prebuilt: 'Aoede', who: 'a cool 90s music-TV VJ: quick, confident, rock-and-roll energy, introduces every game like a world-premiere video', style: 'cool, quick and confident, chatting with her co-host' },
   rink: { name: 'STARLA', prebuilt: 'Sulafat', who: 'an 80s roller-rink DJ: disco-ball glow, couples-skate cheese, "clear the floor!", warm and smooth', style: 'warm, smooth and glittery, chatting with her co-host' },
 };
@@ -85,7 +85,7 @@ const schema = (names: string[]) => ({
   required: ['lines'],
 });
 
-function prompt(digest: unknown, roast: string, avoid: string[], duo: string[], short: boolean, local: string[] = [], rivalry = false) {
+function prompt(digest: unknown, roast: string, avoid: string[], duo: string[], short: boolean, local: string[] = [], rivalry = false, rep: Record<string, string[]> = {}, avoidPhrases: string[] = []) {
   const [A, B] = duo.map(k => PERSONAS[k]);
   const tease = (k: string) => TEASE[k] || 'their on-air persona';
   // Who roasts more: Tiffani (about 2 to 1) when she's in the booth; otherwise the first host.
@@ -99,6 +99,7 @@ speakers in the garage. Families are there, including kids.
 The hosts (use exactly these names in "host"):
 - ${A.name}: ${A.who}.
 - ${B.name}: ${B.who}.
+${Object.entries(rep).filter(([, v]) => v.length).map(([n, v]) => `${n}'s catchphrases (rotate; at most one per line; none from a recent bit): ${v.join(', ')}.`).join('\n')}
 They riff off each other like real broadcast partners: short back-and-forth, natural, contractions, never stiff.
 Vary how every bit starts: never open a line with "All right" or "Alright", don't lean on "Talk about…", and don't
 open the way your recent bits did. No written laughs ("ha ha", "heh", "*laughs*"); let the words be the fun.
@@ -119,7 +120,7 @@ ${roast === 'spicy'
 Rules, always: PG and kind. Tease only pinball play (scores, drains, luck, streaks), never anyone's looks, body, age,
 gender, family, job, intelligence, or anything else about them. No swearing, no innuendo, no alcohol, no politics.
 Never make up scores, names or events. Don't mention prizes or awards.
-${local.length ? `We're in Woodside, California: Silicon Valley horse country, where the money is absurd and everyone in this garage
+${avoidPhrases.length ? `Fresh material only: don't reuse any of these phrases from the last few bits: ${avoidPhrases.map(p => `"${p}"`).join(', ')}.\n` : ''}${local.length ? `We're in Woodside, California: Silicon Valley horse country, where the money is absurd and everyone in this garage
 knows it. The ridiculousness of Woodside is a RUNNING THEME of the night: work in one or two of these items (riff on the joke angle or
 write a sharper one), ideally as the punchline of a roast of a score, a player or a host ("that score's lower than Woodside's sidewalk
 count", "Omar is pre-revenue"). Make the room laugh at itself: affectionate, with some bite. Keep facts and numbers as given; jokes
@@ -227,9 +228,18 @@ const CATCHPHRASES = ['as if', 'whatever', 'totally buggin', 'way harsh', 'gag m
   'cowabunga', 'wheres the beef', 'i pity the fool', 'rad to the max', 'totally awesome', 'dont have a cow', 'hasta la vista', 'how we roll'];
 const phraseRe = (c: string) => new RegExp(`(^|[^a-z])${c.replace(/ /g, '[^a-z]+')}($|[^a-z])`, 'i');
 function catchphrasesIn(text: string) { return CATCHPHRASES.filter(c => phraseRe(c).test(String(text || '').replace(/[’']/g, ''))); }
-function repeatsCatchphrase(lines: Line[], recent: string[]) {
-  const used = new Set(recent.flatMap(catchphrasesIn).filter(c => c !== 'not'));
-  return lines.some(l => catchphrasesIn(l.text).some(c => used.has(c)));
+const normPhrase = (t: string) => String(t || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z]+/g, ' ').trim();
+const COMMON = new Set(['not', 'folks', 'humans', 'number one', 'major']);
+// Catchphrases: the built-in list plus every phrase in the hosts' repertoires the TV sent.
+function repeatsCatchphrase(lines: Line[], recent: string[], extra: string[] = []) {
+  const all = [...new Set([...CATCHPHRASES, ...extra.map(normPhrase)].filter(Boolean))];
+  const found = (text: string) => { const t = ` ${normPhrase(text)} `; return all.filter(c => t.includes(` ${c} `)); };
+  const used = new Set(recent.flatMap(found).filter(c => !COMMON.has(c)));
+  return lines.some(l => found(l.text).some(c => used.has(c)));
+}
+// A distinctive phrase from the last few bits used again ("mini golf windmill").
+function reusesPhrase(lines: Line[], phrases: string[]) {
+  return lines.some(l => { const t = ` ${normPhrase(l.text)} `; return phrases.some(p => t.includes(` ${p} `)); });
 }
 function tidyLines(lines: Line[], laughOk: boolean, allRightOk: boolean) {
   return lines.map(l => {
@@ -250,7 +260,7 @@ function check(out: unknown, names: string[], sealed = false, short = false): Li
   return clean;
 }
 
-async function write(key: string, digest: unknown, roast: string, avoid: string[], duo: string[], short: boolean, local: string[], rivalry: boolean) {
+async function write(key: string, digest: unknown, roast: string, avoid: string[], duo: string[], short: boolean, local: string[], rivalry: boolean, rep: Record<string, string[]>, avoidPhrases: string[]) {
   const names = duo.map(k => PERSONAS[k].name);
   for (let attempt = 0; attempt < 3; attempt++) {
     const r = await fetch(`${API}/interactions`, {
@@ -258,7 +268,7 @@ async function write(key: string, digest: unknown, roast: string, avoid: string[
       headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json', 'Api-Revision': '2026-05-20' },
       body: JSON.stringify({
         model: TEXT_MODEL, store: false,
-        input: [{ type: 'text', text: prompt(digest, roast, avoid, duo, short, local, rivalry) }],
+        input: [{ type: 'text', text: prompt(digest, roast, avoid, duo, short, local, rivalry, rep, avoidPhrases) }],
         response_format: { type: 'text', mime_type: 'application/json', schema: schema(names) },
         generation_config: { thinking_level: 'low', temperature: 1.0 },
       }),
@@ -270,7 +280,7 @@ async function write(key: string, digest: unknown, roast: string, avoid: string[
     try { parsed = txt ? JSON.parse(txt) : null; } catch { /* bad JSON */ }
     let lines = check(parsed, names, !!(digest as { sealed?: boolean })?.sealed, short);
     // Opens like a recent bit: one more try (the last try is kept, minus the repeated "All right").
-    if (lines && attempt < 2 && (repeatsOpener(lines, avoid) || repeatsCatchphrase(lines, avoid))) { console.error('booth repeat', lines.map(l => l.text.slice(0, 30)).join(' | ')); continue; }
+    if (lines && attempt < 2 && (repeatsOpener(lines, avoid) || repeatsCatchphrase(lines, avoid, Object.values(rep).flat()) || reusesPhrase(lines, avoidPhrases))) { console.error('booth repeat', lines.map(l => l.text.slice(0, 30)).join(' | ')); continue; }
     // A written laugh in about 1 bit in 4, an "All right!" opener rarely; otherwise they're taken out.
     if (lines) lines = tidyLines(lines, Math.random() < 0.25, Math.random() < 0.1);
     if (lines && lines.length >= 2) return lines;
@@ -341,7 +351,13 @@ Deno.serve(async req => {
     if (gate.error) return json({ error: gate.error.message }, 429);
 
     const local = (Array.isArray(body.local) ? body.local : []).filter((x: unknown) => typeof x === 'string').slice(0, 3).map((x: string) => x.slice(0, 450));
-    const lines = await write(key, digest, roast, avoid, duo, short, local, body.rivalry === true);
+    // The hosts' repertoires (from the TV's boothRepertoire.json) and distinctive phrases from the last few bits.
+    const rep: Record<string, string[]> = {};
+    if (body.repertoire && typeof body.repertoire === 'object') {
+      for (const [k, v] of Object.entries(body.repertoire)) if (Array.isArray(v)) rep[String(k).toUpperCase().slice(0, 20)] = v.filter(x => typeof x === 'string').slice(0, 40).map(x => x.slice(0, 50));
+    }
+    const avoidPhrases = (Array.isArray(body.avoidPhrases) ? body.avoidPhrases : []).filter((x: unknown) => typeof x === 'string').slice(0, 40).map((x: string) => normPhrase(x).slice(0, 40)).filter(Boolean);
+    const lines = await write(key, digest, roast, avoid, duo, short, local, body.rivalry === true, rep, avoidPhrases);
     if (!lines) return json({ error: 'No usable bit this time.' }, 422);
     const t1 = Date.now();
 

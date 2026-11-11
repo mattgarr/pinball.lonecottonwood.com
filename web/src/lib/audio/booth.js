@@ -6,6 +6,7 @@
 import { computeStandings, computeHighScores, MIN_TABLES } from '../scoring.js';
 import { speakName, speakScore, speakMachine, numberWords } from './lines.js';
 import { localLine, pickLocal } from './woodside.js';
+import REPERTOIRE from './boothRepertoire.json';
 
 // Who's in the booth: any two of the announcer voices, each a character (keep the names in sync with
 // the booth edge function, which also has each one's personality for the script).
@@ -202,16 +203,50 @@ export function tidyLines(lines, { laughOk = false, allRightOk = false } = {}) {
   }).filter(l => /[a-z]/i.test(l.text));
 }
 
-// Era catchphrases: never the same one in two bits running.
-export const CATCHPHRASES = ['as if', 'whatever', 'totally buggin', 'way harsh', 'gag me with a spoon', 'grody to the max', 'bodacious',
-  'tubular', 'most triumphant', 'excellent', 'talk to the hand', 'not', 'so last season', 'like totally', 'oh my gosh', 'iconic',
-  'gnarly', 'radical', 'righteous', 'party on', 'booyah', 'all that and a bag of chips', 'da bomb', 'psych', 'take a chill pill', 'eat my shorts',
-  'cowabunga', 'wheres the beef', 'i pity the fool', 'rad to the max', 'totally awesome', 'dont have a cow', 'hasta la vista', 'how we roll'];
-const phraseRe = c => new RegExp(`(^|[^a-z])${c.replace(/ /g, '[^a-z]+')}($|[^a-z])`, 'i');
-export const catchphrasesIn = text => CATCHPHRASES.filter(c => phraseRe(c).test(String(text || '').replace(/[’']/g, '')));
+// Catchphrases: every phrase in every host's repertoire (boothRepertoire.json); none twice in two bits running.
+const normPhrase = t => String(t || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z]+/g, ' ').trim();
+export const CATCHPHRASES = [...new Set(Object.entries(REPERTOIRE).filter(([k]) => k !== '_').flatMap(([, v]) => v).map(normPhrase).filter(Boolean))];
+const phraseRe = c => new RegExp(`(^| )${c.replace(/ /g, ' +')}( |$)`);
+export const catchphrasesIn = text => { const t = ` ${normPhrase(text)} `; return CATCHPHRASES.filter(c => phraseRe(c).test(t)); };
+const COMMON = new Set(['not', 'folks', 'humans', 'number one', 'major']); // too ordinary to police
 export function repeatsCatchphrase(lines, recent = []) {
-  const used = new Set(recent.flatMap(catchphrasesIn).filter(c => c !== 'not')); // "not" is too common to police
+  const used = new Set(recent.flatMap(catchphrasesIn).filter(c => !COMMON.has(c)));
   return lines.some(l => catchphrasesIn(l.text).some(c => used.has(c)));
+}
+// The repertoire the booth gets for a duo: { HOSTNAME: [phrases] }.
+export const repertoireFor = duo => Object.fromEntries(duo.map(k => [BOOTH_PERSONAS[k]?.name.toUpperCase(), REPERTOIRE[k] || []]));
+
+// Distinctive phrases (2-3 word runs with no ordinary words, names or game words) from recent bits: the
+// booth avoids reusing them ("mini-golf windmill" twice in a row).
+const STOP = new Set(('a an the and or but so of to in on at for with from by up out over into onto off as is are was were be been being it its '
+  + 'this that these those he she they we you i me my your his her their our him them us just only like totally really very so too '
+  + 'what who how when where why there here now then than that all any some no not yes oh hey well right okay ok get got go going gone '
+  + 'can could would should will wont dont doesnt didnt isnt arent im youre hes shes theyre were thats whats lets let make made take '
+  + 'more most less much many one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen twenty thirty '
+  + 'forty fifty sixty seventy eighty ninety hundred thousand million billion point first second third last next new big little '
+  + 'score scores scored game games played play playing player players place points point machine machines record personal best '
+  + 'tonight night minutes minute left time clock folks everybody everyone people guys garage woodside donnie tiffani dash roxy just '
+  + 'top spot leaderboard tournament run flipper flippers ball balls pinball').split(/\s+/));
+export function keyPhrases(texts, { names = [] } = {}) {
+  const nameWords = new Set(names.flatMap(n => normPhrase(n).split(' ')).filter(Boolean));
+  const out = new Set();
+  for (const t of texts) {
+    const w = normPhrase(t).split(' ');
+    for (let n = 2; n <= 3; n++) {
+      for (let i = 0; i + n <= w.length; i++) {
+        const g = w.slice(i, i + n);
+        if (g.some(x => STOP.has(x) || nameWords.has(x) || x.length < 3)) continue;
+        if (!g.some(x => x.length >= 5)) continue;
+        const p = g.join(' ');
+        if (CATCHPHRASES.includes(p)) continue; // catchphrases have their own rule
+        out.add(p);
+      }
+    }
+  }
+  return [...out];
+}
+export function reusesPhrase(lines, phrases = []) {
+  return lines.some(l => { const t = ` ${normPhrase(l.text)} `; return phrases.some(p => t.includes(` ${p} `)); });
 }
 
 // ---------- when ----------
@@ -277,7 +312,14 @@ export class BoothRunner {
     // Each bit: two items of Woodside / Silicon Valley color (never repeated tonight), and every other bit the
     // hosts roast each other too.
     this.rivalry = !this.rivalry;
-    const extras = { local: pickLocal(this.usedLocal, 2, this.rand).map(localLine), rivalry: this.rivalry };
+    const recent3 = this.log.slice(-3).flatMap(l => l.lines.map(x => x.text));
+    const names = [...(digest.recent || []).map(r => r.player), ...(digest.machineTops || []).map(m => m.player)].filter(Boolean);
+    const duo = String(this.settings().duo || '').split('+').filter(Boolean);
+    const extras = {
+      local: pickLocal(this.usedLocal, 2, this.rand).map(localLine), rivalry: this.rivalry,
+      avoidPhrases: keyPhrases(recent3, { names }).slice(0, 40),
+      repertoire: duo.length === 2 ? repertoireFor(duo) : undefined,
+    };
     this.onUsedLocal(this.usedLocal);
     this.inflight = Promise.resolve(this.fetchBit(digest, this.settings(), this.log.slice(-4).flatMap(l => l.lines.map(x => x.text)), extras))
       .then(b => {

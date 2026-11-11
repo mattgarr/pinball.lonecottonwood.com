@@ -1,0 +1,17 @@
+{
+  "_": "Each booth host's catchphrases (short era phrases). The TV sends the two hosts' lists with every bit; the booth must rotate them, and no catchphrase repeats in two bits running (booth.js CATCHPHRASES is built from this file).",
+  "valley": ["as if", "whatever", "totally buggin'", "way harsh", "gag me with a spoon", "grody to the max", "bodacious", "tubular", "most triumphant", "excellent", "talk to the hand", "not", "so last season", "like, totally", "oh my gosh", "iconic", "gnarly", "radical", "party on", "all that and a bag of chips", "da bomb", "psych", "take a chill pill", "major", "fabulous", "runway", "makeover", "clearance rack", "food court", "shut the front door"],
+  "dj": ["radical", "gnarly", "cowabunga", "where's the beef", "I pity the fool", "rad to the max", "totally awesome", "don't have a cow", "psych", "hasta la vista", "party on", "that's how we roll at the fun center", "couples skate", "skee-ball", "prize counter", "mini-golf windmill", "butter my flippers", "hold the phone", "whoa, whoa, whoa", "ladies and gentlemen of the garage", "get this"],
+  "aerobics": ["feel the burn", "and reach", "five more", "work it", "stretch it out", "you've got this"],
+  "hype": ["he's on fire", "boom", "from downtown", "what a shot", "unbelievable"],
+  "rumble": ["main event", "no mercy", "the crowd goes wild"],
+  "vj": ["world premiere", "crank it up", "let's rock"],
+  "rink": ["clear the floor", "couples skate", "victory lap", "disco ball"],
+  "wedding": ["hands in the air", "chicken dance", "last dance"],
+  "drivetime": ["don't touch that dial", "shout out", "stay tuned"],
+  "8bit": ["beep boop", "humans"],
+  "newsreel": ["stop the presses", "extra, extra", "folks"],
+  "countdown": ["climbing the charts", "number one"],
+  "british": ["rather good", "splendid"],
+  "ship": ["I'm afraid", "perfectly"]
+}
