@@ -10,7 +10,7 @@
 // It reports to the host card on <channel>/audio/state (retained) and <channel>/audio/lists.
 import { AudioDirector, DEFAULT_SETTINGS, TIMING, revealEventCue } from './policy.js';
 import { playSound, stopSounds } from './synth.js';
-import { DEFAULT_PACK, loadManifest, preloadPack, prewarm, say, sayClip, setVoiceVolume, stopVoice } from './voice.js';
+import { DEFAULT_PACK, loadManifest, preloadPack, prewarm, say, sayClip, setSayNames, setVoiceVolume, stopVoice } from './voice.js';
 import { clockText, momentText, revealText } from './lines.js';
 import * as sp from './spotify.js';
 import { audioCtx, ensureCtx, fxBus, setGate, sound } from '../chiptune.js';
@@ -21,7 +21,7 @@ const CMD_FRESH_MS = 30000;
 export const AUDIO_DEFAULTS = {
   ...DEFAULT_SETTINGS,
   pack: DEFAULT_PACK, playlist: '', playlistName: '', clientId: '', output: 'tv', outputName: '',
-  autoplay: true, shuffle: true,
+  autoplay: true, shuffle: true, sayNames: '',
 };
 
 const readSettings = () => { try { return { ...AUDIO_DEFAULTS, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null') || {}) }; } catch { return { ...AUDIO_DEFAULTS }; } };
@@ -187,6 +187,7 @@ function createHost() {
     const prev = settings;
     settings = { ...AUDIO_DEFAULTS, ...next };
     saveSettings(settings);
+    setSayNames(settings.sayNames);
     origSetSettings({ musicVol: settings.musicVol, fxVol: settings.fxVol, voiceVol: settings.voiceVol, voiceOn: settings.voiceOn, muteAll: settings.muteAll, pack: settings.pack,
       sayClock: settings.sayClock, sayRecords: settings.sayRecords, sayJoins: settings.sayJoins, sayReveal: settings.sayReveal });
     if (settings.pack !== prev.pack && state.unlocked) preloadPack(settings.pack);

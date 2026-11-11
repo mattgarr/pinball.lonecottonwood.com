@@ -5,8 +5,9 @@
 //   revealText(pack, slide)      the reveal: the intro, each winner, the finale
 // Numbers, names and machines are spelled for speech: 3,215,440 → "three point two million".
 import CLOCK from './clockLines.json';
+import PRONOUNCE from './pronounce.json';
 
-export const PACKS = ['british', 'hype', 'ship', '8bit', 'newsreel', 'dj'];
+export const PACKS = ['british', 'hype', 'ship', '8bit', 'newsreel', 'dj', 'wedding', 'drivetime', 'countdown', 'aerobics', 'rumble'];
 const packOf = p => (PACKS.includes(p) ? p : 'british');
 
 // ---------- speech-friendly words ----------
@@ -129,6 +130,41 @@ const MOMENTS = {
     milestone: ['{count} games tonight! You people are machines!', "{count} games! That's a lot of quarters, if we were using quarters!"],
     join: ['Give it up for {names}! Welcome to the party!', 'Hey hey, {names} in the house!'],
   },
+  wedding: {
+    record: ['Whoa! New {machine} record! {name} just put up {score}! Give it up!', "Somebody stop {name}! {score} on {machine}! That's a new record!"],
+    leader: ["We've got a new number one! {name}, take a bow!", "{name} is on top! Everybody, raise your glasses!"],
+    ranked: ['{name} is on the board in {ordinal} place! Woo!', '{name} just made the rankings! {Ordinal} place!'],
+    milestone: ['{count} games tonight! This party is on fire!', "That's {count} games, folks! Keep it going!"],
+    join: ['Everybody welcome {names} to the party!', 'Look who just walked in! {names}!'],
+  },
+  drivetime: {
+    record: ['Breaking news! {name} just set the {machine} record with {score}!', 'New {machine} record, folks! {name}, {score}! Unbelievable!'],
+    leader: ["There's a new number one on the charts! It's {name}!", "{name} takes over the top spot! Let's hear it!"],
+    ranked: ['{name} debuts on the chart at number {rankWords}!', '{name} cracks the rankings in {ordinal}!'],
+    milestone: ["That's {count} games tonight, and counting!", '{count} games so far! Stay tuned!'],
+    join: ['Shout out to {names}! Welcome to the show!', 'Welcome in, {names}! Glad you could join us!'],
+  },
+  countdown: {
+    record: ['A brand-new {machine} record. {name}, with {score}.', 'Climbing all the way to the top on {machine}: {name}, with {score}.'],
+    leader: ['And a new number one. {name}.', '{name} moves up to number one.'],
+    ranked: ['A new entry on the chart. {name}, at number {rankWords}.', '{name} enters the rankings at number {rankWords}.'],
+    milestone: ['{count} games played tonight, and the hits keep coming.', "That's {count} games so far."],
+    join: ['Welcome, {names}. Glad you could make it.', 'And joining us tonight, {names}.'],
+  },
+  aerobics: {
+    record: ['Whoo! New {machine} record! {name}, {score}! Feel that burn!', 'Look at {name} go! {score} on {machine}! New record!'],
+    leader: ['New number one! {name}, you are on fire!', "{name} takes the lead! Way to go!"],
+    ranked: ['{name} is on the board! {Ordinal} place! Keep it up!', 'Yes! {name} made the rankings! {Ordinal} place!'],
+    milestone: ['{count} games tonight! Great workout, everybody!', "That's {count} games! Keep moving!"],
+    join: ['Welcome, {names}! Jump right in!', 'Hi, {names}! So glad you made it!'],
+  },
+  rumble: {
+    record: ['A new {machine} record! {name}! {score}!', 'Unbelievable! {name} destroys the {machine} record with {score}!'],
+    leader: ['We have a new champion at the top! {name}!', '{name} takes the number one spot! The crowd goes wild!'],
+    ranked: ['Entering the rankings in {ordinal} place: {name}!', '{name} enters the arena in {ordinal} place!'],
+    milestone: ['{count} games tonight! And we are just getting started!', "That's {count} games! Incredible!"],
+    join: ['A new challenger approaches! {names}!', 'Entering the arena: {names}!'],
+  },
 };
 
 // moment: { kind: 'record'|'leader'|'ranked'|'milestone'|'join', player, players, machine, score, rank, count }
@@ -142,7 +178,7 @@ export function momentText(pack, m, rand) {
     names: nameList((m.players || (m.player ? [m.player] : [])).map(x => x?.display_name ?? x)),
     machine: speakMachine(m.machine),
     score: m.score != null ? speakScore(m.score) : '',
-    ordinal, Ordinal: cap(ordinal),
+    ordinal, Ordinal: cap(ordinal), rankWords: m.rank ? numberWords(m.rank) : '',
     count: m.count != null ? numberWords(m.count) : '',
   };
   if (m.kind === 'join' && !p.names) return null;
@@ -223,6 +259,66 @@ const REVEAL = {
     empty: 'Aw, no winner for {prize} tonight!',
     finale: "Give it up for all our winners! Winners, up front for the group photo! Say cheese!",
   },
+  wedding: {
+    intro: "Alright, everybody! It's time for the awards! Twelve prizes! Let's hear it!",
+    grand: 'Your Grand Champion! Put your hands together for {name}! Rated {rating}!',
+    second: 'In second place, {name}! Give it up!',
+    third: 'And in third place, {name}!',
+    machine: 'Your {machine} champion! {name}, with {score}!',
+    grinder: 'The Grinder! {name}, with {plays} games! Never left the dance floor!',
+    whiff: 'And The Big Whiff goes to {name}! Hey, you still showed up and danced!',
+    match: 'Match {drawn}! The Match goes to {name}! Lucky, lucky!',
+    empty: 'No winner for {prize} tonight, folks!',
+    finale: 'Give it up for all our winners! Winners, up front for the group photo! Everybody say cheese!',
+  },
+  drivetime: {
+    intro: "Alright, Woodside, it's awards time! Twelve prizes, coming up!",
+    grand: 'Your Grand Champion! {name}! Rated {rating}!',
+    second: 'In second place, {name}!',
+    third: 'In third place, {name}!',
+    machine: 'Your {machine} champion! {name}, with {score}!',
+    grinder: 'The Grinder! {name}, with {plays} games!',
+    whiff: 'And The Big Whiff goes to {name}! Hey, there\'s always next year!',
+    match: 'Match {drawn}! The Match goes to {name}!',
+    empty: 'No winner for {prize} tonight!',
+    finale: "That's the show! Winners, up front for the group photo!",
+  },
+  countdown: {
+    intro: 'And now, the countdown to the awards. Twelve prizes tonight.',
+    grand: 'And at number one, your Grand Champion. {name}. Rated {rating}.',
+    second: 'Coming in at number two, {name}.',
+    third: 'At number three, {name}.',
+    machine: 'The {machine} champion: {name}, with {score}.',
+    grinder: 'The Grinder, for the most games tonight: {name}, with {plays} games.',
+    whiff: 'The Big Whiff goes to {name}. A long climb, but a great night.',
+    match: 'Match {drawn}. The Match goes to {name}.',
+    empty: 'No winner for {prize} tonight.',
+    finale: "That's our countdown. Congratulations to all our winners. Winners, up front for the group photo.",
+  },
+  aerobics: {
+    intro: "Okay, everybody! It's awards time! Twelve prizes! Let's go!",
+    grand: 'Your Grand Champion! {name}! Rated {rating}! You worked for it!',
+    second: 'Second place! {name}! Great job!',
+    third: 'Third place! {name}! Way to go!',
+    machine: 'Your {machine} champion! {name}, with {score}!',
+    grinder: 'The Grinder! {name}, with {plays} games! Now that is endurance!',
+    whiff: "And The Big Whiff goes to {name}! Hey, you showed up, and that's what counts!",
+    match: 'Match {drawn}! The Match goes to {name}!',
+    empty: 'No winner for {prize} tonight!',
+    finale: 'Great work, everybody! Winners, up front for the group photo! Big smiles!',
+  },
+  rumble: {
+    intro: 'Ladies and gentlemen! It is time! For the awards! Twelve prizes on the line!',
+    grand: 'Your undisputed Grand Champion! {name}! Rated {rating}!',
+    second: 'In second place! {name}!',
+    third: 'In third place! {name}!',
+    machine: 'Your {machine} champion! {name}! With {score}!',
+    grinder: 'The Grinder! {name}! {plays} games! An iron will!',
+    whiff: 'And The Big Whiff goes to {name}! A true warrior, never gave up!',
+    match: 'Match {drawn}! The Match goes to {name}!',
+    empty: 'No winner for {prize} tonight!',
+    finale: 'Ladies and gentlemen, your winners! Winners, up front for the group photo!',
+  },
 };
 
 const PRIZE_SPOKEN = { 'GRAND CHAMPION': 'Grand Champion', '2ND PLACE': 'second place', '3RD PLACE': 'third place', 'THE GRINDER': 'The Grinder', 'THE BIG WHIFF': 'The Big Whiff', 'THE MATCH': 'The Match' };
@@ -247,6 +343,29 @@ export function revealText(pack, s) {
   const key = label === 'GRAND CHAMPION' ? 'grand' : label === '2ND PLACE' ? 'second' : label === '3RD PLACE' ? 'third'
     : label === 'THE GRINDER' ? 'grinder' : label === 'THE BIG WHIFF' ? 'whiff' : label === 'THE MATCH' ? 'match' : s.machine ? 'machine' : null;
   return key ? cap(fill(t[key], p)) : null;
+}
+
+// ---------- pronunciation ----------
+// Names the voices get wrong, respelled for speech only (pronounce.json, plus the host's extra list).
+// extra: "Stacia=Staysha, Theo=Thee-oh" (comma, semicolon or new line between names).
+export function parsePronounce(extra) {
+  const out = {};
+  for (const part of String(extra || '').split(/[\n;,]+/)) {
+    const m = /^\s*([^=]+?)\s*=\s*(.+?)\s*$/.exec(part);
+    if (m) out[m[1]] = m[2];
+  }
+  return out;
+}
+const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export function pronounce(text, extra) {
+  const map = { ...PRONOUNCE, ...(typeof extra === 'string' ? parsePronounce(extra) : extra || {}) };
+  delete map._;
+  let s = String(text || '');
+  for (const [k, v] of Object.entries(map)) {
+    if (!k.trim() || !v) continue;
+    s = s.replace(new RegExp(`(^|[^\\p{L}\\p{N}])${esc(k.trim())}(?=$|[^\\p{L}\\p{N}])`, 'giu'), (_, pre) => pre + v);
+  }
+  return s;
 }
 
 // Text for the browser's own speech voice (last resort): no inline vocal tags.

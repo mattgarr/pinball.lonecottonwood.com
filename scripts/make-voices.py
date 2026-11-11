@@ -63,6 +63,12 @@ PACKS = {
                      'mid-Atlantic accent, very enthusiastic.'),
     'dj': dict(name='Fun-center DJ', say_voices=['Evan (Enhanced)', 'Nathan (Enhanced)', 'Alex', 'Fred'],
                rate=190, oa_voice='ash', oa_style='A corny, cheerful roller-rink DJ on the mic: big grin, stretched-out words, dad-joke energy.'),
+    # 80s / 90s party voices (Gemini only; the say/openai settings are rough stand-ins).
+    'wedding': dict(name='Wedding DJ', say_voices=['Evan (Enhanced)', 'Alex', 'Fred'], rate=185, oa_voice='ash', oa_style='A cheesy 1980s wedding DJ.'),
+    'drivetime': dict(name='Drive-time radio', say_voices=['Evan (Enhanced)', 'Alex', 'Fred'], rate=195, oa_voice='verse', oa_style='A fast 1990s radio host.'),
+    'countdown': dict(name='Countdown host', say_voices=['Daniel', 'Alex', 'Fred'], rate=170, oa_voice='ballad', oa_style='A smooth, warm top-40 countdown host.'),
+    'aerobics': dict(name='Aerobics instructor', say_voices=['Samantha', 'Fred'], rate=190, oa_voice='coral', oa_style='A peppy 1980s aerobics instructor.'),
+    'rumble': dict(name='Arena announcer', say_voices=['Ralph', 'Fred'], rate=170, oa_voice='onyx', oa_style='A booming arena announcer.'),
 }
 DEFAULT_PACK = 'british'
 

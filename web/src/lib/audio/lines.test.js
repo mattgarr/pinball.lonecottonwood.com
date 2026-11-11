@@ -38,7 +38,7 @@ describe('announcer words', () => {
 
 describe('announcer lines', () => {
   it('every pack has every countdown line, with 2+ ways to say each', () => {
-    expect(PACKS).toHaveLength(6);
+    expect(PACKS).toHaveLength(11);
     expect(CLIPS).toHaveLength(17);
     for (const p of PACKS) for (const c of CLIPS) {
       expect(clockVariants(p, c).length).toBeGreaterThanOrEqual(2);
@@ -72,5 +72,23 @@ describe('announcer lines', () => {
   });
   it('the browser fallback voice never reads tags', () => {
     expect(plainText('Wow <laugh> nice')).toBe('Wow nice');
+  });
+});
+
+describe('pronunciation', () => {
+  it('respells names for speech only, whole words, any case', async () => {
+    const { pronounce, parsePronounce } = await import('./lines.js');
+    expect(pronounce('Give it up for Stacia and Theo!')).toBe('Give it up for Staysha and Theo!');
+    expect(pronounce('STACIA wins')).toBe('Staysha wins');
+    expect(pronounce('Anastacia wins')).toBe('Anastacia wins'); // not inside other names
+    expect(pronounce('Theo wins', 'Theo=Thee-oh; Bo = Bow')).toBe('Thee-oh wins');
+    expect(parsePronounce('A=B, C = D\nE=F,junk')).toEqual({ A: 'B', C: 'D', E: 'F' });
+  });
+  it('every voice has every line', async () => {
+    const { momentText, revealText } = await import('./lines.js');
+    for (const p of PACKS) {
+      for (const kind of ['record', 'leader', 'ranked', 'milestone', 'join']) expect(momentText(p, { kind, player: { display_name: 'Ann' }, players: [{ display_name: 'Ann' }], machine: { name: 'Fathom' }, score: 3e6, rank: 4, count: 100 })).toMatch(/^[A-Z][^{}]*$/);
+      for (const label of ['GRAND CHAMPION', '2ND PLACE', '3RD PLACE', 'THE GRINDER', 'THE BIG WHIFF', 'THE MATCH']) expect(revealText(p, { label, title: 'Ann', score: '90/100', plays: 3, spin: { drawn: 10 } })).toMatch(/Ann/);
+    }
   });
 });

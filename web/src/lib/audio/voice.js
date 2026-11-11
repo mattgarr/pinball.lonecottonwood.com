@@ -13,11 +13,19 @@
 // storage (their addresses are remembered in this browser), with no call at all.
 import { audioCtx } from '../chiptune.js';
 import { SUPABASE_KEY, SUPABASE_URL, getHostPass } from '../store.js';
-import { clockText, clockVariants, plainText } from './lines.js';
+import { clockText, clockVariants, plainText, pronounce } from './lines.js';
 
 export const VOICE_BASE = '/audio/voices';
-export const PACK_IDS = ['british', 'hype', 'ship', '8bit', 'newsreel', 'dj'];
-export const PACK_NAMES = { british: 'British agent', hype: 'Arcade hype', ship: 'Ship computer', '8bit': '8-bit computer', newsreel: 'Retro newsreel', dj: 'Fun-center DJ' };
+export const PACK_IDS = ['british', 'hype', 'ship', '8bit', 'newsreel', 'dj', 'wedding', 'drivetime', 'countdown', 'aerobics', 'rumble'];
+export const PACK_NAMES = {
+  british: 'British agent', hype: 'Arcade hype', ship: 'Ship computer', '8bit': '8-bit computer', newsreel: 'Retro newsreel', dj: 'Fun-center DJ',
+  wedding: 'Wedding DJ', drivetime: 'Drive-time radio', countdown: 'Countdown host', aerobics: 'Aerobics instructor', rumble: 'Arena announcer',
+};
+// The host picker's groups.
+export const PACK_GROUPS = [['Classic', ['british', 'hype', 'ship', '8bit', 'newsreel', 'dj']], ['80s / 90s party', ['wedding', 'drivetime', 'countdown', 'aerobics', 'rumble']]];
+// Extra name respellings from the host card ("Stacia=Staysha, …"), on top of pronounce.json.
+let sayNames = '';
+export function setSayNames(v) { sayNames = String(v || ''); }
 export const DEFAULT_PACK = 'british';
 export const clipUrl = (pack, clip) => `${VOICE_BASE}/${pack}/${clip}.m4a`;
 const TTS_URL = `${SUPABASE_URL}/functions/v1/tts`;
@@ -76,7 +84,8 @@ async function post(body, ms) {
 export const canSpeak = () => !!(getHostPass() || (ls.get(TOKEN_KEY)?.exp > Date.now()));
 
 // The address of a spoken line (generated on first use). Resolves null if it can't be had.
-export function lineUrl(pack, text, { style } = {}) {
+export function lineUrl(pack, rawText, { style } = {}) {
+  const text = pronounce(rawText, sayNames); // spoken spelling (the screens keep the real one)
   const key = `${pack}|${style || ''}|${text}`;
   const k = knownLines()[key];
   if (k) return Promise.resolve({ url: k[0], ms: k[1] });

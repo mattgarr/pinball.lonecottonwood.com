@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ensureLightsTopic } from '../lib/store.js';
 import { onConnection, publish, subscribe, lightsTopic, onLightsTopic } from '../lib/lights/mqtt.js';
 import { AUDIO_DEFAULTS } from '../lib/audio/tv.js';
-import { PACK_IDS, PACK_NAMES, clipUrl, lineUrl } from '../lib/audio/voice.js';
+import { PACK_GROUPS, PACK_NAMES, clipUrl, lineUrl, setSayNames } from '../lib/audio/voice.js';
 import { clockText } from '../lib/audio/lines.js';
 import { SAY_TOPICS } from '../lib/audio/policy.js';
 import { SPOTIFY_CLIENT_ID, parseSpotifyUri } from '../lib/audio/spotify.js';
@@ -31,6 +31,8 @@ export default function AudioPanel() {
   const [now, setNow] = useState(Date.now());
   const [clientId, setClientId] = useState('');
   const [sayText, setSayText] = useState('');
+  const [names, setNames] = useState(null); // the "Say names like" field while it's being typed
+  useEffect(() => { setSayNames(settings.sayNames); }, [settings.sayNames]);
   const sendTimer = useRef(null);
   const latest = useRef(settings);
   const touched = useRef(0);
@@ -155,7 +157,11 @@ export default function AudioPanel() {
         <label htmlFor="audio-pack">Announcer voice</label>
         <div className="audio-line">
           <select id="audio-pack" value={settings.pack} onChange={e => change({ pack: e.target.value }, { now: true })}>
-            {PACK_IDS.map(id => <option key={id} value={id}>{PACK_NAMES[id]}</option>)}
+            {PACK_GROUPS.map(([group, ids]) => (
+              <optgroup key={group} label={group}>
+                {ids.map(id => <option key={id} value={id}>{PACK_NAMES[id]}</option>)}
+              </optgroup>
+            ))}
           </select>
           <button type="button" className="secondary" onClick={() => previewHere(settings.pack)}>Preview here</button>
           <button type="button" className="secondary" onClick={() => cmd('preview', { pack: settings.pack })}>Play on TV</button>
@@ -182,6 +188,12 @@ export default function AudioPanel() {
           <input type="text" maxLength={300} placeholder="Say something on the TV…" value={sayText} onChange={e => setSayText(e.target.value)} />
           <button type="submit" className="secondary" disabled={!online || !sayText.trim()}>Say it</button>
         </form>
+        <label className="audio-label" htmlFor="audio-names">Say names like… (name=how to say it, commas between)</label>
+        <div className="audio-line">
+          <input id="audio-names" type="text" spellCheck={false} placeholder="Stacia=Staysha, Theo=Thee-oh" value={names ?? settings.sayNames ?? ''}
+            onChange={e => setNames(e.target.value)} onBlur={() => { if (names != null) { change({ sayNames: names.trim() }, { now: true }); setNames(null); } }} />
+          <button type="button" className="secondary" disabled={names == null} onClick={() => { change({ sayNames: (names || '').trim() }, { now: true }); setNames(null); say('Saved: the TV says those names that way now.'); }}>Save</button>
+        </div>
         <p className="muted small">The announcer is an AI voice (Gemini). A brand-new line takes about 5 seconds the first time; the countdowns and the reveal's winners are made ahead of time, so they're instant.</p>
       </div>
 
