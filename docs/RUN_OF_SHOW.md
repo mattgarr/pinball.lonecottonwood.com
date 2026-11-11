@@ -34,7 +34,7 @@ The example times below assume **tournament 6:30 PM to 9:30 PM**. If you pick ot
     records and new #1s with names and scores, welcomes people as they join, and names each winner in the reveal.
     The four toggles under it switch each kind off; *Say something on the TV* makes it say anything you type.
     *Say names like…*: add any name it says wrong (`Name=how to say it`; Stacia is already "Stay-sha").
-    **Announce booth:** every few minutes two hosts (Roxy the aerobics instructor and Dash the play-by-play guy;
+    **Announce booth:** every few minutes two hosts (Tiffani the valley girl and Donnie the fun-center DJ;
     change them under *In the booth*) chat about the night and gently roast people. *Play one now* to hear one;
     *Skip bit* cuts one off. **Commentary** (top of *Party night* and of the Audio card) sets how much talking
     there is in one tap: Full booth / Chill booth / Announcer / Effects only.
