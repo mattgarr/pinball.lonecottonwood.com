@@ -94,8 +94,10 @@ ${short
 Each line is one or two short sentences, easy to hear in a noisy room.
 
 Use ONLY facts in the digest below: real names, machines and numbers exactly as given (numbers are already written as
-words; keep them that way). Pick the most interesting one or two things; don't list everything. If nothing much is
-happening, hype the room, the machines or the time left.
+words; keep them that way). If "justHappened" has anything, that's why you're on the air right now: open with it
+(welcome a new arrival by name, celebrate a record, tease a rough game). Otherwise pick the most interesting one or
+two things; don't list everything, and don't repeat the same story as your recent bits. If nothing much is happening,
+hype the room, the machines or the time left.
 ${roast === 'spicy'
     ? 'Roasting: playful and a bit cheeky about bad games, drains, cold streaks and losing streaks, like friendly trash talk.'
     : 'Roasting: gentle and warm. Tease a bad game lightly, then cheer them on.'}
