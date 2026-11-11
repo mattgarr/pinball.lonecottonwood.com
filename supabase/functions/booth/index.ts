@@ -336,6 +336,8 @@ async function write(key: string, digest: unknown, roast: string, avoid: string[
     try { parsed = txt ? JSON.parse(txt) : null; } catch { /* bad JSON */ }
     let lines = check(parsed, names, !!(digest as { sealed?: boolean })?.sealed, short);
     // Opens like a recent bit: one more try (the last try is kept, minus the repeated "All right").
+    // Stock openers the model leans on ("Talk about an entrance!"): one more try.
+    if (lines && attempt < 2 && lines.some(l => /^\s*(talk about|all ?right|alright)\b/i.test(l.text))) { console.error('booth stock opener'); continue; }
     if (lines && attempt < 2 && tooMuchSlang(lines, Object.values(rep).flat())) { console.error('booth slang', lines.map(l => l.text.slice(0, 30)).join(' | ')); continue; }
     if (lines && attempt < 2 && (repeatsOpener(lines, avoid) || repeatsCatchphrase(lines, avoid, Object.values(rep).flat()) || reusesPhrase(lines, avoidPhrases))) { console.error('booth repeat', lines.map(l => l.text.slice(0, 30)).join(' | ')); continue; }
     // A written laugh in about 1 bit in 4, an "All right!" opener rarely; otherwise they're taken out.
