@@ -5,6 +5,8 @@
 //   { pass, action: 'design', packs? } -> designs each pack's voice once (Gemini Voice design) and saves
 //                                         its voice id in tts_voices; returns { packs: { id: { voice, sample } } }
 //   { pass, action: 'status' }         -> { packs: { id: { voice, model, designed } } }
+//   { pass, action: 'token' }          -> { token, exp }: a 7-day announcer token, so the TV keeps its voice
+//                                         after the host unlock (2 days) runs out. Lines accept { token }.
 // Lines are saved in the public `tts` bucket under a hash of model + voice + style + text: a line said
 // twice is generated once, and the TV can fetch it straight from storage next time.
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -54,8 +56,8 @@ const PACKS: Record<string, { name: string; gender: string; lang: string; prompt
   },
   dj: {
     name: 'Woodside fun-center DJ', gender: 'male', lang: 'en-US', prebuilt: 'Puck',
-    prompt: 'A corny, over-the-top American DJ on the microphone at a roller rink or family fun center, in his forties: a big cheesy '
-      + 'grin in the voice, stretched-out "Alllll right!" energy, upbeat and goofy with dad-joke enthusiasm, warm and friendly, never mean.',
+    prompt: 'A cheerful, goofy American radio-style DJ in his forties hosting a family fun center: bright, warm, enthusiastic voice '
+      + 'with a big smile, playful and a little cheesy, stretching out words for fun.',
     style: 'cheesy, upbeat and enthusiastic, like a roller-rink DJ on the mic',
   },
 };
@@ -111,6 +113,21 @@ function wavWrap(pcm: Uint8Array, sr = 24000) {
   return out;
 }
 
+// Announcer tokens: "<expiry ms>.<hmac>", signed with the project's service key.
+const TOKEN_MS = 7 * 24 * 3600 * 1000;
+async function hmac(msg: string) {
+  const secret = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SECRET_KEYS') || '';
+  const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(`tts|${secret}`), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(msg));
+  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function tokenOk(t: unknown) {
+  if (typeof t !== 'string') return false;
+  const [exp, sig] = t.split('.');
+  if (!exp || !sig || !(Number(exp) > Date.now())) return false;
+  return (await hmac(exp)) === sig;
+}
+
 let voiceCache: { at: number; rows: Record<string, { voice: string; model: string; style: string }> } | null = null;
 async function voices(db: ReturnType<typeof serviceDb>) {
   if (voiceCache && Date.now() - voiceCache.at < 60000) return voiceCache.rows;
@@ -147,12 +164,21 @@ Deno.serve(async req => {
   try {
     const t0 = Date.now();
     const body = await req.json();
-    const { pass, action } = body;
+    const { pass, action, token } = body;
     const db = serviceDb();
-    const ok = await db.rpc('host_check', { p_pass: pass });
-    if (ok.error || ok.data !== true) return json({ error: 'Wrong host passcode.' }, 403);
+    // Lines: the host passcode or an announcer token. Everything else: the passcode.
+    const viaToken = !pass && !action && await tokenOk(token);
+    if (!viaToken) {
+      const ok = await db.rpc('host_check', { p_pass: pass });
+      if (ok.error || ok.data !== true) return json({ error: 'Wrong host passcode.' }, 403);
+    }
     const key = geminiKey();
     if (!key) return json({ error: 'AI is not set up.' }, 500);
+
+    if (action === 'token') {
+      const exp = String(Date.now() + TOKEN_MS);
+      return json({ token: `${exp}.${await hmac(exp)}`, exp: Number(exp) });
+    }
 
     if (action === 'status') {
       const rows = await voices(db);
@@ -203,7 +229,7 @@ Deno.serve(async req => {
       const len = Number(head.headers.get('content-length') || 0);
       return json({ url, ms: len ? Math.round(((len - 44) / 48000) * 1000) : null, cached: true });
     }
-    const gate = await db.rpc('tts_gate', { p_pass: pass });
+    const gate = await db.rpc('tts_count');
     if (gate.error) return json({ error: gate.error.message }, 429);
     const wav = await synth(key, model, voice, text, style);
     const up = await db.storage.from('tts').upload(name, wav, { contentType: 'audio/wav', upsert: true });

@@ -35,3 +35,16 @@ grant execute on function public.tts_gate(text) to service_role;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('tts', 'tts', true, 2000000, array['audio/wav'])
 on conflict (id) do update set public = true;
+
+-- The TV may speak with a 7-day announcer token instead of the host passcode (the host unlock expires
+-- after 2 days); the edge function checks either, then counts the line here.
+create or replace function public.tts_count()
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from public.tts_calls where at > now() - interval '1 hour') >= 1500 then
+    raise exception 'The announcer is busy. Try again in a bit.';
+  end if;
+  insert into public.tts_calls default values;
+end $$;
+revoke all on function public.tts_count() from public, anon, authenticated;
+grant execute on function public.tts_count() to service_role;
