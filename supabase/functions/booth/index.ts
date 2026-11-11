@@ -122,8 +122,10 @@ Flavor, optional and sparing: the hosts are from the 80s and 90s, so an era expr
 bit across both hosts, only if it lands naturally; most bits have none. Never modern slang ("no cap", "slay", "rizz").${flavor.length ? `
 Their sort of expressions, for reference only (not a menu): ${flavor.slice(0, 30).join(', ')}.` : ''}
 ${local.length ? `
-Local color, optional: you may use ONE of these only if it genuinely fits the moment (an absurd score, a money or status angle,
-a lull); skip it if it would feel forced. Keep its facts as given; jokes about the town and tech types, never a private person.
+Local color: everyone in this garage lives with Woodside's absurd money, and a quick self-aware joke about it gets a big laugh.
+If you can find a natural way in (a huge score, a rough one, a money or status angle, a lull), use ONE of these as a quick aside
+or a tease, in your own words; skip it only if it would really feel forced. Keep its facts as given; jokes about the town and
+tech types in general, never a private person.
 If you use one, set "woodside" to true.
 ${local.map(x => `- ${x}`).join('\n')}` : 'No local Woodside jokes this time.'}
 
