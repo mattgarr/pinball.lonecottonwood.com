@@ -5,7 +5,7 @@
 // Pure: no React, no audio (tested in booth.test.js).
 import { computeStandings, computeHighScores, MIN_TABLES } from '../scoring.js';
 import { speakName, speakScore, speakMachine, numberWords } from './lines.js';
-import { pickLocal } from './woodside.js';
+import { localLine, pickLocal } from './woodside.js';
 
 // Who's in the booth: any two of the announcer voices, each a character (keep the names in sync with
 // the booth edge function, which also has each one's personality for the script).
@@ -274,9 +274,10 @@ export class BoothRunner {
     if (this.inflight) return this.inflight;
     const t = this.now();
     const digest = { ...room.digest(), ...(this.events.length ? { justHappened: this.events.map(e => e.text) } : {}) };
-    // Each bit: two bits of Woodside / Silicon Valley color (never repeated tonight), and in about one bit in three
-    // the hosts tease each other too.
-    const extras = { local: pickLocal(this.usedLocal, 2, this.rand).map(x => x.text), rivalry: this.rand() < 1 / 3 };
+    // Each bit: two items of Woodside / Silicon Valley color (never repeated tonight), and every other bit the
+    // hosts roast each other too.
+    this.rivalry = !this.rivalry;
+    const extras = { local: pickLocal(this.usedLocal, 2, this.rand).map(localLine), rivalry: this.rivalry };
     this.onUsedLocal(this.usedLocal);
     this.inflight = Promise.resolve(this.fetchBit(digest, this.settings(), this.log.slice(-4).flatMap(l => l.lines.map(x => x.text)), extras))
       .then(b => {
