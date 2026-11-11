@@ -25,8 +25,8 @@ export const AUDIO_DEFAULTS = {
   autoplay: true, shuffle: true, sayNames: '',
   // The announce booth (DONNIE + DASH): on/off, how often ('less' | 'normal' | 'more'), roast ('gentle' | 'spicy').
   boothOn: true, boothFreq: 'normal', boothRoast: 'gentle', boothShort: false, boothExtras: true,
-  // The booth's two hosts (any two announcer voices). Matt's favourite: Roxy (aerobics) + Dash (arcade hype).
-  boothA: 'aerobics', boothB: 'hype',
+  // The booth's two hosts (any two announcer voices). Matt's pick: Tiffani (valley girl) + Donnie (fun-center DJ).
+  boothA: 'valley', boothB: 'dj',
 };
 
 const readSettings = () => { try { return { ...AUDIO_DEFAULTS, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null') || {}) }; } catch { return { ...AUDIO_DEFAULTS }; } };

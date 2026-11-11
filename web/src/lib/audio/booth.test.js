@@ -155,12 +155,12 @@ describe('booth scheduler', () => {
 });
 
 describe('booth duo and chill', () => {
-  it('any two voices, never the same twice; default Roxy + Dash', async () => {
+  it('any two voices, never the same twice; default Tiffani + Donnie', async () => {
     const { boothDuo, BOOTH_PERSONAS } = await import('./booth.js');
-    expect(boothDuo({})).toEqual(['aerobics', 'hype']);
+    expect(boothDuo({})).toEqual(['valley', 'dj']);
     expect(boothDuo({ boothA: 'valley', boothB: 'hype' })).toEqual(['valley', 'hype']);
-    expect(boothDuo({ boothA: 'hype', boothB: 'hype' })).toEqual(['hype', 'aerobics']);
-    expect(boothDuo({ boothA: 'nope', boothB: 'rink' })).toEqual(['aerobics', 'rink']);
+    expect(boothDuo({ boothA: 'dj', boothB: 'dj' })).toEqual(['dj', 'valley']);
+    expect(boothDuo({ boothA: 'nope', boothB: 'rink' })).toEqual(['valley', 'rink']);
     expect(Object.keys(BOOTH_PERSONAS)).toHaveLength(14);
     expect(new Set(Object.values(BOOTH_PERSONAS).map(p => p.name)).size).toBe(14);
   });

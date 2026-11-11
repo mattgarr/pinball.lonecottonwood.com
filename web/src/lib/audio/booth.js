@@ -24,7 +24,7 @@ export const BOOTH_PERSONAS = {
   vj: { name: 'Kat', blurb: '90s music-TV VJ: cool, quick, rock-and-roll energy' },
   rink: { name: 'Starla', blurb: '80s roller-rink DJ: disco-ball glow, couples-skate cheese, warm and smooth' },
 };
-export const DEFAULT_DUO = ['aerobics', 'hype'];
+export const DEFAULT_DUO = ['valley', 'dj']; // Tiffani + Donnie (Matt's pick)
 // The two booth voices from the settings: two different known voices, else the default duo.
 export function boothDuo(s = {}) {
   let a = BOOTH_PERSONAS[s.boothA] ? s.boothA : DEFAULT_DUO[0];

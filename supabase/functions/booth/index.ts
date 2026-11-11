@@ -1,10 +1,10 @@
 // booth: the two-host announce booth. The TV sends a short digest of what's happening tonight; Gemini
 // writes a 2-5 line exchange between two hosts (any two announcer voices, each a character; default
-// ROXY the aerobics instructor + DASH the arcade play-by-play), every line is checked (family party: no bad words, no teasing
+// TIFFANI the valley girl + DONNIE the fun-center DJ), every line is checked (family party: no bad words, no teasing
 // people about anything but their pinball), voiced with the two designed voices and stitched into one
 // WAV in the public `tts` bucket. Deploy with "Verify JWT" OFF. Secret: GEMINI_API_KEY.
-//   { pass | token, digest, hosts?: ['aerobics', 'hype'], short?, roast?: 'gentle'|'spicy', names?: "Stacia=Stay-sha, …", avoid?: [lines] }
-//     -> { url, ms, lines: [{ host, text }], hosts: ['ROXY', 'DASH'], how, took }
+//   { pass | token, digest, hosts?: ['valley', 'dj'], short?, roast?: 'gentle'|'spicy', names?: "Stacia=Stay-sha, …", avoid?: [lines] }
+//     -> { url, ms, lines: [{ host, text }], hosts: ['TIFFANI', 'DONNIE'], how, took }
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const TEXT_MODEL = 'gemini-3.8-flash';
@@ -36,7 +36,7 @@ const PERSONAS: Record<string, { name: string; prebuilt: string; who: string; st
   vj: { name: 'KAT', prebuilt: 'Aoede', who: 'a cool 90s music-TV VJ: quick, confident, rock-and-roll energy, introduces every game like a world-premiere video', style: 'cool, quick and confident, chatting with her co-host' },
   rink: { name: 'STARLA', prebuilt: 'Sulafat', who: 'an 80s roller-rink DJ: disco-ball glow, couples-skate cheese, "clear the floor!", warm and smooth', style: 'warm, smooth and glittery, chatting with her co-host' },
 };
-const DUO = ['aerobics', 'hype'];
+const DUO = ['valley', 'dj']; // Tiffani + Donnie
 function duoOf(hosts: unknown) {
   const h = Array.isArray(hosts) ? hosts.filter(x => PERSONAS[x as string]) as string[] : [];
   const a = h[0] || DUO[0];

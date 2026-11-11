@@ -3,9 +3,9 @@ import { LEVEL_IDS, applyLevel, levelOf, quieter } from './commentary.js';
 import { AUDIO_DEFAULTS } from './tv.js';
 
 describe('commentary level', () => {
-  it('the defaults are Full booth with the Aerobics + Arcade hype duo', () => {
+  it('the defaults are Full booth with the Valley girl + Fun-center DJ duo', () => {
     expect(levelOf(AUDIO_DEFAULTS)).toBe('full');
-    expect([AUDIO_DEFAULTS.boothA, AUDIO_DEFAULTS.boothB]).toEqual(['aerobics', 'hype']);
+    expect([AUDIO_DEFAULTS.boothA, AUDIO_DEFAULTS.boothB]).toEqual(['valley', 'dj']);
   });
   it('each level sets the fine-grained settings, and reads back as itself', () => {
     let s = { ...AUDIO_DEFAULTS };
