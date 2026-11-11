@@ -278,6 +278,7 @@ export function nearMark(party, now = Date.now()) {
   return marks.some(t => now > t - BOOTH.markBefore && now < t + BOOTH.markAfter);
 }
 const JUICY = new Set(['record', 'leader', 'ranked', 'shame', 'climb']);
+const STANDINGS_NEWS = new Set(['leader', 'ranked', 'climb', 'shame']);
 
 // The scheduler. deps:
 //   now()                      clock
@@ -298,7 +299,7 @@ export class BoothRunner {
   // next bit forward (once per few minutes) and makes it fresh.
   event(m) {
     const t = this.now();
-    if (m?.text) this.events = [...this.events.filter(e => t - e.t < 10 * MIN), { t, text: m.text }].slice(-5);
+    if (m?.text) this.events = [...this.events.filter(e => t - e.t < 10 * MIN), { t, text: m.text, kind: m.kind }].slice(-5);
     const s = this.settings();
     if (!JUICY.has(m?.kind) || !s.boothOn || s.boothExtras === false) return;
     if (t - this.lastExtra < BOOTH.extraEvery) return;
@@ -311,7 +312,9 @@ export class BoothRunner {
   async fetch(room) {
     if (this.inflight) return this.inflight;
     const t = this.now();
-    const digest = { ...room.digest(), ...(this.events.length ? { justHappened: this.events.map(e => e.text) } : {}) };
+    // While sealed, news from before the seal about the standings ("X took over first place") stays out.
+    const news = this.events.filter(e => !room.sealed || !STANDINGS_NEWS.has(e.kind));
+    const digest = { ...room.digest(), ...(news.length ? { justHappened: news.map(e => e.text) } : {}) };
     // Woodside / Silicon Valley color is optional and spread out: offered for about half the bits, never right
     // after a bit that used it (the booth uses it only when it fits, so roughly one bit in three or four).
     const recent3 = this.log.slice(-3).flatMap(l => l.lines.map(x => x.text));
@@ -335,7 +338,7 @@ export class BoothRunner {
   }
   tick() {
     const t = this.now(), s = this.settings(), room = this.room();
-    if ((!s.boothOn && !this.force) || !room.mode) { this.nextAt = null; this.bit = null; this.mode = room.mode; return 'off'; }
+    if ((!s.boothOn && !this.force) || !room.mode) { this.nextAt = null; this.bit = null; this.mode = room.mode; if (!room.mode) this.force = false; return 'off'; }
     if (room.mode !== this.mode) { this.mode = room.mode; this.nextAt = null; this.bit = null; } // a new phase: start over
     if (this.nextAt == null) this.nextAt = t + Math.round(this.gap(room.mode) * BOOTH.firstAfter);
     if (this.force) this.nextAt = Math.min(this.nextAt, t);
@@ -387,12 +390,12 @@ export function quipFor(s, { machines = [], players = [], scores = [], sealed = 
 
 // When a one-liner may play: at most one per 90 s, not when scores are pouring in, only when the room is quiet,
 // and never if it would be stale (made more than 20 s after the score landed).
-export const QUIP = { minGap: 90000, busyWindow: 60000, busyCount: 4, stale: 20000, quietFor: 8000 };
+export const QUIP = { minGap: 90000, chillGap: 180000, busyWindow: 60000, busyCount: 4, stale: 20000, quietFor: 8000 };
 export class QuipThrottle {
   constructor({ now = () => Date.now() } = {}) { this.now = now; this.arrivals = []; this.last = -Infinity; }
   note(n = 1) { const t = this.now(); for (let i = 0; i < n; i++) this.arrivals.push(t); this.arrivals = this.arrivals.filter(x => t - x < QUIP.busyWindow); }
   busy() { const t = this.now(); return this.arrivals.filter(x => t - x < QUIP.busyWindow).length >= QUIP.busyCount; }
-  allow({ quiet = true, nearMark = false } = {}) { return this.now() - this.last >= QUIP.minGap && !this.busy() && quiet && !nearMark; }
+  allow({ quiet = true, nearMark = false, minGap = QUIP.minGap } = {}) { return this.now() - this.last >= minGap && !this.busy() && quiet && !nearMark; }
   played() { this.last = this.now(); }
 }
 // Which host says it: either one can say any line; whoever has had fewer one-liners tonight (a coin flip on a tie),

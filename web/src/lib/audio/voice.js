@@ -176,12 +176,13 @@ function chain(pack) {
   chains.set(pack, input);
   return input;
 }
-function playBuffer(pack, buf) {
+function playBuffer(pack, buf, item = null) {
   const ctx = audioCtx(), into = chain(pack);
   if (!ctx || !into || !buf || ctx.state !== 'running') return 0;
   const src = ctx.createBufferSource();
   src.buffer = buf;
   src.connect(into);
+  src.prio = item?.prio ?? PRIO.live;
   playing.add(src);
   const done = new Promise(res => { src.onended = () => { playing.delete(src); res(); }; });
   src.start();
@@ -189,10 +190,17 @@ function playBuffer(pack, buf) {
 }
 
 // ---------- the queue: one line at a time ----------
+// Priorities: a countdown / phase line cuts off chatter (a booth bit, a one-liner, a welcome or a record line
+// that is playing or waiting), and the reveal's lines cut off everything else. Nothing ever plays on top of
+// anything else.
+export const PRIO = { chat: 0, live: 1, clock: 2, reveal: 3 };
 const queue = [];
 let busy = false;
 let stopGen = 0;
 let lastEnd = 0; // when the last line finished
+let listener = null; // instrumentation (tv.js audit log): { ev: 'start' | 'end' | 'skip' | 'cut', tag, pack, ms, text }
+export function setVoiceListener(fn) { listener = fn; }
+const tell = (ev, item, extra = {}) => { try { listener?.({ ev, tag: item?.tag || 'line', pack: item?.pack, prio: item?.prio, text: typeof item?.text === 'string' ? item.text : item?.text?.lines?.map?.(l => l.text).join(' / ') || '', ...extra }); } catch { /* ignore */ } };
 // Is the announcer talking (or about to)? And for how long has it been quiet?
 export const voiceBusy = () => busy || queue.length > 0;
 export const voiceQuietFor = () => (voiceBusy() ? 0 : Date.now() - lastEnd);
@@ -202,46 +210,63 @@ async function pump() {
   try {
     while (queue.length) {
       const item = queue.shift();
+      curItem = item;
       const gen = stopGen;
-      if (Date.now() - item.at > item.maxWait) { item.resolve(0); continue; }
+      if (Date.now() - item.at > item.maxWait) { tell('skip', item, { why: 'late' }); item.resolve(0); continue; }
       const buf = await item.ready;
-      if (gen !== stopGen) { item.resolve(0); continue; }
-      const p = buf ? playBuffer(item.pack, buf) : 0;
+      if (gen !== stopGen || item.cut) { tell('skip', item, { why: 'cut' }); item.resolve(0); continue; }
+      if (Date.now() - item.at > item.maxWait) { tell('skip', item, { why: 'late' }); item.resolve(0); continue; }
+      const p = buf ? playBuffer(item.pack, buf, item) : 0;
       if (!p) {
         if (item.speech) speech(item.pack, item.speech);
+        tell(item.speech ? 'start' : 'skip', item, item.speech ? { ms: 2500, browser: true } : { why: 'not ready' });
         item.resolve(item.speech ? 2500 : 0);
         continue;
       }
+      tell('start', item, { ms: p.ms });
       item.resolve(p.ms);
       await p.done;
       lastEnd = Date.now();
+      tell('end', item);
       await new Promise(r => setTimeout(r, 250)); // a breath between lines
     }
-  } finally { busy = false; }
+  } finally { busy = false; curItem = null; }
 }
+let curItem = null; // the line being got ready / played
 const timeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
+
+// Stop every line (playing or waiting) below priority `below` (PRIO).
+export function cutVoices(below) {
+  if (curItem && (curItem.prio ?? PRIO.live) < below) curItem.cut = true;
+  for (let i = queue.length - 1; i >= 0; i--) {
+    if ((queue[i].prio ?? PRIO.live) < below) { const [q] = queue.splice(i, 1); q.cut = true; tell('cut', q); q.resolve(0); }
+  }
+  for (const s of [...playing]) if ((s.prio ?? PRIO.live) < below) { try { s.stop(); } catch { /* ended */ } tell('cut', { tag: 'playing', prio: s.prio }); }
+}
 
 // Speak `text` (queued behind anything playing). Resolves when it starts, with its length in ms
 // (0: skipped). fallbackClip: a pre-rendered clip to use if the line isn't ready within `wait` ms.
-// text can also be a ready-made clip { url } (the announce booth).
-export function say(pack, text, { fallbackClip = null, wait = 9000, maxWait = 25000, style } = {}) {
+// text can also be a ready-made clip { url } (the announce booth). prio: PRIO (a higher one cuts off lower
+// ones first); tag: what it is, for the audit log.
+export function say(pack, text, { fallbackClip = null, wait = 9000, maxWait = 25000, style, prio = PRIO.live, tag = 'line' } = {}) {
   if (!text) return Promise.resolve(0);
+  if (prio >= PRIO.clock) cutVoices(prio);
   return new Promise(resolve => {
     const ready = typeof text === 'object' ? timeout(decode(text.url), 8000) : (async () => {
       const line = await timeout(lineUrl(pack, text, { style }), wait);
-      const buf = line ? await timeout(decode(line.url), 4000) : null;
+      const buf = line ? await timeout(decode(line.url), fallbackClip ? 2500 : 4000) : null;
       if (buf) return buf;
       if (fallbackClip) return timeout(decode(clipUrl(pack, fallbackClip)), 3000);
       return null;
     })();
-    queue.push({ pack, text, ready, resolve, at: Date.now(), maxWait, speech: fallbackClip && typeof text === 'string' ? text : null });
+    queue.push({ pack, text, ready, resolve, at: Date.now(), maxWait, prio, tag, speech: fallbackClip && typeof text === 'string' ? text : null });
     pump();
   });
 }
 
 // A countdown / phase line: one of its variants, or the pre-rendered clip if the voice is slow.
 export function sayClip(pack, clip) {
-  return say(pack, clockText(pack, clip), { fallbackClip: clip, wait: 4000, maxWait: 15000 });
+  return say(pack, clockText(pack, clip), { fallbackClip: clip, wait: 4000, maxWait: 15000, prio: PRIO.clock, tag: `clock:${clip}` });
 }
 
 // Get lines ready before they're needed (a few at a time).
@@ -294,7 +319,8 @@ function speech(pack, text) {
 
 export function stopVoice() {
   stopGen++;
-  for (const q of queue.splice(0)) q.resolve(0);
+  for (const q of queue.splice(0)) { tell('cut', q); q.resolve(0); }
+  if (playing.size) tell('cut', { tag: 'playing' });
   for (const s of playing) { try { s.stop(); } catch { /* ended */ } }
   playing = new Set();
   try { window.speechSynthesis?.cancel(); } catch { /* none */ }

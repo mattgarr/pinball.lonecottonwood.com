@@ -80,3 +80,8 @@
 .booth-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; min-width: 0; }
 .booth-duo select { min-width: 0; width: 100%; }
 @media (max-width: 520px) { .booth-duo { grid-template-columns: 1fr; } }
+
+/* Sync test: a full-screen white flash at the instant its beep should be heard in the garage. */
+.tva-flash { position: fixed; inset: 0; z-index: 10000; background: #fff; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.tva-flash span { font-family: var(--px, monospace); font-size: var(--t24); color: #000; }
+.audio-delay-now { margin: 4px 0 8px; }

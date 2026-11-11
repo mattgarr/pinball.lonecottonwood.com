@@ -10,6 +10,7 @@
 //                              promise of it (resolved when the line starts: AI lines take a moment)
 //   out.say(text)              speak any line (a record, a welcome, a reveal winner); same return
 //   out.stopSounds()           cut every effect and voice now (emergency stop)
+//   out.hush(why)              cut the voices that must not talk now ('final': the last 10 s; 'reveal')
 //   out.levels({ fx, voice })  effect / voice volumes (0..1)
 //
 // The cue policy (kept in sync with HANDOFF.md "Audio"):
@@ -119,7 +120,8 @@ export class AudioDirector {
     this.resumeAfterReveal = false;
     this.final = false;
     this.beeped = false;
-    this.timers = { clock: [], reveal: [], final: [] };
+    this.beepAt = -Infinity;
+    this.timers = { clock: [], reveal: [], rvfx: [], final: [] };
     this.level = null; // last music level sent
     this.log = [];
   }
@@ -237,12 +239,14 @@ export class AudioDirector {
   // Speak a line now (or after `lead` ms) with the music dipped under it. reveal: true speaks during the
   // reveal (music is already off there) and not otherwise; normal lines stay quiet during the reveal and
   // the final 10 seconds.
-  speak(text, { lead = 0, reveal = false, group = 'speak' } = {}) {
+  speak(text, { lead = 0, reveal = false, group = 'speak', tag } = {}) {
     if (!text || this.s.muteAll || !this.s.voiceOn) return false;
     if (reveal ? !this.reveal : (this.reveal || this.final)) return false;
     if (!reveal) this.hold('voice', LEVELS.voice, lead + TIMING.voiceWait);
     this.later(reveal ? 'reveal' : group, lead, () => {
-      const r = this.out.say?.(text);
+      // The room may have changed during the lead (the final countdown began, the reveal started).
+      if (this.s.muteAll || !this.s.voiceOn || (reveal ? !this.reveal : (this.reveal || this.final))) { if (!reveal) this.unhold('voice'); return; }
+      const r = this.out.say?.(text, { tag: tag || (reveal ? 'reveal' : group), reveal });
       if (!reveal) this.voiceHold(r);
     });
     return true;
@@ -258,8 +262,9 @@ export class AudioDirector {
     if (d.what === 'start') return this.announce(clip, { lead: TIMING.fanfareLead, pre: 'fanfare' });
     if (d.what === 'end') {
       // The BEEEP plays once: from the countdown (after "1") or here if the countdown was missed.
-      const lead = this.beeped ? 0 : TIMING.beepLen;
+      // The voice waits for the BEEEP to finish (it may still be sounding if it played just now).
       if (!this.beeped) this.endBeep();
+      const lead = Math.max(0, this.beepAt + TIMING.beepLen - this.now());
       this.clear('final');
       this.final = false;
       this.unhold('final', 0);
@@ -271,7 +276,7 @@ export class AudioDirector {
   // The final 10-second countdown: n = 10 … 1.
   tick(n) {
     if (this.s.muteAll || this.reveal || !(n >= 1 && n <= 10)) return;
-    if (!this.final) { this.final = true; this.beeped = false; }
+    if (!this.final) { this.final = true; this.beeped = false; this.out.hush?.('final'); }
     this.hold('final', LEVELS.final, TIMING.finalSafety);
     this.out.sound?.('boop', { n });
     this.clear('final');
@@ -282,6 +287,7 @@ export class AudioDirector {
   endBeep() {
     if (this.beeped) return;
     this.beeped = true;
+    this.beepAt = this.now();
     this.out.sound?.('endBeep');
   }
 
@@ -289,6 +295,7 @@ export class AudioDirector {
   revealStart() {
     if (this.reveal) return;
     this.reveal = true;
+    this.out.hush?.('reveal'); // nothing from before the reveal keeps talking
     this.clear('clock');
     this.clear('final');
     this.final = false;
@@ -303,6 +310,7 @@ export class AudioDirector {
     if (!this.reveal) return;
     this.reveal = false;
     this.clear('reveal');
+    this.clear('rvfx');
     this.holds.delete('reveal');
     if (this.resumeAfterReveal && !this.s.muteAll) {
       this.out.music?.(0, 0);
@@ -322,10 +330,10 @@ export class AudioDirector {
   revealSlide(tl) {
     if (!tl) return;
     this.revealStart();
-    this.clear('reveal');
+    this.clear('rvfx');
     if (this.s.muteAll) return;
-    for (const e of tl.events || []) this.later('reveal', e.at, () => this.out.sound?.(e.s, e));
-    if (tl.show != null) this.later('reveal', tl.show, () => this.out.sound?.(stingFor(tl)));
+    for (const e of tl.events || []) this.later('rvfx', e.at, () => this.out.sound?.(e.s, e));
+    if (tl.show != null) this.later('rvfx', tl.show, () => this.out.sound?.(stingFor(tl)));
   }
 
   // ---------- timers ----------

@@ -137,6 +137,8 @@ describe('tournament clock', () => {
     d.clock({ what: 'end', side: 'end', minutes: 0 }); // the end card a moment later
     expect(sounds().filter(s => s === 'endBeep')).toHaveLength(1); // only one BEEEP
     vi.advanceTimersByTime(10);
+    expect(last('voice')).toBeUndefined(); // not over the BEEEP
+    vi.advanceTimersByTime(TIMING.beepLen);
     expect(last('voice')[1]).toBe('timesup');
     vi.advanceTimersByTime(2000 + TIMING.voiceTail + 10);
     expect(last('music')[1]).toBe(1);

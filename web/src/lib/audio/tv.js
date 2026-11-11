@@ -8,9 +8,11 @@
 // board's sound effects (chiptune gate), host commands over MQTT (<channel>/audio/cmd) and the
 // host's settings (<channel>/audio/settings, retained; cached here so a reload keeps them).
 // It reports to the host card on <channel>/audio/state (retained) and <channel>/audio/lists.
-import { AudioDirector, DEFAULT_SETTINGS, TIMING, revealEventCue } from './policy.js';
+import { AudioDirector, DEFAULT_SETTINGS, TIMING } from './policy.js';
 import { playSound, stopSounds } from './synth.js';
-import { BOOTH_URL, DEFAULT_PACK, auth, loadManifest, post, preloadPack, prewarm, say, sayClip, setSayNames, setVoiceVolume, stopVoice, voiceBusy, voiceQuietFor } from './voice.js';
+import { BOOTH_URL, DEFAULT_PACK, PRIO, auth, cutVoices, loadManifest, post, preloadPack, prewarm, say, sayClip, setSayNames, setVoiceListener, setVoiceVolume, stopVoice, voiceBusy, voiceQuietFor } from './voice.js';
+import { DEFAULT_DELAY, browserLatency, effectiveDelay, measureWithMic } from './sync.js';
+import { serverNow } from '../clock.js';
 import { BOOTH, BoothRunner, QUIP, QuipThrottle, boothDuo, boothMode, boothSource, buildDigest, momentFact, nearMark, quipFor, quipHost, safeQuip } from './booth.js';
 import { clockText, momentText, revealText } from './lines.js';
 import * as sp from './spotify.js';
@@ -27,6 +29,10 @@ export const AUDIO_DEFAULTS = {
   boothOn: true, boothFreq: 'normal', boothRoast: 'gentle', boothShort: false, boothExtras: true,
   // The booth's two hosts (any two announcer voices). Matt's pick: Tiffani (valley girl) + Donnie (fun-center DJ).
   boothA: 'valley', boothB: 'dj',
+  // Audio delay (s): time-critical sounds play this much EARLIER than the screen (AirPlay to the WiiM buffers
+  // ~2 s). 'auto' uses what the Mac reports when it's plausible, else audioDelay; 'manual' (or a mic sync,
+  // delaySource 'mic') uses audioDelay.
+  audioDelay: DEFAULT_DELAY, delayMode: 'auto', delaySource: '',
 };
 
 const readSettings = () => { try { return { ...AUDIO_DEFAULTS, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null') || {}) }; } catch { return { ...AUDIO_DEFAULTS }; } };
@@ -36,6 +42,20 @@ let rt = null;      // the running host
 let refs = 0;
 let stopTimer = null;
 const listeners = new Set();
+
+// How far ahead of the picture the reveal's sounds run (ms); 0 when the TV isn't playing sound.
+export const audioLeadMs = () => rt?.leadMs?.() || 0;
+
+// The audit log (debugging + rehearsals): every effect, voice line, music level and clock / reveal moment,
+// newest last. window.__pwAudioLog on the TV.
+const AUDIT_MAX = 5000; // about a whole night
+const audit = [];
+export const auditLog = () => audit;
+function note(kind, data = {}) {
+  audit.push({ t: Date.now(), kind, ...data });
+  if (audit.length > AUDIT_MAX) audit.splice(0, audit.length - AUDIT_MAX);
+}
+try { window.__pwAudioLog = audit; } catch { /* no window */ }
 
 export function onAudioState(fn) { listeners.add(fn); if (rt) fn(rt.state); return () => listeners.delete(fn); }
 export const audioState = () => rt?.state || null;
@@ -65,6 +85,11 @@ function createHost() {
   const soundPref = () => { try { return localStorage.getItem('pw.tvsound'); } catch { return null; } };
   let destroyed = false;
   const offs = [];
+  // Audio delay state (see "audio delay" below).
+  let browserLat = null; // what the Mac reports for the output (s), or null
+  const delay = () => effectiveDelay(settings, browserLat);
+  let finalSched = false; // the final seconds are scheduled from the end time (not the screen's ticks)
+  let syncing = false;    // a mic sync is listening
   const state = {
     page: 'tv', at: Date.now(), unlocked: false, sound: sound.wanted(),
     spotify: { login: sp.hasLogin(), ready: false, playing: false, track: '', artist: '', context: '', device: '', error: '' },
@@ -80,6 +105,7 @@ function createHost() {
     state.reveal = director.reveal;
     state.final = director.final;
     state.settings = settings;
+    state.delay = delay();
     state.spotify.login = sp.hasLogin();
     // The banner: the browser still blocks sound (unless the effects were switched off on purpose),
     // or Spotify's player couldn't start by itself.
@@ -170,14 +196,22 @@ function createHost() {
   const director = new AudioDirector({
     settings,
     out: {
-      music: (v, ms) => { music.setLevel(v, ms); emit(); },
+      music: (v, ms) => { note('music', { v, ms }); music.setLevel(v, ms); emit(); },
       pauseMusic: () => { if (music.isPlaying()) { const was = wantPlaying; music.pause(); wantPlaying = was; } },
       resumeMusic: () => { if (wantPlaying || settings.autoplay) music.resume(); },
       isPlaying: () => music.isPlaying() || wantPlaying,
-      sound: (name, opts) => playSound(name, opts),
+      sound: (name, opts) => { note('sfx', { name, n: opts?.n }); return playSound(name, opts); },
       voice: clip => (settings.voiceOn && settings.sayClock !== false ? sayClip(voicePack(), clip) : 0),
       // A booth bit ({ url }) plays with the neutral chain; { pack, text } in that voice; plain text in the announcer's voice.
-      say: item => (settings.voiceOn ? (item?.url ? say('booth', item) : item?.text ? say(item.pack, item.text) : say(voicePack(), item)) : 0),
+      // tag: booth / quip (chatter: a countdown line cuts it off), moment / welcome / say, reveal.
+      say: (item, { tag = 'line', reveal = false } = {}) => {
+        if (!settings.voiceOn) return 0;
+        const prio = reveal ? PRIO.reveal : ['booth', 'quip'].includes(tag) ? PRIO.chat : PRIO.live;
+        const o = { prio, tag };
+        return item?.url ? say('booth', item, o) : item?.text ? say(item.pack, item.text, o) : say(voicePack(), item, o);
+      },
+      // The last 10 seconds and the reveal: nothing from before keeps talking (or waits to).
+      hush: why => { note('hush', { why }); cutVoices(PRIO.reveal); if (boothPlaying) { boothPlaying = null; setTimeout(emitBooth, 0); } },
       stopSounds: () => { stopSounds(); stopVoice(); },
       levels: ({ fx, voice }) => {
         const c = audioCtx(), b = fxBus();
@@ -187,6 +221,7 @@ function createHost() {
     },
   });
   const origSetSettings = director.setSettings.bind(director);
+  setVoiceListener(e => note('voice', e));
   setGate(name => director.gate(name));
 
   let boothPlaying = null; // the booth bit on air (the level control can cut it off)
@@ -256,11 +291,18 @@ function createHost() {
   offs.push(() => document.removeEventListener('visibilitychange', onVis));
 
   // ---------- the TV's moments ----------
-  const onClock = e => { director.clock(e.detail); emit(); };
+  const onClock = e => {
+    note('clock', { ...e.detail });
+    if (e.detail?.what === 'tick' && finalSched) return; // the final seconds are scheduled ahead (Audio delay)
+    director.clock(e.detail); emit();
+  };
   let lastRevealStep = null;
   const onReveal = e => {
-    const cue = revealEventCue(e.detail);
-    if (cue) director.revealCue(cue); else director.revealStart();
+    const d = e.detail || {};
+    note('reveal', { what: d.what, step: d.step, label: d.label, n: d.n, back: d.back, initial: d.initial, lead: d.lead, sounds: d.timeline?.length });
+    // The slide's sounds come as one plan, scheduled from its timeline (ahead of the picture by the Audio delay).
+    if (d.what === 'plan') { director.revealSlide({ events: d.timeline || [] }); emit(); return; }
+    director.revealStart();
     // A new prize on screen: whatever the announcer was still saying about the last one stops.
     if (e.detail?.step != null && e.detail.step !== lastRevealStep) { if (lastRevealStep != null) stopVoice(); lastRevealStep = e.detail.step; }
     onRevealSay(e.detail);
@@ -277,19 +319,21 @@ function createHost() {
   // milestone, people joining. While results are sealed (last 15 min until the reveal) nothing about
   // the standings is said.
   let joins = [], joinTimer = null, lastWelcome = 0, lastMoment = 0;
-  const WELCOME_GAP = 20000, JOIN_GATHER = 3000;
+  // At most one welcome per 45 s (names gathered: "Ann, Bob and two more"), so a busy door doesn't mean nonstop talk.
+  const WELCOME_GAP = 45000, JOIN_GATHER = 3000;
   const flushJoins = () => {
     joinTimer = null;
     const ps = joins; joins = [];
     if (!ps.length || settings.sayJoins === false) return;
     lastWelcome = Date.now();
     const l = line(p => momentText(p, { kind: 'join', players: ps }));
-    if (l) director.speak(l, { lead: 600 });
+    if (l) director.speak(l, { lead: 600, tag: 'welcome' });
   };
   const onMoment = e => {
     const m = e.detail;
     lastMoment = Date.now();
     if (m?.kind) booth.event({ kind: m.kind, text: m.sealed && ['leader', 'ranked', 'climb', 'shame'].includes(m.kind) ? null : momentFact(m) });
+    note('moment', { k: m?.kind, sealed: !!m?.sealed });
     if (!m?.kind || settings.muteAll || !settings.voiceOn) return;
     if (m.kind === 'join') {
       if (settings.sayJoins === false || !m.player) return;
@@ -302,7 +346,7 @@ function createHost() {
     if (!['record', 'leader', 'ranked', 'milestone'].includes(m.kind)) return;
     // After the board's own sting (about a second and a half in).
     const l = line(p => momentText(p, m));
-    if (l) director.speak(l, { lead: 1500 });
+    if (l) director.speak(l, { lead: 1500, tag: 'moment' });
   };
   window.addEventListener('pw:moment', onMoment);
   offs.push(() => { window.removeEventListener('pw:moment', onMoment); clearTimeout(joinTimer); });
@@ -332,7 +376,8 @@ function createHost() {
     }
     // After the sting has had its moment.
     const lead = d.what === 'intro' ? 1600 : d.what === 'finale' ? 2400 : String(d.slide.label).toUpperCase() === 'GRAND CHAMPION' ? 1800 : 1200;
-    director.speak({ pack: p, text }, { reveal: true, lead });
+    // The line is heard Audio-delay later than it's played: start it that much sooner (after the sting).
+    director.speak({ pack: p, text }, { reveal: true, lead: Math.max(0, lead - leadMs()), tag: 'reveal' });
   };
   window.addEventListener('pw:revealLines', onRevealLines);
   offs.push(() => window.removeEventListener('pw:revealLines', onRevealLines));
@@ -363,7 +408,7 @@ function createHost() {
     // Tonight's used local-color items survive a TV reload (forgotten the next day).
     usedLocal: (() => { try { const v = JSON.parse(localStorage.getItem('pw.boothLocal') || 'null'); return new Set(v?.day === new Date().toDateString() ? v.ids : []); } catch { return new Set(); } })(),
     onUsedLocal: set => { try { localStorage.setItem('pw.boothLocal', JSON.stringify({ day: new Date().toDateString(), ids: [...set] })); } catch { /* ignore */ } },
-    play: bit => { const ok = director.speak({ url: bit.url, ms: bit.ms }); if (ok) { boothPlaying = bit; setTimeout(() => { if (boothPlaying === bit) { boothPlaying = null; emitBooth(); } }, (bit.ms || 15000) + 1500); emitBooth(); } return ok; },
+    play: bit => { if (syncing) return false; const ok = director.speak({ url: bit.url, ms: bit.ms }, { tag: 'booth' }); if (ok) { boothPlaying = bit; setTimeout(() => { if (boothPlaying === bit) { boothPlaying = null; emitBooth(); } }, (bit.ms || 15000) + 1500); emitBooth(); } return ok; },
   });
   try { window.__pwBooth = booth; } catch { /* debugging from the console */ }
   const emitBooth = () => {
@@ -390,8 +435,10 @@ function createHost() {
     quips.note(fresh.length);
     const mode = boothMode(src.phase, { lastCall: src.lastCall });
     if (!mode || !boothActive() || settings.muteAll || director.reveal || director.final || quipBusy) return;
-    const room = () => !src.takeover && voiceQuietFor() > QUIP.quietFor && (booth.nextAt == null || booth.nextAt - Date.now() > 30000) && !director.final && !director.reveal;
-    if (!quips.allow({ quiet: room(), nearMark: nearMark(src.party) })) return;
+    // Read the TV fresh each time (the line takes seconds to make: a takeover may be up by then, or results sealed).
+    const room = () => { const s = boothSource(); return !!s && !s.takeover && !syncing && voiceQuietFor() > QUIP.quietFor && (booth.nextAt == null || booth.nextAt - Date.now() > 30000) && !director.final && !director.reveal && !nearMark(s.party); };
+    // Chill booth (How often: Less): one-liners half as often too.
+    if (!quips.allow({ quiet: room(), nearMark: nearMark(src.party), minGap: settings.boothFreq === 'less' ? QUIP.chillGap : QUIP.minGap })) return;
     const tourney = mode === 'tournament' || mode === 'lastcall';
     const pool = src.scores.filter(x => !tourney || !x.free_play);
     const s = [...fresh].reverse().find(x => !tourney || !x.free_play);
@@ -406,8 +453,9 @@ function createHost() {
       const avoid = booth.log.slice(-3).flatMap(l => l.lines.map(x => x.text));
       const r = await post({ ...a, kind: 'quip', host, moment: q.kind, facts: q.facts, sealed: !!src.sealed, names: settings.sayNames || '', avoid }, 15000, BOOTH_URL);
       const text = r?.lines?.[0]?.text;
-      if (!r?.url || !safeQuip(text, { sealed: !!src.sealed }) || Date.now() - t0 > QUIP.stale || !boothActive() || !room()) return;
-      if (!director.speak({ url: r.url, ms: r.ms })) return;
+      const sealedNow = !!src.sealed || !!boothSource()?.sealed;
+      if (!r?.url || !safeQuip(text, { sealed: sealedNow }) || (sealedNow && !src.sealed && ['top3', 'close'].includes(q.kind)) || Date.now() - t0 > QUIP.stale || !boothActive() || !room()) { note('quip', { dropped: true, kind: q.kind }); return; }
+      if (!director.speak({ url: r.url, ms: r.ms }, { tag: 'quip' })) return;
       quips.played();
       quipCounts[host] = (quipCounts[host] || 0) + 1;
       booth.log = [...booth.log, { at: Date.now(), lines: r.lines, quip: true }].slice(-6);
@@ -476,6 +524,76 @@ function createHost() {
     pollIv = setInterval(go, 15000);
   }
 
+  // ---------- audio delay (AirPlay) ----------
+  // Time-critical sounds are played Audio-delay EARLIER than the screen: the final 10 s boops + the GAME OVER
+  // beep (scheduled here from the end time), the reveal (Reveal.jsx shows each slide that much after its sounds),
+  // the Sync test. The delay: a mic sync or the host's number, or what the Mac reports (see sync.js).
+  const checkLatency = () => {
+    const v = browserLatency(audioCtx());
+    if (v !== browserLat) { browserLat = v; note('latency', { browser: v }); emit(); }
+  };
+  const latIv = setInterval(checkLatency, 30000);
+  const onDevice = () => setTimeout(checkLatency, 1500);
+  try { navigator.mediaDevices?.addEventListener?.('devicechange', onDevice); } catch { /* none */ }
+  offs.push(() => { clearInterval(latIv); try { navigator.mediaDevices?.removeEventListener?.('devicechange', onDevice); } catch { /* none */ } });
+  function leadMs() {
+    if (audioCtx()?.state !== 'running' || settings.muteAll) return 0;
+    return Math.round(delay().sec * 1000);
+  }
+  // The final 10 seconds: each boop n at (end − n s − delay), so it's heard as the TV shows n; the BEEEP follows
+  // the "1" by a second (at the end − delay). A boop more than 0.3 s late (a reload mid-count) is skipped.
+  const finalDone = new Set();
+  const finalIv = setInterval(() => {
+    const src = boothSource(), party = src?.party;
+    const end = Date.parse(party?.tourney_ends_at || '');
+    finalSched = !!(src?.phase && end && !party.reveal_active && !party.free_play && party.status !== 'closed');
+    if (!finalSched) return;
+    const now = serverNow(), lead = leadMs();
+    for (let n = 10; n >= 1; n--) {
+      const key = `${end}:${n}`, at = end - n * 1000 - lead;
+      if (finalDone.has(key) || at - now > 350) continue;
+      finalDone.add(key);
+      if (now - at > 300) continue;
+      setTimeout(() => { note('final', { n, lead }); director.tick(n); emit(); }, Math.max(0, at - now));
+    }
+  }, 100);
+  offs.push(() => clearInterval(finalIv));
+
+  // Sync test: three beeps, and the TV flashes white at the instant each should be heard. Tune the delay until
+  // the beeps land on the flashes.
+  function syncTest() {
+    if (audioCtx()?.state !== 'running') { notice('Click the TV once first (sound is blocked)'); return; }
+    const lead = leadMs();
+    director.hold('sync', 0.2, lead + 4200);
+    for (let i = 0; i < 3; i++) {
+      const at = lead + 700 + i * 1100;
+      setTimeout(() => { note('sfx', { name: 'syncBeep', n: i + 1 }); playSound('syncBeep'); }, at - lead);
+      setTimeout(() => { note('flash', { n: i + 1, lead }); try { window.dispatchEvent(new CustomEvent('pw:syncflash', { detail: { n: i + 1 } })); } catch { /* ignore */ } }, at);
+    }
+    notice(`Sync test: beeps ${(lead / 1000).toFixed(1)} s ahead of the flashes`, 5000);
+  }
+  // Auto sync with the Mac's microphone: chirps out through the normal output (AirPlay), found in the mic.
+  async function micSync() {
+    if (syncing) return;
+    syncing = true;
+    state.sync = { running: true, at: Date.now(), done: 0, runs: 5 };
+    stopVoice();
+    director.hold('sync', 0, 40000);
+    emit();
+    try {
+      const r = await measureWithMic(audioCtx(), { runs: 5, onProgress: (i, n) => { state.sync = { ...state.sync, done: i, runs: n }; emit(); } });
+      state.sync = { ...r, running: false, at: Date.now() };
+      note('micsync', r);
+      if (r.ok) applySettings({ ...settings, audioDelay: Math.max(0, Math.min(3, Math.round(r.sec * 100) / 100)), delayMode: 'manual', delaySource: 'mic' });
+    } catch (e) {
+      state.sync = { ok: false, error: String(e?.message || e), running: false, at: Date.now() };
+    } finally {
+      syncing = false;
+      director.unhold('sync');
+      emit();
+    }
+  }
+
   // ---------- host commands ----------
   async function command(m) {
     if (!m || typeof m !== 'object' || Date.now() - (m.at || 0) > CMD_FRESH_MS) return;
@@ -494,12 +612,14 @@ function createHost() {
       case 'preview': { const p = m.pack || settings.pack; if (!audioCtx()) return; say(p, clockText(p, m.clip || 'check'), { fallbackClip: m.clip || 'check' }); return; }
       case 'booth': booth.playNow(); booth.tick(); return emitBooth();
       case 'boothSkip': stopVoice(); boothPlaying = null; return emitBooth();
+      case 'synctest': return syncTest();
+      case 'micsync': return micSync();
       case 'say': {
         // The host's "Say something": through the director (music dips), or straight out if it's quiet time.
         const text = String(m.text || '').slice(0, 300).trim();
         if (!text || settings.muteAll) return;
         const p = voicePack();
-        if (!director.speak({ pack: p, text })) say(p, text);
+        if (!director.speak({ pack: p, text }, { tag: 'say' })) say(p, text, { tag: 'say' });
         return;
       }
       case 'test': return test(m.cue);
@@ -563,12 +683,14 @@ function createHost() {
     command,
     applySettings: s => applySettings({ ...settings, ...s }, { fromHost: true }), // as if from the host card
     voiceBusy,
+    leadMs: () => leadMs(),
     // The TV shows / leaves the reveal (TvAudio's `reveal` prop), and on-screen reveal sounds.
     setReveal(on) { if (on) director.revealStart(); else director.revealEnd(); emit(); },
     revealCue(name, opts) { if (director.reveal) director.revealCue(name, opts); },
     destroy() {
       destroyed = true;
       clearInterval(beat);
+      setVoiceListener(null);
       if (pollIv) clearInterval(pollIv);
       if (ramp) clearInterval(ramp);
       for (const f of offs) { try { f(); } catch { /* ignore */ } }

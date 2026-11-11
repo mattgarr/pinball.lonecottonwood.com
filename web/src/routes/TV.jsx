@@ -20,6 +20,7 @@ import Dmd from '../components/tv/Dmd.jsx';
 import Crawl from '../components/tv/Crawl.jsx';
 import { BOARD_N, useLiveEvents } from '../components/tv/useLiveEvents.js';
 import { setBoothSource } from '../lib/audio/booth.js';
+import { audioLeadMs } from '../lib/audio/tv.js';
 import { sfx, sound } from '../lib/chiptune.js';
 import { CountUp } from '../lib/useCountUp.js';
 import { PODIUM_MIN, computeHighScores, fmtShort } from '../lib/scoring.js';
@@ -281,7 +282,7 @@ export default function TV() {
     return (
       <div className={`tv-frame tv2-frame${cursor ? ' show-cursor' : ''}`}>
         <Reveal standings={useSnap ? rv.standings : standings} awards={useSnap ? rv.awards : awards} onSlide={lights.onRevealSlide}
-          step={revealPreview ? previewStep : party?.reveal_step || 0} onStep={onStep} onShown={setShownStep} preview={revealPreview} />
+          step={revealPreview ? previewStep : party?.reveal_step || 0} onStep={onStep} onShown={setShownStep} preview={revealPreview} audioLead={audioLeadMs} />
         <TvAudio reveal />
         {realTV && <OfflineFlag />}
       </div>

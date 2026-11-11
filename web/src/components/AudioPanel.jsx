@@ -12,6 +12,7 @@ import { SAY_TOPICS } from '../lib/audio/policy.js';
 import { SPOTIFY_CLIENT_ID, parseSpotifyUri } from '../lib/audio/spotify.js';
 import CommentaryLevel from './CommentaryLevel.jsx';
 import { BOOTH_PERSONAS, boothDuo } from '../lib/audio/booth.js';
+import { DEFAULT_DELAY, MAX_DELAY, delayText, effectiveDelay } from '../lib/audio/sync.js';
 import '../audio.css';
 
 const FRESH_MS = 60000;
@@ -56,6 +57,17 @@ export default function AudioPanel() {
   useEffect(() => {
     if (tv?.settings && latest.current === AUDIO_DEFAULTS) { const s = { ...AUDIO_DEFAULTS, ...tv.settings }; latest.current = s; setSettings(s); setClientId(s.clientId || ''); }
   }, [tv?.settings]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A mic sync finished on the TV: save its number (retained, so the TV keeps it after a reload).
+  const seenSync = useRef(null);
+  useEffect(() => {
+    const r = tv?.sync;
+    if (!r?.at || r.running) return;
+    if (seenSync.current == null) { seenSync.current = r.at; if (Date.now() - r.at > 60000) return; }
+    else if (r.at <= seenSync.current) return;
+    seenSync.current = r.at;
+    if (r.ok && Number.isFinite(r.sec)) change({ audioDelay: Math.max(0, Math.min(MAX_DELAY, Math.round(r.sec * 100) / 100)), delayMode: 'manual', delaySource: 'mic' }, { now: true });
+  }, [tv?.sync?.at, tv?.sync?.running]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const say = m => { setMsg(m); setTimeout(() => setMsg(x => (x === m ? '' : x)), 4000); };
   const change = (patch, { now: immediate = false } = {}) => {
@@ -267,6 +279,32 @@ export default function AudioPanel() {
         <div className="audio-grid">
           {TESTS.map(([cue, label]) => <button key={cue} type="button" className="secondary" onClick={() => cmd('test', { cue })}>{label}</button>)}
         </div>
+      </div>
+
+      <div className="audio-field audio-delay">
+        <div className="audio-label">Audio delay: the countdown boops, GAME OVER beep and reveal sounds play this much ahead of the screen (AirPlay to the WiiM runs about 2 s behind)</div>
+        <p className="audio-delay-now"><b>{online && tv.delay ? delayText(tv.delay) : settings.delayMode === 'manual' ? delayText(effectiveDelay(settings, null)) : `Auto (the Mac's number, else ${Number(settings.audioDelay ?? DEFAULT_DELAY).toFixed(1)} s)`}</b></p>
+        <div className="audio-seg">
+          <button type="button" className={settings.delayMode !== 'manual' ? 'primary' : 'secondary'} onClick={() => change({ delayMode: 'auto', delaySource: '' }, { now: true })}>Auto</button>
+          <button type="button" className={settings.delayMode === 'manual' ? 'primary' : 'secondary'} onClick={() => change({ delayMode: 'manual' }, { now: true })}>Manual</button>
+        </div>
+        <div className="audio-slider">
+          <label className="lights-dimmer-head" htmlFor="audio-delay"><span>{settings.delayMode === 'manual' ? 'Delay' : 'Fallback'}</span><span className="lights-dimmer-val">{Number(settings.audioDelay ?? DEFAULT_DELAY).toFixed(2)} s</span></label>
+          <input id="audio-delay" type="range" min={0} max={MAX_DELAY * 100} step={5} value={Math.round(Number(settings.audioDelay ?? DEFAULT_DELAY) * 100)}
+            onChange={e => change({ audioDelay: Number(e.target.value) / 100, delaySource: '' })} />
+        </div>
+        <div className="audio-btns">
+          <button type="button" className="secondary" disabled={!online} onClick={() => { cmd('synctest'); say('Listen in the garage: each beep should land on a white flash.'); }}>Sync test</button>
+          <button type="button" className="secondary" disabled={!online || !!tv?.sync?.running} onClick={() => { cmd('micsync'); say('The TV is listening with the Mac’s microphone (about 25 s). Allow the microphone on the Mac if Chrome asks.'); }}>Auto sync with mic</button>
+        </div>
+        {online && tv.sync && (
+          <p className={`small ${tv.sync.running || tv.sync.ok ? 'muted' : 'audio-err'}`}>
+            {tv.sync.running ? `Listening… ${tv.sync.done || 0} of ${tv.sync.runs || 5} chirps`
+              : tv.sync.ok ? `Mic sync: ${tv.sync.sec.toFixed(2)} s · confidence ${tv.sync.confidence} (${tv.sync.good} of ${tv.sync.runs} chirps heard, spread ${Math.round((tv.sync.spread || 0) * 1000)} ms). Saved as Manual.`
+                : tv.sync.error}
+          </p>
+        )}
+        <p className="muted small">Auto: uses the delay the Mac reports for AirPlay, else the number above (2.0 s is AirPlay’s usual). Auto sync with mic measures it in the garage. Sync test: three beeps, the TV flashes white where each should land; adjust until they match. Connected by cable or HDMI instead of AirPlay? Choose Manual and set it near 0.</p>
       </div>
 
       <div className="audio-btns">

@@ -9,8 +9,13 @@ import { useRamp } from './tv/Takeover.jsx';
 import { PODIUM_MIN, ordinal, podiumOk, tieBreakNote } from '../lib/scoring.js';
 import '../tv.css';
 
+import { COUNT_MS, DRAW_MS, ITEM_H, WALK_HOLD, WALK_IN, ease, modeOf, soundPlan, spinTimes, walkTimes } from '../lib/revealTiming.js';
+
 const fmt = n => Number(n).toLocaleString();
-const COUNT_MS = 1000; // each number of the 3-2-1
+// Slides this TV has already shown its winner for (a reload lands on the winner, no replayed build-up).
+const SHOWN_KEY = 'pw.revealShown';
+const shownKeys = () => { try { const v = JSON.parse(localStorage.getItem(SHOWN_KEY) || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; } };
+const markShown = k => { try { const v = shownKeys(); v[k] = Date.now(); for (const x of Object.keys(v)) if (Date.now() - v[x] > 6 * 3600e3) delete v[x]; localStorage.setItem(SHOWN_KEY, JSON.stringify(v)); } catch { /* private window */ } };
 
 // The reveal, one slide at a time (`step`, from party.reveal_step): 0 = the intro ("AWARDS CEREMONY",
 // held until Next), 1–12 = the prizes in the order they're decided (Grand Champion, 2nd, 3rd, the machine
@@ -22,29 +27,51 @@ const COUNT_MS = 1000; // each number of the 3-2-1
 // Shift + ← / PageUp / Backspace (back) move it, and clicks do nothing, so a cat on the keyboard or a
 // guest bumping the mouse can't skip a prize. The local preview (/tv?reveal) takes plain keys and clicks.
 // Sound hook: every phase change dispatches window event `pw:reveal` (see emitReveal); no sounds here.
-export default function Reveal({ standings, awards, onSlide, step = 0, onStep, onShown, preview = false }) {
+// audioLead(): ms the sounds run ahead of the picture (the host's Audio delay: AirPlay buffers ~2 s). Moving
+// forward, the slide's sounds are scheduled at once (`pw:reveal` what 'plan') and the screen follows that much
+// later, so sound and picture land together in the garage. Back is instant and silent.
+export default function Reveal({ standings, awards, onSlide, step = 0, onStep, onShown, preview = false, audioLead = () => 0 }) {
   const slides = buildSlides({ standings, awards });
   const last = Math.max(0, slides.length - 1);
-  const [idx, setIdx] = useState(Math.min(step, last));
-  useEffect(() => { setIdx(Math.min(step, last)); }, [step, last]);
+  const [target, setTarget] = useState(Math.min(step, last));
+  useEffect(() => { setTarget(Math.min(step, last)); }, [step, last]);
+  const [idx, setIdx] = useState(target); // the slide on screen (lags `target` by the audio lead going forward)
+  const planned = useRef(null); // cue key whose sounds were already scheduled ahead of the picture
+  const lagTimer = useRef(null);
+  const keyOf = i => (slides[i] ? `${i}:${slides[i].label}:${slides[i].title || ''}` : '');
+  useEffect(() => {
+    clearTimeout(lagTimer.current);
+    // Moved again before the picture caught up: the sounds scheduled for the abandoned slide are cancelled.
+    if (planned.current && planned.current !== keyOf(target)) { emitReveal({ what: 'plan', step: idx, preview, timeline: [], lead: 0 }); planned.current = null; }
+    if (target === idx) return undefined;
+    const lead = target > idx ? Math.max(0, Math.min(3000, Number(audioLead()) || 0)) : 0;
+    if (!lead) { setIdx(target); return undefined; }
+    const sl = slides[target];
+    emitReveal({ what: 'plan', step: target, label: sl?.label, preview, timeline: soundPlan(sl), lead });
+    planned.current = keyOf(target);
+    lagTimer.current = setTimeout(() => setIdx(target), lead);
+    return () => clearTimeout(lagTimer.current);
+  }, [target]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { onShown?.(idx); }, [idx]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The reveal ended (or was ended early to start again later): forget which winners this TV showed.
+  useEffect(() => () => { if (!preview) { try { localStorage.removeItem(SHOWN_KEY); } catch { /* ignore */ } } }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Only a screen that can move the whole party's reveal (host unlocked) or a local preview advances,
   // so the TV and the host page never disagree about which prize is up.
   const canAdvance = preview || !!onStep;
   const go = n => {
     if (!canAdvance) return;
     const next = Math.max(0, Math.min(last, n));
-    if (next === idx) return;
-    setIdx(next);
+    if (next === target) return;
+    setTarget(next);
     onStep?.(next);
   };
-  const click = preview ? () => go(idx + 1) : undefined;
+  const click = preview ? () => go(target + 1) : undefined;
   useEffect(() => {
     const key = e => {
       if (e.repeat) return; // holding a key must not skip prizes
       if (!preview && !e.shiftKey) return; // live: Shift + key only
-      if (['ArrowRight', ' ', 'Enter', 'PageDown'].includes(e.key)) { e.preventDefault(); go(idx + 1); }
-      else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); go(idx - 1); }
+      if (['ArrowRight', ' ', 'Enter', 'PageDown'].includes(e.key)) { e.preventDefault(); go(target + 1); }
+      else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); go(target - 1); }
     };
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
@@ -62,27 +89,37 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, o
   const firstCue = useRef(true);
   // Back: this slide shows its winner straight away. Forward (or a fresh load): the full build-up.
   const prevIdx = useRef(idx);
-  const instantKeys = useRef(new Set());
+  // A TV that reloads on a prize it already showed: straight to the winner (no build-up, no sting, no voice).
+  const instantKeys = useRef(null);
+  if (!instantKeys.current) instantKeys.current = new Set(!preview && shownKeys()[cueKey] ? [cueKey] : []);
+  // Each visit to a slide is its own build-up (Back then Next must not flash the winner from the last visit).
+  const visit = useRef(0);
   if (prevIdx.current !== idx) {
     if (idx < prevIdx.current) instantKeys.current.add(cueKey); else instantKeys.current.delete(cueKey);
     prevIdx.current = idx;
+    visit.current++;
   }
+  const visitKey = `${cueKey}#${visit.current}`;
   const instant = instantKeys.current.has(cueKey);
   const mode = instant ? 'hold' : modeOf(cur);
   const first = mode === 'walk' ? 'walk' : mode === 'spin' ? 'spin' : mode === 'hold' ? 0 : 3;
   // The phase belongs to one prize: a new prize starts at its first phase on its very first frame (no
   // flash of the winner before the build-up).
-  const [cd, setCd] = useState({ k: cueKey, n: first });
-  const phase = cd.k === cueKey && !instant ? cd.n : first;
+  const [cd, setCd] = useState({ k: visitKey, n: first });
+  const phase = cd.k === visitKey && !instant ? cd.n : first;
   useEffect(() => {
     if (!cur) return undefined;
-    const set = n => setCd({ k: cueKey, n });
+    const set = n => setCd({ k: visitKey, n });
     const base = { step: idx, label: cur.label, preview, slide: speechOf(cur) };
     const initial = () => { const v = firstCue.current; firstCue.current = false; return v; };
+    // The slide's sounds, unless they were already scheduled ahead of the picture.
+    if (planned.current !== cueKey) emitReveal({ ...base, what: 'plan', timeline: soundPlan(cur, { mode, instant }), lead: 0 });
+    planned.current = null;
     if (mode === 'hold') {
       // The intro and the finale wait for Next; Back lands on the winner directly.
       const t = setTimeout(() => {
         onSlide?.(cur, 'show');
+        if (!preview) markShown(cueKey);
         emitReveal({ ...base, what: cur.intro ? 'intro' : cur.finale ? 'finale' : 'show', back: instant, initial: initial() });
       }, 0);
       return () => clearTimeout(t);
@@ -104,7 +141,7 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, o
         show += Math.max(1500, walkTimes(cur.walk).land + WALK_HOLD);
       }
     }
-    at(show, () => { set(0); onSlide?.(cur, 'show'); emitReveal({ ...base, what: 'show', empty: !!cur.empty, initial: initial() }); });
+    at(show, () => { set(0); onSlide?.(cur, 'show'); if (!preview) markShown(cueKey); emitReveal({ ...base, what: 'show', empty: !!cur.empty, initial: initial() }); });
     return () => ts.forEach(clearTimeout);
   }, [cueKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const count = typeof phase === 'number' ? phase : 0;
@@ -244,13 +281,6 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, o
 // The Match on the TV: the number rolls like a pinball Match (00 … 90) and lands on the draw, then a
 // slot-machine reel spins through the players in the tie-break (or everyone still in the running, when
 // only one matched), slows down and stops on the winner.
-const DRAW_MS = 2600, REEL_MS = 6200, SHORT_REEL_MS = 1800, HOLD_MS = 1300;
-function spinTimes(spin) {
-  const reel = spin.items.length > 1 ? REEL_MS : SHORT_REEL_MS;
-  return { at: [0, DRAW_MS, DRAW_MS + reel * 0.55], show: DRAW_MS + reel + HOLD_MS, reel };
-}
-const ease = x => 1 - Math.pow(1 - x, 4);
-const ITEM_H = 120;
 
 function MatchSpin({ spin }) {
   const [t, setT] = useState(0);
@@ -300,21 +330,7 @@ function MatchSpin({ spin }) {
 
 // The walk down a prize's standings: a cursor starts at the top, marks each person who already won a
 // prize ("WON: 2ND PLACE") and moves on, and stops on the winner (or runs off the end: nobody left).
-const WALK_IN = 1100, WALK_HOLD = 1400, ROW_H = 92, ROWS_SHOWN = 6;
-function modeOf(slide) {
-  if (!slide) return 'count';
-  if (slide.hold) return 'hold';
-  if (slide.spin) return 'spin';
-  if (!slide.walk?.rows.length) return 'count';
-  return slide.walkOnly ? 'walk' : 'countwalk';
-}
-function walkTimes(w) {
-  const steps = w.win >= 0 ? w.win : w.rows.length; // -1: walk past everyone
-  const step = steps ? Math.max(380, Math.min(800, 4200 / steps)) : 0;
-  const land = WALK_IN + steps * step;
-  const show = Math.max(3200, land + WALK_HOLD);
-  return { at: [0, show / 3, (show * 2) / 3], show, step, land };
-}
+const ROW_H = 92, ROWS_SHOWN = 6;
 
 function WalkList({ walk }) {
   const [t, setT] = useState(0);

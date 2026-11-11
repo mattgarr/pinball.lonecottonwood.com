@@ -12,6 +12,7 @@
 //   sting        a winner                    grandSting  the Grand Champion (bigger)
 //   whiff        The Big Whiff (a friendly sad trombone)   noWinner  an empty prize
 //   introSting / finaleSting  the reveal's opening and closing
+//   syncBeep     the Sync test's beep (lines up with the TV's flash)
 import { audioCtx, fxBus } from '../chiptune.js';
 
 const N = n => 440 * Math.pow(2, (n - 69) / 12);
@@ -124,6 +125,8 @@ const SOUNDS = {
   introSting: (c, o) => { run(c, o, [[60], [64], [67], [72], [76], [79], [84, 6]], 0.06, { vol: 0.06 }); run(c, o, [[36, 6], [48, 8]], 0.06, { type: 'triangle', vol: 0.14 }); },
   finaleSting: (c, o) => SOUNDS.grandSting(c, o),
   whiff: (c, o) => run(c, o, [[67, 3], [66, 3], [65, 3], [64, 9]], 0.1, { type: 'sawtooth', vol: 0.05, vibrato: 0.003 }),
+  // Sync test: a short, sharp beep with a click on its front edge (easy to line up with a flash by ear).
+  syncBeep: (c, o) => { tone(c, o, 84, 0, 0.09, { type: 'square', vol: 0.09, attack: 0.002 }); noise(c, o, 0, 0.012, { vol: 0.3, lo: 2000, hi: 9000, curve: 2 }); },
   noWinner: (c, o) => { tone(c, o, 72, 0, 0.18, { type: 'triangle', vol: 0.12 }); tone(c, o, 67, 0.2, 0.4, { type: 'triangle', vol: 0.12 }); },
 };
 
