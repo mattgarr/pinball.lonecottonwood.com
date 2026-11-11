@@ -36,7 +36,7 @@ const WORDS = ['ass', 'asses', 'cock', 'dick', 'dicks', 'cum', 'rape', 'fag', 't
 // While results are sealed (last 15 minutes until the reveal), nothing that hints at the standings.
 const SEALED = /\b(lead|leads|leader|leading|first place|second place|third place|number one|no\. ?1|rank|ranked|ranking|rankings|rating|rated|podium|winning|frontrunner|front-runner|top spot|in front|ahead)\b/i;
 export function unsafe(text: string) {
-  const v = text.toLowerCase().replace(/[0134578@$!|]/g, c => ({ '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', '$': 's', '!': 'i', '|': 'i' } as Record<string, string>)[c] || c);
+  const v = text.toLowerCase().replace(/[0134578@$]/g, c => ({ '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', '$': 's' } as Record<string, string>)[c] || c);
   for (const t of v.split(/[^a-z]+/)) {
     if (!t) continue;
     const sq = t.replace(/(.)\1+/g, '$1');
