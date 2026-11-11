@@ -35,7 +35,9 @@ The example times below assume **tournament 6:30 PM to 9:30 PM**. If you pick ot
     The four toggles under it switch each kind off; *Say something on the TV* makes it say anything you type.
     *Say names like…*: add any name it says wrong (`Name=how to say it`; Stacia is already "Stay-sha").
     **Announce booth:** every few minutes two hosts (Tiffani the valley girl and Donnie the fun-center DJ;
-    change them under *In the booth*) chat about the night and gently roast people. *Play one now* to hear one;
+    change them under *In the booth*) chat about the night and gently roast people, and one of them throws in a quick
+    one-liner when a score lands (a personal best, a near miss, a first game, a rough one; at most every 90 seconds).
+    With the booth on, Tiffani and Donnie also do the countdowns, records, welcomes and the reveal winners. *Play one now* to hear one;
     *Skip bit* cuts one off. **Commentary** (top of *Party night* and of the Audio card) sets how much talking
     there is in one tap: Full booth / Chill booth / Announcer / Effects only.
 12. **Click the TV once** (anywhere). The "CLICK FOR SOUND + MUSIC" banner goes away. Do this after every TV reload.
@@ -84,7 +86,7 @@ The example times below assume **tournament 6:30 PM to 9:30 PM**. If you pick ot
 | **No music** | Host page → Audio → *Reconnect Spotify*, then click the TV once. Still nothing: open Spotify on the Mac and play the playlist there (the TV's sounds still work). |
 | **The announcer is quiet but sound works** | Host page → Audio: *Announcer: on* and its four toggles. A brand-new line takes ~5 s; offline, only the countdowns speak (from saved clips). Unlock /host on the TV Mac once more if it's been over a week. |
 | **The booth said something off** | *Skip bit* on the Audio card, then *Roast: Gentle*. |
-| **Booth getting annoying** | **Commentary** (top of *Party night*): *Chill booth* (half as often, shorter), *Announcer* (no booth) or *Effects only* (no voices at all). It cuts off a bit that's playing. |
+| **Booth getting annoying** | **Commentary** (top of *Party night*): *Chill booth* (long bits half as often and shorter; one-liners stay), *Announcer* (no booth, no one-liners; one voice) or *Effects only* (no voices at all). It cuts off a bit that's playing. |
 | **No sound at all in the garage** | Mac Control Center → Sound → pick the WiiM again (AirPlay). Check the WiiM's volume. |
 | **Lights stuck or wrong** | Host page → Garage lights → *Back to attract loop*. Or use the remote (button 1 = attract show). Too bright/dim: the **Dimmer**. |
 | **Running late** | *Tournament times* → **+15 min** (pushes the end back; works until the reveal). The countdowns follow. |
