@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BOOTH, BoothRunner, boothGap, boothMode, buildDigest, nearMark, safeLines, unsafe } from './booth.js';
+import { BOOTH, BoothRunner, QuipThrottle, boothGap, boothMode, buildDigest, nearMark, quipFor, quipHost, safeLines, unsafe } from './booth.js';
 import { partyNight } from './booth.fixture.js';
 
 describe('booth digest', () => {
@@ -299,5 +299,57 @@ describe('booth off-limits topics', () => {
     }
     expect(safeLines([ok, { host: 'DONNIE', text: 'The town wanted mountain lions instead of duplexes!' }], { hosts: ['TIFFANI', 'DONNIE'] })).not.toBeNull();
     for (const x of LOCAL_BANK) expect(OFF_TOPIC.test(`${x.text} ${x.bit}`)).toBe(false);
+  });
+});
+
+describe('booth one-liners', () => {
+  const machines = [{ id: 1, name: 'Fathom' }];
+  const players = [1, 2, 3, 4, 5].map(id => ({ id, display_name: ['Ann', 'Bob', 'Cy', 'Di', 'Ed'][id - 1] }));
+  const T = Date.parse('2026-11-15T03:00:00Z');
+  let id = 1;
+  const sc = (player_id, value, min) => ({ id: id++, player_id, machine_id: 1, value, voided: false, created_at: new Date(T + min * 60000).toISOString() });
+  const base = [sc(1, 5_000_000, 0), sc(2, 4_000_000, 1), sc(3, 3_000_000, 2), sc(4, 2_000_000, 3)];
+  const q = (s, sealed = false) => quipFor(s, { machines, players, scores: [...base, s], sealed });
+  it('finds the moment worth a line', () => {
+    expect(q(sc(5, 9_000_000, 10))).toBeNull(); // a record: the announcer has it
+    expect(q(sc(5, 100_000, 10))).toMatchObject({ kind: 'bad', facts: { player: 'Ed', place: 'fifth', of: 'five' } });
+    expect(q(sc(5, 3_500_000, 10))).toMatchObject({ kind: 'top3', facts: { place: 'third' } });
+    expect(q(sc(5, 4_900_000, 10))?.kind).toBe('top3'); // second place: top-3 wins over the close call
+    expect(q(sc(5, 2_100_000, 10))).toMatchObject({ kind: 'first' }); // first game tonight (fourth of five, not close)
+    expect(q(sc(4, 2_500_000, 10))).toMatchObject({ kind: 'pb', facts: { previousBest: 'two million' } });
+  });
+  it('close calls: just short of the person above', () => {
+    const many = [...base, sc(5, 1_000_000, 4)];
+    const s = sc(2, 2_990_000, 10); // Bob below his own 4M? no: Bob's best is 4M, this isn't a PB; close to Cy's 3M is still 2nd place... use Ed
+    const e = sc(5, 1_990_000, 11); // Ed: just under Di's 2M, fifth place → close to fourth
+    expect(quipFor(e, { machines, players, scores: [...many, e] })).toMatchObject({ kind: 'close', facts: { shortOf: 'fourth place' } });
+    void s;
+  });
+  it('sealed: no standings talk', () => {
+    expect(q(sc(5, 3_500_000, 10), true)?.kind).toBe('first'); // top-3 skipped; still their first game
+    const bad = q(sc(5, 100_000, 10), true);
+    expect(bad.kind).toBe('bad');
+    expect(bad.facts.place).toBeUndefined();
+    expect(q(sc(4, 2_500_000, 10), true)?.kind).toBe('pb');
+  });
+  it('throttle: one per 90 s, not in a rush of scores, only when quiet', () => {
+    let t = T;
+    const th = new QuipThrottle({ now: () => t });
+    expect(th.allow()).toBe(true);
+    th.played();
+    t += 60000; expect(th.allow()).toBe(false);
+    t += 31000; expect(th.allow()).toBe(true);
+    th.note(4); expect(th.allow()).toBe(false); // busy room
+    t += 61000; expect(th.allow()).toBe(true);
+    expect(th.allow({ quiet: false })).toBe(false);
+    expect(th.allow({ nearMark: true })).toBe(false);
+  });
+  it('who says it: either host, roughly equal over the night', () => {
+    expect(quipHost(['valley', 'dj'], { valley: 3, dj: 1 }, () => 0)).toBe('dj'); // catching up
+    expect(quipHost(['valley', 'dj'], {}, () => 0.2)).toBe('valley');
+    expect(quipHost(['valley', 'dj'], {}, () => 0.8)).toBe('dj');
+    const counts = {}; let seed = 3; const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 40; i++) { const h = quipHost(['valley', 'dj'], counts, rand); counts[h] = (counts[h] || 0) + 1; }
+    expect(Math.abs(counts.valley - counts.dj)).toBeLessThanOrEqual(2);
   });
 });

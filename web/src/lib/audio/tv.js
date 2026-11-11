@@ -11,7 +11,7 @@
 import { AudioDirector, DEFAULT_SETTINGS, TIMING, revealEventCue } from './policy.js';
 import { playSound, stopSounds } from './synth.js';
 import { BOOTH_URL, DEFAULT_PACK, auth, loadManifest, post, preloadPack, prewarm, say, sayClip, setSayNames, setVoiceVolume, stopVoice, voiceBusy, voiceQuietFor } from './voice.js';
-import { BOOTH, BoothRunner, boothDuo, boothMode, boothSource, buildDigest, momentFact, nearMark } from './booth.js';
+import { BOOTH, BoothRunner, QUIP, QuipThrottle, boothDuo, boothMode, boothSource, buildDigest, momentFact, nearMark, quipFor, quipHost, safeQuip } from './booth.js';
 import { clockText, momentText, revealText } from './lines.js';
 import * as sp from './spotify.js';
 import { audioCtx, ensureCtx, fxBus, setGate, sound } from '../chiptune.js';
@@ -175,9 +175,9 @@ function createHost() {
       resumeMusic: () => { if (wantPlaying || settings.autoplay) music.resume(); },
       isPlaying: () => music.isPlaying() || wantPlaying,
       sound: (name, opts) => playSound(name, opts),
-      voice: clip => (settings.voiceOn && settings.sayClock !== false ? sayClip(settings.pack || DEFAULT_PACK, clip) : 0),
-      // A booth bit ({ url }) plays with the neutral voice chain; text lines in the chosen announcer's voice.
-      say: text => (settings.voiceOn ? say(typeof text === 'object' ? 'booth' : settings.pack || DEFAULT_PACK, text) : 0),
+      voice: clip => (settings.voiceOn && settings.sayClock !== false ? sayClip(voicePack(), clip) : 0),
+      // A booth bit ({ url }) plays with the neutral chain; { pack, text } in that voice; plain text in the announcer's voice.
+      say: item => (settings.voiceOn ? (item?.url ? say('booth', item) : item?.text ? say(item.pack, item.text) : say(voicePack(), item)) : 0),
       stopSounds: () => { stopSounds(); stopVoice(); },
       levels: ({ fx, voice }) => {
         const c = audioCtx(), b = fxBus();
@@ -190,6 +190,16 @@ function createHost() {
   setGate(name => director.gate(name));
 
   let boothPlaying = null; // the booth bit on air (the level control can cut it off)
+  // Who speaks the announcer lines: with the booth on (Full / Chill), the booth duo (alternating, so the night has one
+  // consistent pair); otherwise (Announcer level) the chosen announcer voice.
+  const boothActive = () => settings.boothOn !== false && settings.voiceOn !== false;
+  let voiceTurn = 0;
+  function voicePack(slot) {
+    if (!boothActive()) return settings.pack || DEFAULT_PACK;
+    const duo = boothDuo(settings);
+    return duo[(slot ?? voiceTurn++) % 2];
+  }
+  const voicePacks = () => (boothActive() ? boothDuo(settings) : [settings.pack || DEFAULT_PACK]);
   function applySettings(next, { fromHost = false } = {}) {
     const prev = settings;
     settings = { ...AUDIO_DEFAULTS, ...next };
@@ -197,7 +207,7 @@ function createHost() {
     setSayNames(settings.sayNames);
     origSetSettings({ musicVol: settings.musicVol, fxVol: settings.fxVol, voiceVol: settings.voiceVol, voiceOn: settings.voiceOn, muteAll: settings.muteAll, pack: settings.pack,
       sayClock: settings.sayClock, sayRecords: settings.sayRecords, sayJoins: settings.sayJoins, sayReveal: settings.sayReveal });
-    if (settings.pack !== prev.pack && state.unlocked) preloadPack(settings.pack);
+    if ((settings.pack !== prev.pack || settings.boothA !== prev.boothA || settings.boothB !== prev.boothB || settings.boothOn !== prev.boothOn) && state.unlocked) voicePacks().forEach(preloadPack);
     // Turning the voices (or the booth) down cuts off whatever is being said right now.
     if (fromHost && prev.voiceOn !== false && settings.voiceOn === false) { stopVoice(); boothPlaying = null; emitBooth(); }
     else if (fromHost && boothPlaying && (settings.boothOn === false || (settings.boothShort && !prev.boothShort))) { stopVoice(); boothPlaying = null; emitBooth(); }
@@ -223,7 +233,7 @@ function createHost() {
     else await audioCtx()?.resume().catch(() => {});
     try { player?.activateElement?.(); } catch { /* older SDK */ }
     applySettings(settings);
-    preloadPack(settings.pack || DEFAULT_PACK);
+    voicePacks().forEach(preloadPack);
     emit();
     if (settings.autoplay && !settings.muteAll && !director.reveal && !music.isPlaying()) music.start();
   }
@@ -238,7 +248,7 @@ function createHost() {
   window.addEventListener('pointerdown', onPointer, true);
   window.addEventListener('keydown', onPointer, true);
   offs.push(() => { window.removeEventListener('pointerdown', onPointer, true); window.removeEventListener('keydown', onPointer, true); });
-  const onSound = e => { if (e.detail?.on) { applySettings(settings); preloadPack(settings.pack); } emit(); };
+  const onSound = e => { if (e.detail?.on) { applySettings(settings); voicePacks().forEach(preloadPack); } emit(); };
   window.addEventListener('pw:sound', onSound);
   offs.push(() => window.removeEventListener('pw:sound', onSound));
   const onVis = () => { if (document.visibilityState === 'visible') setTimeout(emit, 500); };
@@ -261,7 +271,8 @@ function createHost() {
   offs.push(() => { window.removeEventListener('pw:clock', onClock); window.removeEventListener('pw:reveal', onReveal); });
 
   // ---------- the announcer's live lines ----------
-  const pack = () => settings.pack || DEFAULT_PACK;
+  // Each announcer line in the voice of whoever's turn it is (see voicePack).
+  const line = (fn) => { const p = voicePack(); const text = fn(p); return text ? { pack: p, text } : null; };
   // A takeover or toast on the TV (TV.jsx `pw:moment`): records, a new #1, someone ranked, a games
   // milestone, people joining. While results are sealed (last 15 min until the reveal) nothing about
   // the standings is said.
@@ -272,7 +283,8 @@ function createHost() {
     const ps = joins; joins = [];
     if (!ps.length || settings.sayJoins === false) return;
     lastWelcome = Date.now();
-    director.speak(momentText(pack(), { kind: 'join', players: ps }), { lead: 600 });
+    const l = line(p => momentText(p, { kind: 'join', players: ps }));
+    if (l) director.speak(l, { lead: 600 });
   };
   const onMoment = e => {
     const m = e.detail;
@@ -289,7 +301,8 @@ function createHost() {
     if (m.sealed && ['leader', 'ranked', 'climb'].includes(m.kind)) return;
     if (!['record', 'leader', 'ranked', 'milestone'].includes(m.kind)) return;
     // After the board's own sting (about a second and a half in).
-    director.speak(momentText(pack(), m), { lead: 1500 });
+    const l = line(p => momentText(p, m));
+    if (l) director.speak(l, { lead: 1500 });
   };
   window.addEventListener('pw:moment', onMoment);
   offs.push(() => { window.removeEventListener('pw:moment', onMoment); clearTimeout(joinTimer); });
@@ -301,12 +314,14 @@ function createHost() {
   const onRevealLines = e => {
     const slides = e.detail?.slides || [];
     if (!settings.voiceOn || settings.sayReveal === false) return;
-    prewarm(pack(), slides.map(sl => revealText(pack(), sl)));
+    // Each slide in a fixed voice (by its position), so the prewarmed line is the one that plays.
+    slides.forEach((sl, i) => { const p = voicePack(i); prewarm(p, [revealText(p, sl)]); });
   };
   const onRevealSay = d => {
     if (!d?.slide || d.back || !settings.voiceOn || settings.sayReveal === false) return;
     if (!['show', 'intro', 'finale'].includes(d.what)) return;
-    const text = revealText(pack(), d.slide);
+    const p = voicePack(d.step ?? 0);
+    const text = revealText(p, d.slide);
     if (!text) return;
     const key = `${d.step}|${d.slide.label}|${d.slide.title || ''}`;
     const said = spoken();
@@ -317,7 +332,7 @@ function createHost() {
     }
     // After the sting has had its moment.
     const lead = d.what === 'intro' ? 1600 : d.what === 'finale' ? 2400 : String(d.slide.label).toUpperCase() === 'GRAND CHAMPION' ? 1800 : 1200;
-    director.speak(text, { reveal: true, lead });
+    director.speak({ pack: p, text }, { reveal: true, lead });
   };
   window.addEventListener('pw:revealLines', onRevealLines);
   offs.push(() => window.removeEventListener('pw:revealLines', onRevealLines));
@@ -357,6 +372,50 @@ function createHost() {
   };
   const boothIv = setInterval(() => { if (booth.tick() === 'played') emitBooth(); }, 5000);
   offs.push(() => clearInterval(boothIv));
+
+  // ---------- one-liners: one host reacts as a score lands ----------
+  // A personal best, a top-3 entry, a near miss, someone's first game, a spectacularly rough game. At most one per
+  // 90 s, not in a rush of scores, only when nothing else is on; dropped if it isn't ready within 20 s.
+  const quips = new QuipThrottle();
+  const quipCounts = {};
+  let seenScores = null, quipBusy = false;
+  const quipTick = async () => {
+    const src = boothSource();
+    if (!src?.scores) return;
+    const ids = new Set(src.scores.map(x => x.id));
+    if (!seenScores) { seenScores = ids; return; } // what was already there when the TV loaded
+    const fresh = src.scores.filter(x => !seenScores.has(x.id) && !x.voided);
+    seenScores = ids;
+    if (!fresh.length) return;
+    quips.note(fresh.length);
+    const mode = boothMode(src.phase, { lastCall: src.lastCall });
+    if (!mode || !boothActive() || settings.muteAll || director.reveal || director.final || quipBusy) return;
+    const room = () => !src.takeover && voiceQuietFor() > QUIP.quietFor && (booth.nextAt == null || booth.nextAt - Date.now() > 30000) && !director.final && !director.reveal;
+    if (!quips.allow({ quiet: room(), nearMark: nearMark(src.party) })) return;
+    const tourney = mode === 'tournament' || mode === 'lastcall';
+    const pool = src.scores.filter(x => !tourney || !x.free_play);
+    const s = [...fresh].reverse().find(x => !tourney || !x.free_play);
+    const q = s && quipFor(s, { machines: src.machines, players: src.players, scores: pool, sealed: !!src.sealed });
+    if (!q) return;
+    const host = quipHost(boothDuo(settings), quipCounts);
+    quipBusy = true;
+    const t0 = Date.now();
+    try {
+      const a = await auth();
+      if (!a) return;
+      const avoid = booth.log.slice(-3).flatMap(l => l.lines.map(x => x.text));
+      const r = await post({ ...a, kind: 'quip', host, moment: q.kind, facts: q.facts, sealed: !!src.sealed, names: settings.sayNames || '', avoid }, 15000, BOOTH_URL);
+      const text = r?.lines?.[0]?.text;
+      if (!r?.url || !safeQuip(text, { sealed: !!src.sealed }) || Date.now() - t0 > QUIP.stale || !boothActive() || !room()) return;
+      if (!director.speak({ url: r.url, ms: r.ms })) return;
+      quips.played();
+      quipCounts[host] = (quipCounts[host] || 0) + 1;
+      booth.log = [...booth.log, { at: Date.now(), lines: r.lines, quip: true }].slice(-6);
+      emitBooth();
+    } catch { /* skip this one */ } finally { quipBusy = false; }
+  };
+  const quipIv = setInterval(quipTick, 3000);
+  offs.push(() => clearInterval(quipIv));
 
   // ---------- Spotify ----------
   async function startPlayer() {
@@ -439,7 +498,8 @@ function createHost() {
         // The host's "Say something": through the director (music dips), or straight out if it's quiet time.
         const text = String(m.text || '').slice(0, 300).trim();
         if (!text || settings.muteAll) return;
-        if (!director.speak(text)) say(pack(), text);
+        const p = voicePack();
+        if (!director.speak({ pack: p, text })) say(p, text);
         return;
       }
       case 'test': return test(m.cue);
@@ -482,7 +542,7 @@ function createHost() {
   offs.push(subscribe('audio/settings', m => { if (m && typeof m === 'object' && !Array.isArray(m)) applySettings(m, { fromHost: true }); }));
 
   // ---------- go ----------
-  loadManifest().then(() => preloadPack(settings.pack || DEFAULT_PACK)); // the countdown lines, ready ahead of time
+  loadManifest().then(() => voicePacks().forEach(preloadPack)); // the countdown lines, ready ahead of time
   (async () => {
     const cb = await sp.handleCallback();
     if (cb?.ok) notice('Spotify connected ✔');

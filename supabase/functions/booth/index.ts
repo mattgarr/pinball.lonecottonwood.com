@@ -396,6 +396,50 @@ async function voice(key: string, voiceId: string, text: string, style: string) 
   return pcmOf(b64bytes(b64));
 }
 
+// One-liner: one host reacts to a score that just landed (3-5 s). Quick: one text call, one voice.
+const KIND_HINT: Record<string, string> = {
+  bad: 'a spectacularly rough game: tease it lightly and lovingly, then cheer them on',
+  top3: 'they just cracked the top three on this machine: celebrate it',
+  close: 'they came just short: feel it with them, playfully',
+  pb: 'a new personal best on this machine: celebrate it',
+  first: 'their first game of the night: welcome them to the machines',
+};
+async function quip(key: string, host: string, kind: string, facts: unknown, sealed: boolean, avoid: string[]) {
+  const P = PERSONAS[host];
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const r = await fetch(`${API}/interactions`, {
+      method: 'POST', signal: AbortSignal.timeout(12000),
+      headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json', 'Api-Revision': '2026-05-20' },
+      body: JSON.stringify({
+        model: TEXT_MODEL, store: false,
+        input: [{ type: 'text', text: `You're ${P.name}, one of two announcers in the booth at a family pinball party in a garage in Woodside, California: ${P.who}.
+A score just landed. Say ONE quick line reacting to it (6 to 16 words, about 3 to 5 seconds out loud), natural and warm, the way you'd
+actually say it on the mic. Moment: ${KIND_HINT[kind] || 'react to it'}.
+Use only these facts, names and numbers exactly as given (numbers are already words): ${JSON.stringify(facts)}.
+Playful, never mean; the person should be smiling. PG. No swearing, no alcohol, nothing about looks. No auctions, fundraising, donating,
+bidding or startup jargon. ${sealed ? 'The standings are secret right now: no ranks, places or who is leading.' : ''}
+Don't start with "All right", "Alright" or "Talk about". No written laughs.${avoid.length ? ` Don't repeat these recent lines: ${avoid.slice(-6).map(a => `"${a}"`).join('; ')}.` : ''}` }],
+        response_format: { type: 'text', mime_type: 'application/json', schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
+        generation_config: { thinking_level: 'low', temperature: 1.0 },
+      }),
+    });
+    const out = await r.json().catch(() => null);
+    if (!r.ok) { console.error('quip text error', r.status); continue; }
+    const txt = (function find(n: unknown): string | null {
+      if (typeof n === 'string') { try { const v = JSON.parse(n); if (v && typeof v.text === 'string') return v.text; } catch { /* no */ } return null; }
+      if (Array.isArray(n)) { for (let i = n.length - 1; i >= 0; i--) { const x = find(n[i]); if (x) return x; } return null; }
+      if (n && typeof n === 'object') { for (const v of Object.values(n as Record<string, unknown>)) { const x = find(v); if (x) return x; } }
+      return null;
+    })(out);
+    let text = String(txt || '').replace(/\s+/g, ' ').trim();
+    text = tidyLines([{ host: P.name, text }], false, false)[0]?.text || '';
+    const words = text.split(' ').length;
+    if (!text || words < 4 || words > 22 || text.length > 160 || /[<>{}[\]*_#]/.test(text) || unsafe(text) || OFF_TOPIC.test(text) || (sealed && SEALED.test(text))) { console.error('quip rejected', text); continue; }
+    return text;
+  }
+  return null;
+}
+
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
@@ -409,6 +453,24 @@ Deno.serve(async req => {
     }
     const key = geminiKey();
     if (!key) return json({ error: 'AI is not set up.' }, 500);
+    if (body.kind === 'quip') {
+      const host = PERSONAS[body.host] ? body.host : 'valley';
+      const gate = await db.rpc('tts_count');
+      if (gate.error) return json({ error: gate.error.message }, 429);
+      const avoidQ = (Array.isArray(body.avoid) ? body.avoid : []).filter((x: unknown) => typeof x === 'string').slice(0, 8).map((x: string) => x.slice(0, 200));
+      const text = await quip(key, host, String(body.moment || ''), body.facts && typeof body.facts === 'object' ? body.facts : {}, body.sealed === true, avoidQ);
+      if (!text) return json({ error: 'No usable line this time.' }, 422);
+      const { data: rows } = await db.from('tts_voices').select('pack, voice').eq('pack', host);
+      const names = typeof body.names === 'string' ? body.names.slice(0, 1000) : '';
+      const pcm = await voice(key, rows?.[0]?.voice || PERSONAS[host].prebuilt, pronounce(text, names), PERSONAS[host].style.replace(', chatting with his co-host', '').replace(', chatting with her co-host', '').replace(', chatting with its co-host', ''));
+      const file = wav(pcm);
+      const path = `booth/q-${await sha(text + Date.now())}.wav`;
+      const up = await db.storage.from('tts').upload(path, file, { contentType: 'audio/wav', upsert: true });
+      if (up.error) return json({ error: "Couldn't save the line." }, 502);
+      const ms = Math.round((pcm.length / 48000) * 1000);
+      console.log('quip', JSON.stringify({ host, moment: body.moment, ms, took: Date.now() - t0 }));
+      return json({ url: db.storage.from('tts').getPublicUrl(path).data.publicUrl, ms, lines: [{ host: PERSONAS[host].name, text }], hosts: [PERSONAS[host].name], took: Date.now() - t0 });
+    }
     const digest = body.digest && typeof body.digest === 'object' ? body.digest : {};
     if (JSON.stringify(digest).length > 8000) return json({ error: 'Digest too big.' }, 400);
     const roast = body.roast === 'spicy' ? 'spicy' : 'gentle';

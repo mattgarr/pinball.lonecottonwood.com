@@ -27,7 +27,7 @@ export const PACK_GROUPS = [['Classic', ['british', 'hype', 'ship', '8bit', 'new
 // Extra name respellings from the host card ("Stacia=Staysha, …"), on top of pronounce.json.
 let sayNames = '';
 export function setSayNames(v) { sayNames = String(v || ''); }
-export const DEFAULT_PACK = 'british';
+export const DEFAULT_PACK = 'valley'; // Tiffani (Matt's pick for the Announcer level too)
 export const clipUrl = (pack, clip) => `${VOICE_BASE}/${pack}/${clip}.m4a`;
 const TTS_URL = `${SUPABASE_URL}/functions/v1/tts`;
 export const BOOTH_URL = `${SUPABASE_URL}/functions/v1/booth`;

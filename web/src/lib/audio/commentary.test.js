@@ -31,3 +31,11 @@ describe('commentary level', () => {
     expect(quieter('full', 'sfx')).toBe(true);
   });
 });
+
+describe('who speaks', () => {
+  it('the announcer voice defaults to Tiffani', async () => {
+    const { DEFAULT_PACK } = await import('./voice.js');
+    expect(DEFAULT_PACK).toBe('valley');
+    expect(AUDIO_DEFAULTS.pack).toBe('valley');
+  });
+});

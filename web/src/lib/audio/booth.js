@@ -4,7 +4,7 @@
 // what it's told (buildDigest), whether a bit is fit to play (safeLines), and when (BoothRunner).
 // Pure: no React, no audio (tested in booth.test.js).
 import { computeStandings, computeHighScores, MIN_TABLES } from '../scoring.js';
-import { speakName, speakScore, speakMachine, numberWords } from './lines.js';
+import { speakName, speakScore, speakMachine, numberWords, ordinalWords } from './lines.js';
 import { localLine, pickLocal } from './woodside.js';
 import REPERTOIRE from './boothRepertoire.json';
 
@@ -351,4 +351,61 @@ export class BoothRunner {
     this.nextAt = t + (bit.ms || 15000) + this.gap(room.mode);
     return 'played';
   }
+}
+
+// ---------- one-liners: a quick reaction from one host as a score lands ----------
+// What's worth a one-liner about a new score (null: nothing, or the announcer already covers it, e.g. a machine record).
+// kinds: 'bad' (a spectacularly rough game), 'top3' (into a machine's top three), 'close' (just short of the record or of the
+// person above), 'pb' (a personal best), 'first' (their first game tonight). While results are sealed, nothing that talks
+// standings: top-3 and close calls are skipped, and a rough game is mentioned without its place.
+export function quipFor(s, { machines = [], players = [], scores = [], sealed = false } = {}) {
+  if (!s || s.voided) return null;
+  const player = players.find(p => p.id === s.player_id), machine = machines.find(m => m.id === s.machine_id);
+  if (!player || !machine) return null;
+  const others = scores.filter(x => !x.voided && x.id !== s.id && at(x) <= at(s));
+  const mine = others.filter(x => x.player_id === s.player_id);
+  const prevBest = mine.filter(x => x.machine_id === s.machine_id).reduce((b, x) => Math.max(b, x.value), -1);
+  const best = new Map(); // other players' best on this machine
+  for (const x of others) if (x.machine_id === s.machine_id && x.player_id !== s.player_id) best.set(x.player_id, Math.max(best.get(x.player_id) ?? -1, x.value));
+  const bests = [...best.values()].sort((a, b) => b - a);
+  const top = bests[0] ?? -1;
+  const place = 1 + bests.filter(v => v > s.value).length, of = bests.length + 1;
+  if (place === 1 && s.value > top) return null; // a machine record: the announcer and the takeover have it
+  const facts = { player: speakName(player.display_name), machine: speakMachine(machine), score: speakScore(s.value) };
+  const ratio = top > 0 ? s.value / top : 1;
+  if (of >= 4 && place === of && ratio < 0.15) return { kind: 'bad', facts: { ...facts, ...(sealed ? {} : { place: ordinalWords(place), of: numberWords(of) }), topScore: speakScore(top) } };
+  if (!sealed && place <= 3 && of >= 4) return { kind: 'top3', facts: { ...facts, place: ordinalWords(place), of: numberWords(of) } };
+  if (!sealed && place === 2 && top > 0 && (top - s.value) / top < 0.05) return { kind: 'close', facts: { ...facts, shortOf: 'the machine record', recordScore: speakScore(top) } };
+  if (!sealed && place > 2) {
+    const above = bests.filter(v => v > s.value).at(-1);
+    if (above && (above - s.value) / above < 0.03) return { kind: 'close', facts: { ...facts, shortOf: `${ordinalWords(place - 1)} place`, aboveScore: speakScore(above) } };
+  }
+  if (prevBest >= 0 && s.value > prevBest) return { kind: 'pb', facts: { ...facts, previousBest: speakScore(prevBest) } };
+  if (!mine.length) return { kind: 'first', facts: { ...facts, firstGameTonight: true } };
+  return null;
+}
+
+// When a one-liner may play: at most one per 90 s, not when scores are pouring in, only when the room is quiet,
+// and never if it would be stale (made more than 20 s after the score landed).
+export const QUIP = { minGap: 90000, busyWindow: 60000, busyCount: 4, stale: 20000, quietFor: 8000 };
+export class QuipThrottle {
+  constructor({ now = () => Date.now() } = {}) { this.now = now; this.arrivals = []; this.last = -Infinity; }
+  note(n = 1) { const t = this.now(); for (let i = 0; i < n; i++) this.arrivals.push(t); this.arrivals = this.arrivals.filter(x => t - x < QUIP.busyWindow); }
+  busy() { const t = this.now(); return this.arrivals.filter(x => t - x < QUIP.busyWindow).length >= QUIP.busyCount; }
+  allow({ quiet = true, nearMark = false } = {}) { return this.now() - this.last >= QUIP.minGap && !this.busy() && quiet && !nearMark; }
+  played() { this.last = this.now(); }
+}
+// Which host says it: either one can say any line; whoever has had fewer one-liners tonight (a coin flip on a tie),
+// so the room hears both about equally, with some randomness.
+export function quipHost(duo, counts = {}, rand = Math.random) {
+  const [a, b] = duo, ca = counts[a] || 0, cb = counts[b] || 0;
+  if (Math.abs(ca - cb) >= 2) return ca < cb ? a : b;
+  return rand() < (ca === cb ? 0.5 : ca < cb ? 0.7 : 0.3) ? a : b;
+}
+
+// A one-liner from the booth function, checked again here.
+export function safeQuip(text, { sealed = false } = {}) {
+  const t = String(text || '').trim();
+  const words = t.split(/\s+/).length;
+  return !!t && words >= 4 && words <= 22 && t.length <= 160 && !unsafe(t) && !OFF_TOPIC.test(t) && !(sealed && SEALED.test(t));
 }
