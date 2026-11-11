@@ -44,6 +44,7 @@
 .audio-btns > button { margin: 0; }
 .audio-field { margin-top: 14px; min-width: 0; }
 .audio-field > label, .audio-label { display: block; font-size: var(--t12); color: #e9e9f2; margin-bottom: 6px; }
+.audio-field .audio-btns + .audio-label { margin-top: 14px; }
 .audio-line { display: flex; gap: 8px; align-items: center; min-width: 0; margin-top: 6px; }
 .audio-line > button { margin: 0; flex: 0 0 auto; }
 .audio-line select, .audio-line input {

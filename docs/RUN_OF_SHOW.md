@@ -25,11 +25,14 @@ The example times below assume **tournament 6:30 PM to 9:30 PM**. If you pick ot
 5. Plug the Mac into power. System Settings → never sleep while plugged in; turn on **Do Not Disturb**.
 6. Open Terminal and run `caffeinate -dims` (leave that window open all night: it keeps the Mac awake).
 7. Control Center → Sound → pick the **WiiM** (AirPlay). Mac volume 100%; set the room level on the WiiM.
-8. In Chrome: open `pinball.lonecottonwood.com/host` and unlock it once (this lets the TV drive the lights and audio).
+8. In Chrome: open `pinball.lonecottonwood.com/host` and unlock it once (this lets the TV drive the lights, the audio and the AI announcer).
 9. Open `pinball.lonecottonwood.com/tv`, press **Cmd+Ctrl+F** for full screen.
 10. Move the mouse to the bottom-right corner → click **"Lights: click to drive the garage lights from this screen"** (once).
 11. Host page → *Audio* card → **Connect Spotify on the TV** (log in on the Mac if asked, click Agree).
-    The TV shows "Spotify connected". Pick the **Playlist**, set Music ~60%, pick the **Announcer voice**.
+    The TV shows "Spotify connected". Pick the **Playlist**, set Music ~60%, pick the **Announcer voice**
+    (*Preview here* plays it on your phone). The announcer is an AI voice: it reads the countdowns, new machine
+    records and new #1s with names and scores, welcomes people as they join, and names each winner in the reveal.
+    The four toggles under it switch each kind off; *Say something on the TV* makes it say anything you type.
 12. **Click the TV once** (anywhere). The "CLICK FOR SOUND + MUSIC" banner goes away. Do this after every TV reload.
 13. On the Audio card press the test buttons (Big moment, Starts in 5, Final 10 s, Reveal mute, Match spin) and listen in the garage.
 
@@ -74,6 +77,7 @@ The example times below assume **tournament 6:30 PM to 9:30 PM**. If you pick ot
 | **TV went black / Mac slept / page looks stuck** | Wake the Mac, click in Chrome, press **Cmd+R**, then click the TV once. Nothing is lost; the countdowns don't replay old moments. |
 | **"⚠ offline" in the TV's corner** | Garage Wi-Fi dropped. It fixes itself when Wi-Fi is back; press Cmd+R if it stays for more than a few minutes. |
 | **No music** | Host page → Audio → *Reconnect Spotify*, then click the TV once. Still nothing: open Spotify on the Mac and play the playlist there (the TV's sounds still work). |
+| **The announcer is quiet but sound works** | Host page → Audio: *Announcer: on* and its four toggles. A brand-new line takes ~5 s; offline, only the countdowns speak (from saved clips). Unlock /host on the TV Mac once more if it's been over a week. |
 | **No sound at all in the garage** | Mac Control Center → Sound → pick the WiiM again (AirPlay). Check the WiiM's volume. |
 | **Lights stuck or wrong** | Host page → Garage lights → *Back to attract loop*. Or use the remote (button 1 = attract show). Too bright/dim: the **Dimmer**. |
 | **Running late** | *Tournament times* → **+15 min** (pushes the end back; works until the reveal). The countdowns follow. |

@@ -6,7 +6,9 @@
 //   out.pauseMusic()           pause the music (the reveal)          out.resumeMusic()
 //   out.isPlaying()            was music playing (so the reveal only restores what it stopped)
 //   out.sound(name, opts)      play one of the synth cues (synth.js)
-//   out.voice(clip)            play an announcer clip; returns its length in ms (or 0 if none)
+//   out.voice(clip)            play an announcer line; returns its length in ms (or 0 if none), or a
+//                              promise of it (resolved when the line starts: AI lines take a moment)
+//   out.say(text)              speak any line (a record, a welcome, a reveal winner); same return
 //   out.stopSounds()           cut every effect and voice now (emergency stop)
 //   out.levels({ fx, voice })  effect / voice volumes (0..1)
 //
@@ -38,6 +40,7 @@ export const TIMING = {
   chimeLead: 900,                  // chime → voice
   fanfareLead: 1700,               // start fanfare → voice
   voiceTail: 600,                  // hold the duck this long after a clip
+  voiceWait: 12000,                // the duck waits this long for an AI line to start
   finalSafety: 16000,              // the final-countdown duck never sticks longer than this
   beepLead: 1000,                  // after the "1" boop: the end BEEEP
   beepLen: 1600,                   // then the voice
@@ -95,7 +98,11 @@ export function revealEventCue(d) {
 
 export const DEFAULT_SETTINGS = {
   musicVol: 0.6, fxVol: 0.8, voiceVol: 1, voiceOn: true, muteAll: false, pack: 'british',
+  // What the announcer talks about (all need voiceOn): countdowns + phases, machine records + new #1s,
+  // welcomes for new players, the reveal's winners.
+  sayClock: true, sayRecords: true, sayJoins: true, sayReveal: true,
 };
+export const SAY_TOPICS = [['sayClock', 'Countdowns'], ['sayRecords', 'Records'], ['sayJoins', 'Welcomes'], ['sayReveal', 'Winners']];
 
 export class AudioDirector {
   constructor({ out, now = () => Date.now(), setT = (f, ms) => setTimeout(f, ms), clearT = t => clearTimeout(t), settings = {} } = {}) {
@@ -218,11 +225,27 @@ export class AudioDirector {
       if (pre) this.hold('big', LEVELS.big, TIMING.bigHold);
       return;
     }
-    this.hold('voice', LEVELS.voice, lead + 8000); // generous until we know the clip's length
-    this.later(group, lead, () => {
-      const ms = this.out.voice?.(clip) || 0;
-      this.hold('voice', LEVELS.voice, (ms || 2500) + TIMING.voiceTail);
+    this.hold('voice', LEVELS.voice, lead + TIMING.voiceWait); // generous until the line starts
+    this.later(group, lead, () => this.voiceHold(this.out.voice?.(clip)));
+  }
+  // Keep the music down for exactly the line once it starts (r: ms, or a promise of ms; 0 = nothing).
+  voiceHold(r) {
+    const set = ms => { if (ms > 0) this.hold('voice', LEVELS.voice, ms + TIMING.voiceTail); else this.unhold('voice'); };
+    if (r && typeof r.then === 'function') r.then(set, () => set(0)); else set(r || 0);
+  }
+
+  // Speak a line now (or after `lead` ms) with the music dipped under it. reveal: true speaks during the
+  // reveal (music is already off there) and not otherwise; normal lines stay quiet during the reveal and
+  // the final 10 seconds.
+  speak(text, { lead = 0, reveal = false, group = 'speak' } = {}) {
+    if (!text || this.s.muteAll || !this.s.voiceOn) return false;
+    if (reveal ? !this.reveal : (this.reveal || this.final)) return false;
+    if (!reveal) this.hold('voice', LEVELS.voice, lead + TIMING.voiceWait);
+    this.later(reveal ? 'reveal' : group, lead, () => {
+      const r = this.out.say?.(text);
+      if (!reveal) this.voiceHold(r);
     });
+    return true;
   }
 
   // A tournament clock moment from the TV (`pw:clock`).

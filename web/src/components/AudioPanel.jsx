@@ -6,7 +6,9 @@ import { useEffect, useRef, useState } from 'react';
 import { ensureLightsTopic } from '../lib/store.js';
 import { onConnection, publish, subscribe, lightsTopic, onLightsTopic } from '../lib/lights/mqtt.js';
 import { AUDIO_DEFAULTS } from '../lib/audio/tv.js';
-import { PACK_IDS, PACK_NAMES, clipUrl } from '../lib/audio/voice.js';
+import { PACK_IDS, PACK_NAMES, clipUrl, lineUrl } from '../lib/audio/voice.js';
+import { clockText } from '../lib/audio/lines.js';
+import { SAY_TOPICS } from '../lib/audio/policy.js';
 import { SPOTIFY_CLIENT_ID, parseSpotifyUri } from '../lib/audio/spotify.js';
 import '../audio.css';
 
@@ -28,6 +30,7 @@ export default function AudioPanel() {
   const [msg, setMsg] = useState('');
   const [now, setNow] = useState(Date.now());
   const [clientId, setClientId] = useState('');
+  const [sayText, setSayText] = useState('');
   const sendTimer = useRef(null);
   const latest = useRef(settings);
   const touched = useRef(0);
@@ -68,8 +71,12 @@ export default function AudioPanel() {
   const playlistOptions = lists?.playlists || [];
   const devices = lists?.devices || [];
   const preview = useRef(null);
-  const previewHere = pack => {
-    try { preview.current?.pause(); preview.current = new Audio(clipUrl(pack, 'check')); preview.current.play().catch(() => {}); } catch { /* ignore */ }
+  // Preview on this phone: the AI voice saying the sound-check line (the offline clip if it can't).
+  const previewHere = async pack => {
+    try { preview.current?.pause(); } catch { /* ignore */ }
+    say('Getting the voice…');
+    const line = await lineUrl(pack, clockText(pack, 'check')).catch(() => null);
+    try { preview.current = new Audio(line?.url || clipUrl(pack, 'check')); preview.current.play().catch(() => {}); } catch { /* ignore */ }
   };
 
   return (
@@ -158,6 +165,24 @@ export default function AudioPanel() {
             {settings.voiceOn ? 'Announcer: on' : 'Announcer: off'}
           </button>
         </div>
+        <div className="audio-label">The announcer talks about (records include new #1s; winners: the reveal)</div>
+        <div className="audio-grid">
+          {SAY_TOPICS.map(([k, label]) => (
+            <button key={k} type="button" className={settings[k] !== false ? 'secondary' : 'ghost'} disabled={!settings.voiceOn} onClick={() => change({ [k]: settings[k] === false }, { now: true })}>
+              {label}: {settings[k] !== false ? 'on' : 'off'}
+            </button>
+          ))}
+        </div>
+        <form className="audio-line" onSubmit={e => {
+          e.preventDefault();
+          const text = sayText.trim();
+          if (!text) return;
+          cmd('say', { text }); setSayText(''); say('Sent to the TV.');
+        }}>
+          <input type="text" maxLength={300} placeholder="Say something on the TV…" value={sayText} onChange={e => setSayText(e.target.value)} />
+          <button type="submit" className="secondary" disabled={!online || !sayText.trim()}>Say it</button>
+        </form>
+        <p className="muted small">The announcer is an AI voice (Gemini). A brand-new line takes about 5 seconds the first time; the countdowns and the reveal's winners are made ahead of time, so they're instant.</p>
       </div>
 
       <div className="audio-field">

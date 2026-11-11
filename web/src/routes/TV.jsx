@@ -241,12 +241,14 @@ export default function TV() {
     // Clock moments: no sound here; the audio module listens for the pw:clock event instead.
     if (tk.kind === 'clock') { emitClock({ what: tk.minutes ? 'mark' : tk.side, side: tk.side, minutes: tk.minutes }); return; }
     ({ leader: sfx.leader, ranked: sfx.climb, milestone: sfx.milestone }[tk.kind] || sfx.record)();
+    emitMoment({ ...tk, sealed: isSealed });
   }, [tk?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!toast || tk) return;
     lastEvent.current = Date.now();
     ({ join: sfx.join, climb: sfx.climb, enter: sfx.climb, pb: sfx.climb, close: sfx.climb, shame: sfx.shame, milestone: sfx.milestone }[toast.kind] || sfx.climb)();
   }, [toast?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (toast?.kind === 'join') emitMoment({ kind: 'join', player: toast.player }); }, [toast?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const hitKey = Object.values(live.hits).map(h => h.id).sort().join('|');
   useEffect(() => { if (hitKey && !tk) { lastEvent.current = Date.now(); sfx.coin(); } }, [hitKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -450,6 +452,8 @@ export default function TV() {
 //   { what: 'start', side: 'start', minutes: 0 }      TOURNAMENT IS ON card
 //   { what: 'end', side: 'end', minutes: 0 }          END OF TOURNAMENT / GAME OVER card
 //   { what: 'tick', side: 'end', n }                  each of the final 10 seconds (n = 10…1)
+// The announcer hears about each live moment (lib/audio/tv.js speaks records, new #1s and welcomes).
+const emitMoment = detail => { try { window.dispatchEvent(new CustomEvent('pw:moment', { detail })); } catch { /* ignore */ } };
 const emitClock = detail => { try { window.dispatchEvent(new CustomEvent('pw:clock', { detail })); } catch { /* ignore */ } };
 
 const FP_ROWS = 19; // rows per machine on the free-play board

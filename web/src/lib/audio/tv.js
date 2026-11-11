@@ -10,7 +10,8 @@
 // It reports to the host card on <channel>/audio/state (retained) and <channel>/audio/lists.
 import { AudioDirector, DEFAULT_SETTINGS, TIMING, revealEventCue } from './policy.js';
 import { playSound, stopSounds } from './synth.js';
-import { DEFAULT_PACK, loadManifest, playClip, preloadPack, setVoiceVolume, stopVoice } from './voice.js';
+import { DEFAULT_PACK, loadManifest, preloadPack, prewarm, say, sayClip, setVoiceVolume, stopVoice } from './voice.js';
+import { clockText, momentText, revealText } from './lines.js';
 import * as sp from './spotify.js';
 import { audioCtx, ensureCtx, fxBus, setGate, sound } from '../chiptune.js';
 import { publish, subscribe } from '../lights/mqtt.js';
@@ -169,7 +170,8 @@ function createHost() {
       resumeMusic: () => { if (wantPlaying || settings.autoplay) music.resume(); },
       isPlaying: () => music.isPlaying() || wantPlaying,
       sound: (name, opts) => playSound(name, opts),
-      voice: clip => (settings.voiceOn ? playClip(settings.pack || DEFAULT_PACK, clip) : 0),
+      voice: clip => (settings.voiceOn && settings.sayClock !== false ? sayClip(settings.pack || DEFAULT_PACK, clip) : 0),
+      say: text => (settings.voiceOn ? say(settings.pack || DEFAULT_PACK, text) : 0),
       stopSounds: () => { stopSounds(); stopVoice(); },
       levels: ({ fx, voice }) => {
         const c = audioCtx(), b = fxBus();
@@ -185,7 +187,8 @@ function createHost() {
     const prev = settings;
     settings = { ...AUDIO_DEFAULTS, ...next };
     saveSettings(settings);
-    origSetSettings({ musicVol: settings.musicVol, fxVol: settings.fxVol, voiceVol: settings.voiceVol, voiceOn: settings.voiceOn, muteAll: settings.muteAll, pack: settings.pack });
+    origSetSettings({ musicVol: settings.musicVol, fxVol: settings.fxVol, voiceVol: settings.voiceVol, voiceOn: settings.voiceOn, muteAll: settings.muteAll, pack: settings.pack,
+      sayClock: settings.sayClock, sayRecords: settings.sayRecords, sayJoins: settings.sayJoins, sayReveal: settings.sayReveal });
     if (settings.pack !== prev.pack && state.unlocked) preloadPack(settings.pack);
     if (fromHost) {
       if (prev.muteAll && !settings.muteAll && !director.reveal) music.resume();
@@ -233,14 +236,78 @@ function createHost() {
 
   // ---------- the TV's moments ----------
   const onClock = e => { director.clock(e.detail); emit(); };
+  let lastRevealStep = null;
   const onReveal = e => {
     const cue = revealEventCue(e.detail);
     if (cue) director.revealCue(cue); else director.revealStart();
+    // A new prize on screen: whatever the announcer was still saying about the last one stops.
+    if (e.detail?.step != null && e.detail.step !== lastRevealStep) { if (lastRevealStep != null) stopVoice(); lastRevealStep = e.detail.step; }
+    onRevealSay(e.detail);
     emit();
   };
   window.addEventListener('pw:clock', onClock);
   window.addEventListener('pw:reveal', onReveal);
   offs.push(() => { window.removeEventListener('pw:clock', onClock); window.removeEventListener('pw:reveal', onReveal); });
+
+  // ---------- the announcer's live lines ----------
+  const pack = () => settings.pack || DEFAULT_PACK;
+  // A takeover or toast on the TV (TV.jsx `pw:moment`): records, a new #1, someone ranked, a games
+  // milestone, people joining. While results are sealed (last 15 min until the reveal) nothing about
+  // the standings is said.
+  let joins = [], joinTimer = null, lastWelcome = 0;
+  const WELCOME_GAP = 20000, JOIN_GATHER = 3000;
+  const flushJoins = () => {
+    joinTimer = null;
+    const ps = joins; joins = [];
+    if (!ps.length || settings.sayJoins === false) return;
+    lastWelcome = Date.now();
+    director.speak(momentText(pack(), { kind: 'join', players: ps }), { lead: 600 });
+  };
+  const onMoment = e => {
+    const m = e.detail;
+    if (!m?.kind || settings.muteAll || !settings.voiceOn) return;
+    if (m.kind === 'join') {
+      if (settings.sayJoins === false || !m.player) return;
+      if (!joins.some(p => p.id === m.player.id)) joins.push(m.player);
+      if (!joinTimer) joinTimer = setTimeout(flushJoins, Math.max(JOIN_GATHER, lastWelcome + WELCOME_GAP - Date.now()));
+      return;
+    }
+    if (settings.sayRecords === false) return;
+    if (m.sealed && ['leader', 'ranked', 'climb'].includes(m.kind)) return;
+    if (!['record', 'leader', 'ranked', 'milestone'].includes(m.kind)) return;
+    // After the board's own sting (about a second and a half in).
+    director.speak(momentText(pack(), m), { lead: 1500 });
+  };
+  window.addEventListener('pw:moment', onMoment);
+  offs.push(() => { window.removeEventListener('pw:moment', onMoment); clearTimeout(joinTimer); });
+
+  // The reveal: Reveal.jsx sends every slide's words ahead of time (`pw:revealLines`) so they're ready
+  // when the winner lands, then each winner as it shows. A TV reload doesn't say a winner twice.
+  const SPOKEN_KEY = 'pw.revealSpoken';
+  const spoken = () => { try { return JSON.parse(localStorage.getItem(SPOKEN_KEY) || '{}'); } catch { return {}; } };
+  const onRevealLines = e => {
+    const slides = e.detail?.slides || [];
+    if (!settings.voiceOn || settings.sayReveal === false) return;
+    prewarm(pack(), slides.map(sl => revealText(pack(), sl)));
+  };
+  const onRevealSay = d => {
+    if (!d?.slide || d.back || !settings.voiceOn || settings.sayReveal === false) return;
+    if (!['show', 'intro', 'finale'].includes(d.what)) return;
+    const text = revealText(pack(), d.slide);
+    if (!text) return;
+    const key = `${d.step}|${d.slide.label}|${d.slide.title || ''}`;
+    const said = spoken();
+    if (d.initial && !d.preview && said[key] && Date.now() - said[key] < 6 * 3600 * 1000) return;
+    if (!d.preview) {
+      said[key] = Date.now();
+      try { localStorage.setItem(SPOKEN_KEY, JSON.stringify(said)); } catch { /* ignore */ }
+    }
+    // After the sting has had its moment.
+    const lead = d.what === 'intro' ? 1600 : d.what === 'finale' ? 2400 : String(d.slide.label).toUpperCase() === 'GRAND CHAMPION' ? 1800 : 1200;
+    director.speak(text, { reveal: true, lead });
+  };
+  window.addEventListener('pw:revealLines', onRevealLines);
+  offs.push(() => window.removeEventListener('pw:revealLines', onRevealLines));
 
   // ---------- Spotify ----------
   async function startPlayer() {
@@ -316,7 +383,14 @@ function createHost() {
       case 'duck': return director.duckNow();
       case 'stopAll': director.stopAll(); wantPlaying = false; return emit();
       case 'announce': if (m.clip) director.announce(m.clip, { lead: TIMING.chimeLead, pre: 'chime' }); return;
-      case 'preview': { const p = m.pack || settings.pack; if (!audioCtx()) return; await preloadPack(p); playClip(p, m.clip || 'check'); return; }
+      case 'preview': { const p = m.pack || settings.pack; if (!audioCtx()) return; say(p, clockText(p, m.clip || 'check'), { fallbackClip: m.clip || 'check' }); return; }
+      case 'say': {
+        // The host's "Say something": through the director (music dips), or straight out if it's quiet time.
+        const text = String(m.text || '').slice(0, 300).trim();
+        if (!text || settings.muteAll) return;
+        if (!director.speak(text)) say(pack(), text);
+        return;
+      }
       case 'test': return test(m.cue);
       default:
     }
@@ -357,7 +431,7 @@ function createHost() {
   offs.push(subscribe('audio/settings', m => { if (m && typeof m === 'object' && !Array.isArray(m)) applySettings(m, { fromHost: true }); }));
 
   // ---------- go ----------
-  loadManifest();
+  loadManifest().then(() => preloadPack(settings.pack || DEFAULT_PACK)); // the countdown lines, ready ahead of time
   (async () => {
     const cb = await sp.handleCallback();
     if (cb?.ok) notice('Spotify connected ✔');

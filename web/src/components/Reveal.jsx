@@ -55,6 +55,11 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, o
   // spin. The lights get 3, 2, 1 and the reveal on the same timeline.
   const cur = slides[idx] ?? slides[0];
   const cueKey = cur ? `${idx}:${cur.label}:${cur.title || ''}` : '';
+  // The announcer gets every slide's words up front (so each winner's line is ready when it lands).
+  const linesKey = slides.map(x => `${x.label}:${x.title || ''}`).join('|');
+  useEffect(() => { emitRevealLines(slides.map(speechOf)); }, [linesKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The first winner shown after the TV (re)loads: the announcer skips it if it already said it.
+  const firstCue = useRef(true);
   // Back: this slide shows its winner straight away. Forward (or a fresh load): the full build-up.
   const prevIdx = useRef(idx);
   const instantKeys = useRef(new Set());
@@ -72,12 +77,13 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, o
   useEffect(() => {
     if (!cur) return undefined;
     const set = n => setCd({ k: cueKey, n });
-    const base = { step: idx, label: cur.label, preview };
+    const base = { step: idx, label: cur.label, preview, slide: speechOf(cur) };
+    const initial = () => { const v = firstCue.current; firstCue.current = false; return v; };
     if (mode === 'hold') {
       // The intro and the finale wait for Next; Back lands on the winner directly.
       const t = setTimeout(() => {
         onSlide?.(cur, 'show');
-        emitReveal({ ...base, what: cur.intro ? 'intro' : cur.finale ? 'finale' : 'show', back: instant });
+        emitReveal({ ...base, what: cur.intro ? 'intro' : cur.finale ? 'finale' : 'show', back: instant, initial: initial() });
       }, 0);
       return () => clearTimeout(t);
     }
@@ -98,7 +104,7 @@ export default function Reveal({ standings, awards, onSlide, step = 0, onStep, o
         show += Math.max(1500, walkTimes(cur.walk).land + WALK_HOLD);
       }
     }
-    at(show, () => { set(0); onSlide?.(cur, 'show'); emitReveal({ ...base, what: 'show', empty: !!cur.empty }); });
+    at(show, () => { set(0); onSlide?.(cur, 'show'); emitReveal({ ...base, what: 'show', empty: !!cur.empty, initial: initial() }); });
     return () => ts.forEach(clearTimeout);
   }, [cueKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const count = typeof phase === 'number' ? phase : 0;
@@ -376,6 +382,14 @@ export const FINALE_STEP = PRIZE_COUNT + 1; // 0 intro, 1–12 prizes, 13 finale
 function emitReveal(detail) {
   try { window.dispatchEvent(new CustomEvent('pw:reveal', { detail })); } catch { /* old browser */ }
 }
+function emitRevealLines(slides) {
+  try { window.dispatchEvent(new CustomEvent('pw:revealLines', { detail: { slides } })); } catch { /* old browser */ }
+}
+// What the announcer needs from a slide to say it (lib/audio/lines.js revealText).
+const speechOf = s => s && ({
+  label: s.label, title: s.title, intro: !!s.intro, finale: !!s.finale, empty: !!s.empty, score: s.score ?? null,
+  machine: s.machine ? { name: s.machine.name } : null, plays: s.plays ?? null, spin: s.spin ? { drawn: s.spin.drawn } : null,
+});
 
 function Ramp({ value }) {
   return fmt(useRamp(0, Number(value) || 0, 1600, 450));
@@ -480,7 +494,7 @@ function buildSlides({ standings, awards }) {
   const gw = walk('Most games logged', byPlays, g?.player);
   push(g
     ? {
-      label: 'THE GRINDER', confetti: true, hero: hero(g.player), title: g.player.display_name, walk: gw,
+      label: 'THE GRINDER', confetti: true, hero: hero(g.player), title: g.player.display_name, walk: gw, plays: g.plays,
       subtitle: `${g.plays} games logged`, accent: '#4d8bff', footer: 'absolutely sent it 💪',
     }
     : noWinner('THE GRINDER', '#4d8bff', NOBODY, { walk: gw }), g?.player);

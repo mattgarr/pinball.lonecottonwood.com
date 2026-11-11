@@ -41,103 +41,9 @@ CLIPS = ['start5', 'start4', 'start3', 'start2', 'start1', 'on',
          'end15', 'end10', 'end5', 'end4', 'end3', 'end2', 'end1', 'timesup',
          'awards', 'freeplay', 'check']
 
-LINES = {
-    'british': {
-        'start5': 'The tournament begins in five minutes.',
-        'start4': 'Four minutes to the tournament.',
-        'start3': 'Three minutes until the tournament begins.',
-        'start2': 'Two minutes. Take your positions.',
-        'start1': 'One minute to go. The tournament starts in one minute.',
-        'on': 'The tournament is on. Good luck, everyone.',
-        'end15': 'Last call. Fifteen minutes left in the tournament.',
-        'end10': 'Ten minutes remaining.',
-        'end5': 'Five minutes left. Make them count.',
-        'end4': 'Four minutes left.',
-        'end3': 'Three minutes left.',
-        'end2': 'Two minutes left. Get your last games in.',
-        'end1': 'One minute left. Finish your game, and log your score.',
-        'timesup': "Time's up. Scores are locked.",
-        'awards': 'The awards begin in a few minutes. Gather round the TV.',
-        'freeplay': 'Free play is open. Play for fun.',
-        'check': 'Sound check. Your announcer is ready.',
-    },
-    'hype': {
-        'start5': 'Five minutes till we start!',
-        'start4': 'Four minutes! Get ready!',
-        'start3': 'Three minutes! Warm up those flippers!',
-        'start2': 'Two minutes! Get to your machine!',
-        'start1': 'One minute! Here we go!',
-        'on': "Let's go! The tournament is on!",
-        'end15': 'Last call! Fifteen minutes left!',
-        'end10': 'Ten minutes! Keep playing!',
-        'end5': 'Five minutes! Make it count!',
-        'end4': 'Four minutes left!',
-        'end3': 'Three minutes left!',
-        'end2': 'Two minutes! Final games!',
-        'end1': 'One minute! Log your scores!',
-        'timesup': "Time's up! Scores are locked!",
-        'awards': 'Awards in a few minutes! Get over here!',
-        'freeplay': 'Free play is open! Have fun!',
-        'check': 'Are you ready to play some pinball?',
-    },
-    'ship': {
-        'start5': 'Good evening. The tournament will begin in five minutes.',
-        'start4': 'The tournament will begin in four minutes.',
-        'start3': 'Three minutes remain before the tournament.',
-        'start2': 'Two minutes. Please proceed to your machines.',
-        'start1': 'One minute. The tournament begins in one minute.',
-        'on': 'The tournament has begun. I wish you luck.',
-        'end15': 'Fifteen minutes remain in the tournament.',
-        'end10': 'Ten minutes remain.',
-        'end5': 'Five minutes remain.',
-        'end4': 'Four minutes remain.',
-        'end3': 'Three minutes remain.',
-        'end2': 'Two minutes remain. Please complete your final games.',
-        'end1': 'One minute remains. Please log your scores.',
-        'timesup': 'Time is up. The scores are now final.',
-        'awards': 'The awards will begin shortly. Please gather by the screen.',
-        'freeplay': 'Free play is now open. Enjoy yourselves.',
-        'check': 'All systems are functioning normally.',
-    },
-    '8bit': {
-        'start5': 'Tournament begins in five minutes.',
-        'start4': 'Four minutes to launch.',
-        'start3': 'Three minutes to launch.',
-        'start2': 'Two minutes. Players, ready.',
-        'start1': 'One minute. Prepare for tournament.',
-        'on': 'Tournament activated. Good luck, humans.',
-        'end15': 'Warning. Fifteen minutes remain.',
-        'end10': 'Ten minutes remain.',
-        'end5': 'Five minutes remain.',
-        'end4': 'Four minutes remain.',
-        'end3': 'Three minutes remain.',
-        'end2': 'Two minutes. Final games.',
-        'end1': 'One minute. Enter your scores.',
-        'timesup': 'Game over. Scores locked.',
-        'awards': 'Awards sequence in a few minutes. Report to the screen.',
-        'freeplay': 'Free play. Mode. Activated.',
-        'check': 'System check complete.',
-    },
-    'newsreel': {
-        'start5': 'Attention, folks! The tournament begins in five minutes!',
-        'start4': 'Four minutes until the big tournament!',
-        'start3': 'Three minutes, ladies and gentlemen!',
-        'start2': 'Two minutes! Take your places!',
-        'start1': 'One minute to go, folks! One minute!',
-        'on': 'And they are off! The tournament is on!',
-        'end15': 'Last call, folks! Fifteen minutes left!',
-        'end10': 'Ten minutes remaining in the tournament!',
-        'end5': 'Five minutes left, make them count!',
-        'end4': 'Four minutes left!',
-        'end3': 'Three minutes left!',
-        'end2': 'Two minutes! Get those last games in!',
-        'end1': 'One minute left! Log your scores!',
-        'timesup': "Time's up, folks! The scores are locked!",
-        'awards': 'The awards are coming up in a few minutes! Gather round!',
-        'freeplay': 'Free play is open! Have a ball!',
-        'check': 'Testing, testing. This is your announcer.',
-    },
-}
+# What each pack says: web/src/lib/audio/clockLines.json (2-3 ways per clip; the first is the offline clip).
+LINES = {pack: {clip: v[0] for clip, v in clips.items()}
+         for pack, clips in json.load(open(os.path.join(ROOT, 'web', 'src', 'lib', 'audio', 'clockLines.json'))).items() if pack != '_'}
 
 # Pack settings. say_voices: preference order (first installed wins). rate: words per minute.
 PACKS = {
@@ -155,6 +61,8 @@ PACKS = {
     'newsreel': dict(name='Retro newsreel', say_voices=['Daniel (Enhanced)', 'Eddy (English (US))', 'Rocko (English (US))', 'Fred'],
                      rate=192, oa_voice='verse', oa_style='A 1950s radio newsreel / game-show host: fast, bright, theatrical, '
                      'mid-Atlantic accent, very enthusiastic.'),
+    'dj': dict(name='Fun-center DJ', say_voices=['Evan (Enhanced)', 'Nathan (Enhanced)', 'Alex', 'Fred'],
+               rate=190, oa_voice='ash', oa_style='A corny, cheerful roller-rink DJ on the mic: big grin, stretched-out words, dad-joke energy.'),
 }
 DEFAULT_PACK = 'british'
 
@@ -179,6 +87,26 @@ def pick_say_voice(prefs, installed):
 
 def tts_say(text, voice, rate, path):
     subprocess.run(['say', '-v', voice, '-r', str(rate), '--data-format=LEI16@22050', '-o', path, text], check=True)
+
+
+def tts_gemini(text, pack, path):
+    # The same AI voices the TV uses live: the `tts` edge function (host passcode from HOST_PASSCODE.txt,
+    # never printed). The line is cached in storage, so the TV gets it instantly too.
+    pw = open(os.path.join(ROOT, 'HOST_PASSCODE.txt')).read().splitlines()[2].strip()
+    body = json.dumps({'pass': pw, 'pack': pack, 'text': text}).encode()
+    req = urllib.request.Request('https://llmggdjxiffkwnjuogxf.supabase.co/functions/v1/tts', data=body, headers={
+        'Content-Type': 'application/json', 'apikey': 'sb_publishable_7oGSOVFpRFVnJ5SeRcjYsQ_a6EQyojv'})
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=90) as r:
+                url = json.load(r)['url']
+            with urllib.request.urlopen(url, timeout=60) as r, open(path, 'wb') as f:
+                f.write(r.read())
+            return
+        except Exception as e:  # noqa: BLE001
+            if attempt == 2:
+                raise
+            print(f'  retry {pack}: {e}')
 
 
 def tts_openai(text, pack, path):
@@ -375,7 +303,7 @@ def encode(x, sr, dst):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--pack', action='append', help='only these packs (repeatable)')
-    ap.add_argument('--engine', default='say', choices=['say', 'openai'])
+    ap.add_argument('--engine', default='gemini', choices=['gemini', 'say', 'openai'])
     ap.add_argument('--list-voices', action='store_true')
     a = ap.parse_args()
     installed = say_voices()
@@ -390,25 +318,33 @@ def main():
     manifest['default'], manifest['clips'] = DEFAULT_PACK, CLIPS
     for pack in packs:
         cfg = PACKS[pack]
-        voice = f"openai:{cfg['oa_voice']}" if a.engine == 'openai' else pick_say_voice(cfg['say_voices'], installed)
+        voice = {'openai': f"openai:{cfg['oa_voice']}", 'gemini': 'gemini:designed'}.get(a.engine) or pick_say_voice(cfg['say_voices'], installed)
         os.makedirs(os.path.join(OUT, pack), exist_ok=True)
         durs = {}
-        for clip in CLIPS:
+
+        def one(clip):
             text = LINES[pack][clip]
             with tempfile.TemporaryDirectory() as d:
                 raw = os.path.join(d, 'raw.wav')
-                if a.engine == 'openai':
+                if a.engine == 'gemini':
+                    tts_gemini(text, pack, raw)
+                elif a.engine == 'openai':
                     tts_openai(text, pack, raw)
                 else:
                     tts_say(text, voice, cfg['rate'], raw)
                 sr, x = load(raw)
             x = resample(x, sr, SR)
             x = trim(x, SR)
-            x = finish(character(pack, x, SR), SR)
+            # Gemini clips stay dry: the TV adds each pack's character live (voice.js), same as its AI lines.
+            x = finish(x if a.engine == 'gemini' else character(pack, x, SR), SR)
             dst = os.path.join(OUT, pack, f'{clip}.m4a')
             encode(x, SR, dst)
-            durs[clip] = int(len(x) / SR * 1000)
-        manifest['packs'][pack] = {'name': cfg['name'], 'voice': voice, 'ms': durs,
+            return clip, int(len(x) / SR * 1000)
+
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(6) as ex:
+            durs = dict(ex.map(one, CLIPS))
+        manifest['packs'][pack] = {'name': cfg['name'], 'voice': voice, 'engine': a.engine, 'ms': durs,
                                    'lines': LINES[pack]}
         print(f'{pack:9s} {cfg["name"]:16s} voice={voice:24s} clips={len(durs)} longest={max(durs.values())} ms')
     manifest['packs'] = {k: manifest['packs'][k] for k in PACKS if k in manifest['packs']}

@@ -261,3 +261,49 @@ describe('host controls', () => {
     expect(last('music')[1]).toBe(LEVELS.voice);
   });
 });
+
+describe('spoken lines', () => {
+  it('a live line dips the music until the line starts, then for exactly its length', async () => {
+    const { d, last, calls } = rig();
+    let start;
+    d.out.say = t => { calls.push(['say', t]); return new Promise(r => { start = r; }); };
+    expect(d.speak('New Fathom record!', { lead: 1000 })).toBe(true);
+    expect(last('music')[1]).toBe(LEVELS.voice);
+    vi.advanceTimersByTime(1000);
+    expect(last('say')[1]).toBe('New Fathom record!');
+    vi.advanceTimersByTime(4000); // still waiting for the AI voice
+    expect(last('music')[1]).toBe(LEVELS.voice);
+    start(3000);
+    await Promise.resolve(); await Promise.resolve();
+    vi.advanceTimersByTime(3000 + TIMING.voiceTail - 50);
+    expect(last('music')[1]).toBe(LEVELS.voice);
+    vi.advanceTimersByTime(100);
+    expect(last('music')[1]).toBe(1);
+  });
+  it('a skipped line lets the music straight back up', async () => {
+    const { d, last } = rig();
+    d.out.say = () => Promise.resolve(0);
+    d.speak('Welcome, Ann.');
+    vi.advanceTimersByTime(10);
+    await Promise.resolve(); await Promise.resolve();
+    vi.advanceTimersByTime(TIMING.release + 10);
+    expect(last('music')[1]).toBe(1);
+  });
+  it('quiet during the reveal and the final 10 s; reveal lines only during the reveal', () => {
+    const { d, calls } = rig();
+    d.out.say = t => { calls.push(['say', t]); return 1000; };
+    expect(d.speak('Grand Champion!', { reveal: true })).toBe(false);
+    d.revealStart();
+    expect(d.speak('Welcome, Ann.')).toBe(false);
+    expect(d.speak('Grand Champion!', { reveal: true, lead: 500 })).toBe(true);
+    vi.advanceTimersByTime(600);
+    expect(calls.filter(c => c[0] === 'say').map(c => c[1])).toEqual(['Grand Champion!']);
+    d.revealEnd();
+    d.tick(10);
+    expect(d.speak('Welcome, Bob.')).toBe(false);
+  });
+  it('announcer off or muted: nothing is said', () => {
+    expect(rig({ voiceOn: false }).d.speak('hi')).toBe(false);
+    expect(rig({ muteAll: true }).d.speak('hi')).toBe(false);
+  });
+});
