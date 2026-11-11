@@ -23,7 +23,7 @@ const json = (body: unknown, status = 200) =>
 const PERSONAS: Record<string, { name: string; prebuilt: string; who: string; style: string }> = {
   aerobics: { name: 'ROXY', prebuilt: 'Laomedeia', who: 'a peppy 80s aerobics instructor in leg warmers: cheers everyone on, workout puns ("feel the burn", "and reach!", "five more!"), treats every game like a workout', style: 'peppy, bubbly and encouraging, chatting with her co-host' },
   hype: { name: 'DASH', prebuilt: 'Fenrir', who: 'a fast play-by-play sportscaster: stats, drama, calls every game like a championship', style: 'fast, excited play-by-play, chatting with his co-host' },
-  dj: { name: 'DONNIE', prebuilt: 'Puck', who: 'a cheesy fun-center DJ: warm hype-dad energy, puns, loves everybody. He mixes up how he jumps in (or goes straight in with the news) and never uses the same opener twice in a row. He sprinkles short 80s sayings and fun-center jokes (couples skate, skee-ball, mini-golf, tickets for the prize counter) into his own lines. At most one catchphrase per line', style: 'warm, upbeat cheesy-dad energy, smiling but not laughing, chatting with his co-host' },
+  dj: { name: 'DONNIE', prebuilt: 'Puck', who: 'a warm, cheesy fun-center DJ: hype-dad energy, corny puns, loves everybody, easy to wind up', style: 'warm, upbeat cheesy-dad energy, smiling but not laughing, chatting with his co-host' },
   british: { name: 'STERLING', prebuilt: 'Algieba', who: 'a suave British secret-agent type: dry wit, understatement, unflappable', style: 'smooth, dry and amused, chatting with his co-host' },
   ship: { name: 'ORBIT', prebuilt: 'Iapetus', who: 'a calm, polite spaceship computer: deadpan, precise, takes everything literally', style: 'calm, even and deadpan, chatting with its co-host' },
   '8bit': { name: 'BYTE', prebuilt: 'Orus', who: 'a retro 8-bit robot: literal, says "beep boop", calls people "humans", loves high scores', style: 'flat robotic voice, chatting with its co-host' },
@@ -32,7 +32,7 @@ const PERSONAS: Record<string, { name: string; prebuilt: string; who: string; st
   drivetime: { name: 'MIKEY', prebuilt: 'Sadachbia', who: 'a 90s morning-drive radio guy: shout-outs, call-in-show energy, quick jokes', style: 'fast and bright radio voice, chatting with his co-host' },
   countdown: { name: 'CHUCK', prebuilt: 'Algieba', who: 'a smooth top-40 countdown host: warm, sincere, talks about scores like chart positions', style: 'smooth and warm, chatting with his co-host' },
   rumble: { name: 'THUNDER', prebuilt: 'Algenib', who: 'a booming monster-truck and boxing arena announcer: dramatic, everything is the main event', style: 'booming and dramatic, chatting with his co-host' },
-  valley: { name: 'TIFFANI', prebuilt: 'Leda', who: 'a 90s Beverly Hills valley girl (an original character, no movie quotes or movie names): upbeat, fast and sassy, rates every score like an outfit or a mall haul (makeovers, "so last season", the red carpet, the food court, a wardrobe malfunction on the playfield), and sprinkles short 80s/90s slang into her own lines. At most one catchphrase per line', style: 'bubbly, fast valley-girl voice, chatting with her co-host' },
+  valley: { name: 'TIFFANI', prebuilt: 'Leda', who: 'a quick, sassy 90s valley girl (an original character): upbeat, fast, judges scores the way she judges outfits, never misses a chance to needle her co-host', style: 'bubbly, fast valley-girl voice, chatting with her co-host' },
   vj: { name: 'KAT', prebuilt: 'Aoede', who: 'a cool 90s music-TV VJ: quick, confident, rock-and-roll energy, introduces every game like a world-premiere video', style: 'cool, quick and confident, chatting with her co-host' },
   rink: { name: 'STARLA', prebuilt: 'Sulafat', who: 'an 80s roller-rink DJ: disco-ball glow, couples-skate cheese, "clear the floor!", warm and smooth', style: 'warm, smooth and glittery, chatting with her co-host' },
 };
@@ -77,6 +77,7 @@ export function unsafe(text: string) {
 const schema = (names: string[]) => ({
   type: 'object',
   properties: {
+    woodside: { type: 'boolean' },
     lines: {
       type: 'array',
       items: { type: 'object', properties: { host: { type: 'string', enum: names }, text: { type: 'string' } }, required: ['host', 'text'] },
@@ -85,51 +86,53 @@ const schema = (names: string[]) => ({
   required: ['lines'],
 });
 
-function prompt(digest: unknown, roast: string, avoid: string[], duo: string[], short: boolean, local: string[] = [], rivalry = false, rep: Record<string, string[]> = {}, avoidPhrases: string[] = []) {
+function prompt(digest: unknown, roast: string, avoid: string[], duo: string[], short: boolean, local: string[] = [], _rivalry = false, rep: Record<string, string[]> = {}, avoidPhrases: string[] = []) {
   const [A, B] = duo.map(k => PERSONAS[k]);
   const tease = (k: string) => TEASE[k] || 'their on-air persona';
-  // Who roasts more: Tiffani (about 2 to 1) when she's in the booth; otherwise the first host.
-  const roaster = (d: string[]) => {
-    const main = d.includes('valley') ? 'valley' : d[0], other = d.find(k => k !== main)!;
-    return `${PERSONAS[main].name} roasts more (about two to one): sharp, sassy and quick. ${PERSONAS[other].name} roasts too, and fires back${other === 'dj' ? ' with cheesy dad comebacks' : ''}.`;
-  };
-  return `You write the next short bit for a two-person announce booth at a home pinball party tonight, played over the
-speakers in the garage. Families are there, including kids.
+  // Who teases more: Tiffani (about 2 to 1) when she's in the booth; otherwise the first host.
+  const main = duo.includes('valley') ? 'valley' : duo[0], other = duo.find(k => k !== main)!;
+  const flavor = [...new Set(Object.values(rep).flat())];
+  const sealed = !!(digest as { sealed?: boolean })?.sealed;
+  return `You're writing the next few seconds of live banter between two announcers in the booth at a home pinball party, in a
+garage in Woodside, California. It plays over the speakers. Families are there, including kids.
+
+THE MOST IMPORTANT THING: it has to sound like a real, live conversation between two people who enjoy riffing together.
+Each line reacts to the one before it: a quick reaction, a question, a disagreement, a comeback, building on the other
+person's joke. Plain, natural spoken English with contractions, the way people actually talk on a broadcast. Not a
+script, not a string of one-liners, not a list of catchphrases. Character comes from attitude and rhythm, not slang.
 
 The hosts (use exactly these names in "host"):
 - ${A.name}: ${A.who}.
 - ${B.name}: ${B.who}.
-${Object.entries(rep).filter(([, v]) => v.length).map(([n, v]) => `${n}'s catchphrases (rotate; at most one per line; none from a recent bit): ${v.join(', ')}.`).join('\n')}
-They riff off each other like real broadcast partners: short back-and-forth, natural, contractions, never stiff.
-Vary how every bit starts: never open a line with "All right" or "Alright", don't lean on "Talk about…", and don't
-open the way your recent bits did. No written laughs ("ha ha", "heh", "*laughs*"); let the words be the fun.
+When something's roastable, they tease the players and each other, like friends would. ${PERSONAS[main].name} is the
+quicker, sassier one and does more of the teasing (about two to one); ${PERSONAS[other].name} gives as good as he gets${other === 'dj' ? ', usually with a cheesy dad comeback' : ''}.
+What they might tease each other about: ${PERSONAS[duo[0]].name}, ${tease(duo[0])}; ${PERSONAS[duo[1]].name}, ${tease(duo[1])}. Only when it comes up naturally.
 
-${short
-    ? 'Keep it SHORT: 2 or 3 lines, alternating hosts, about 10 seconds out loud (20 to 35 words).'
-    : 'Write 2 to 5 lines, alternating hosts, about 15 to 20 seconds out loud in total (40 to 55 words, never more than 60).'}
-Each line is one or two short sentences, easy to hear in a noisy room.
+What to talk about: ONLY the facts in the digest below. Real names, machines and numbers exactly as given (numbers are
+already written as words; keep them that way). If "justHappened" has anything, that's why you're on the air: react to it.
+Otherwise pick ONE interesting thing (a big game, a rough game, a close race, someone on a streak) and talk about it like
+you just noticed it. Don't list stats. If nothing much is happening, chat about the room or the time left.
+${roast === 'spicy' ? 'Teasing can be cheeky (friendly trash talk about bad games, drains, cold streaks).' : 'Teasing stays gentle and warm: tease a rough game lightly, then cheer them on.'}
 
-Use ONLY facts in the digest below: real names, machines and numbers exactly as given (numbers are already written as
-words; keep them that way). If "justHappened" has anything, that's why you're on the air right now: open with it
-(welcome a new arrival by name, celebrate a record, tease a rough game). Otherwise pick the most interesting one or
-two things; don't list everything, and don't repeat the same story as your recent bits. If nothing much is happening,
-hype the room, the machines or the time left.
-${roast === 'spicy'
-    ? 'Roasting: playful and a bit cheeky about bad games, drains, cold streaks and losing streaks, like friendly trash talk.'
-    : 'Roasting: gentle and warm. Tease a bad game lightly, then cheer them on.'}
-Rules, always: PG and kind. Tease only pinball play (scores, drains, luck, streaks), never anyone's looks, body, age,
-gender, family, job, intelligence, or anything else about them. No swearing, no innuendo, no alcohol, no politics.
-Never make up scores, names or events. Don't mention prizes or awards.
-${avoidPhrases.length ? `Fresh material only: don't reuse any of these phrases from the last few bits: ${avoidPhrases.map(p => `"${p}"`).join(', ')}.\n` : ''}${local.length ? `We're in Woodside, California: Silicon Valley horse country, where the money is absurd and everyone in this garage
-knows it. The ridiculousness of Woodside is a RUNNING THEME of the night: work in one or two of these items (riff on the joke angle or
-write a sharper one), ideally as the punchline of a roast of a score, a player or a host ("that score's lower than Woodside's sidewalk
-count", "Omar is pre-revenue"). Make the room laugh at itself: affectionate, with some bite. Keep facts and numbers as given; jokes
-about the town, the money and tech types in general, never about a private person:\n${local.map(x => `- ${x}`).join('\n')}` : ''}
-Slang only from the 80s and 90s, nothing modern (no "no cap", "slay", "vibe check", "rizz").
-Both hosts roast: the players, Woodside, and${rivalry ? ' (this bit) each other' : ' sometimes each other'}. ${roaster(duo)}
-${rivalry ? `This bit, they roast EACH OTHER at least once, sassy and quick (${A.name}: ${tease(duo[0])}; ${B.name}: ${tease(duo[1])}), mixed in with the game talk. Friendly rivals, never mean.` : ''}
-${(digest as { sealed?: boolean })?.sealed ? 'The standings are SECRET right now: never say who is leading, any ranks, ratings or who might win. Talk about the clock, the games being played and the excitement instead.' : ''}
-${avoid.length ? `Don't repeat these recent bits:\n${avoid.map(a => `- ${a}`).join('\n')}\nAnd don't start any line with these openers: ${[...new Set(avoid.map(openerKey).filter(Boolean))].map(o => `"${o}"`).join(', ')}.${(() => { const c = [...new Set(avoid.flatMap(catchphrasesIn))]; return c.length ? `\nDon't use these catchphrases this time (used recently): ${c.map(x => `"${x}"`).join(', ')}.` : ''; })()}` : ''}
+${short ? 'Keep it SHORT: 2 or 3 lines, about 10 seconds out loud (20 to 35 words).' : '2 to 5 lines, about 15 to 20 seconds out loud (40 to 55 words, never more than 60).'}
+One or two short sentences per line, easy to hear in a noisy room. Never open a line with "All right" or "Alright", don't lean
+on "Talk about…", and don't open the way the recent bits did. No written laughs.
+
+Flavor, optional and sparing: the hosts are from the 80s and 90s, so an era expression can slip in, at most ONE in the whole
+bit across both hosts, only if it lands naturally; most bits have none. Never modern slang ("no cap", "slay", "rizz").${flavor.length ? `
+Their sort of expressions, for reference only (not a menu): ${flavor.slice(0, 30).join(', ')}.` : ''}
+${local.length ? `
+Local color, optional: you may use ONE of these only if it genuinely fits the moment (an absurd score, a money or status angle,
+a lull); skip it if it would feel forced. Keep its facts as given; jokes about the town and tech types, never a private person.
+If you use one, set "woodside" to true.
+${local.map(x => `- ${x}`).join('\n')}` : 'No local Woodside jokes this time.'}
+
+Rules, always: PG and kind. Tease only pinball play (scores, drains, luck, streaks) and the hosts' own personas, never a
+player's looks, body, age, gender, family, job or intelligence. No swearing, no innuendo, no alcohol, no politics. Never make
+up scores, names or events. Don't mention prizes or awards.
+${sealed ? 'The standings are SECRET right now: never say who is leading, any ranks, ratings or who might win. Talk about the clock and the games being played instead.' : ''}
+${avoidPhrases.length ? `Fresh material: don't reuse these phrases from the last few bits: ${avoidPhrases.map(p => `"${p}"`).join(', ')}.` : ''}
+${avoid.length ? `The last few bits (don't repeat their jokes, openers or expressions):\n${avoid.map(a => `- ${a}`).join('\n')}` : ''}
 
 Digest (JSON):
 ${JSON.stringify(digest)}`;
@@ -237,6 +240,12 @@ function repeatsCatchphrase(lines: Line[], recent: string[], extra: string[] = [
   const used = new Set(recent.flatMap(found).filter(c => !COMMON.has(c)));
   return lines.some(l => found(l.text).some(c => used.has(c)));
 }
+// More than one catchphrase in a bit (the hosts shouldn't sound like they're reading a list).
+function tooMuchSlang(lines: Line[], extra: string[] = []) {
+  const all = [...new Set([...CATCHPHRASES, ...extra.map(normPhrase)].filter(c => c && !COMMON.has(c)))];
+  const t = ` ${normPhrase(lines.map(l => l.text).join(' '))} `;
+  return all.filter(c => t.includes(` ${c} `)).length > 1;
+}
 // A distinctive phrase from the last few bits used again ("mini golf windmill").
 function reusesPhrase(lines: Line[], phrases: string[]) {
   return lines.some(l => { const t = ` ${normPhrase(l.text)} `; return phrases.some(p => t.includes(` ${p} `)); });
@@ -280,10 +289,11 @@ async function write(key: string, digest: unknown, roast: string, avoid: string[
     try { parsed = txt ? JSON.parse(txt) : null; } catch { /* bad JSON */ }
     let lines = check(parsed, names, !!(digest as { sealed?: boolean })?.sealed, short);
     // Opens like a recent bit: one more try (the last try is kept, minus the repeated "All right").
+    if (lines && attempt < 2 && tooMuchSlang(lines, Object.values(rep).flat())) { console.error('booth slang', lines.map(l => l.text.slice(0, 30)).join(' | ')); continue; }
     if (lines && attempt < 2 && (repeatsOpener(lines, avoid) || repeatsCatchphrase(lines, avoid, Object.values(rep).flat()) || reusesPhrase(lines, avoidPhrases))) { console.error('booth repeat', lines.map(l => l.text.slice(0, 30)).join(' | ')); continue; }
     // A written laugh in about 1 bit in 4, an "All right!" opener rarely; otherwise they're taken out.
     if (lines) lines = tidyLines(lines, Math.random() < 0.25, Math.random() < 0.1);
-    if (lines && lines.length >= 2) return lines;
+    if (lines && lines.length >= 2) return Object.assign(lines, { woodside: !!(parsed as { woodside?: boolean })?.woodside });
     console.error('booth rejected', txt?.slice(0, 600));
   }
   return null;
@@ -350,7 +360,8 @@ Deno.serve(async req => {
     const gate = await db.rpc('tts_count');
     if (gate.error) return json({ error: gate.error.message }, 429);
 
-    const local = (Array.isArray(body.local) ? body.local : []).filter((x: unknown) => typeof x === 'string').slice(0, 3).map((x: string) => x.slice(0, 450));
+    // Woodside jokes are spread out: none offered right after a bit that used one.
+    const local = body.lastUsedLocal === true ? [] : (Array.isArray(body.local) ? body.local : []).filter((x: unknown) => typeof x === 'string').slice(0, 3).map((x: string) => x.slice(0, 450));
     // The hosts' repertoires (from the TV's boothRepertoire.json) and distinctive phrases from the last few bits.
     const rep: Record<string, string[]> = {};
     if (body.repertoire && typeof body.repertoire === 'object') {
@@ -384,7 +395,7 @@ Deno.serve(async req => {
     const url = db.storage.from('tts').getPublicUrl(path).data.publicUrl;
     const ms = Math.round((pcm.length / 48000) * 1000);
     console.log('booth', JSON.stringify({ duo, how, lines: lines.length, ms, write: t1 - t0, voice: Date.now() - t1 }));
-    return json({ url, ms, lines, hosts: duo.map(k => PERSONAS[k].name), how, took: Date.now() - t0 });
+    return json({ url, ms, lines, woodside: !!(lines as unknown as { woodside?: boolean }).woodside, hosts: duo.map(k => PERSONAS[k].name), how, took: Date.now() - t0 });
   } catch (e) {
     console.error(e);
     return json({ error: "Couldn't make a booth bit right now." }, 502);

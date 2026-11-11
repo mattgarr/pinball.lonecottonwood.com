@@ -309,21 +309,21 @@ export class BoothRunner {
     if (this.inflight) return this.inflight;
     const t = this.now();
     const digest = { ...room.digest(), ...(this.events.length ? { justHappened: this.events.map(e => e.text) } : {}) };
-    // Each bit: two items of Woodside / Silicon Valley color (never repeated tonight), and every other bit the
-    // hosts roast each other too.
-    this.rivalry = !this.rivalry;
+    // Woodside / Silicon Valley color is optional and spread out: offered for about half the bits, never right
+    // after a bit that used it (the booth uses it only when it fits, so roughly one bit in three or four).
     const recent3 = this.log.slice(-3).flatMap(l => l.lines.map(x => x.text));
     const names = [...(digest.recent || []).map(r => r.player), ...(digest.machineTops || []).map(m => m.player)].filter(Boolean);
     const duo = String(this.settings().duo || '').split('+').filter(Boolean);
     const extras = {
-      local: pickLocal(this.usedLocal, 2, this.rand).map(localLine), rivalry: this.rivalry,
+      local: !this.lastUsedLocal && this.rand() < 0.5 ? pickLocal(this.usedLocal, 2, this.rand).map(localLine) : [],
+      lastUsedLocal: !!this.lastUsedLocal,
       avoidPhrases: keyPhrases(recent3, { names }).slice(0, 40),
       repertoire: duo.length === 2 ? repertoireFor(duo) : undefined,
     };
     this.onUsedLocal(this.usedLocal);
     this.inflight = Promise.resolve(this.fetchBit(digest, this.settings(), this.log.slice(-4).flatMap(l => l.lines.map(x => x.text)), extras))
       .then(b => {
-        if (b && safeLines(b.lines, { sealed: room.sealed, hosts: b.hosts })) this.bit = { ...b, at: t, sealed: room.sealed, duo: this.settings().duo };
+        if (b && safeLines(b.lines, { sealed: room.sealed, hosts: b.hosts })) { this.bit = { ...b, at: t, sealed: room.sealed, duo: this.settings().duo }; this.lastUsedLocal = !!b.woodside; }
         else this.failedAt = this.now();
       })
       .catch(() => { this.failedAt = this.now(); })
