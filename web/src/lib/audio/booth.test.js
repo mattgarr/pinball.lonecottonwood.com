@@ -145,9 +145,8 @@ describe('booth scheduler', () => {
     const y = rig(); y.settings.boothOn = false;
     expect(y.r.tick()).toBe('off');
   });
-  it('play now skips the wait', async () => {
+  it('play now skips the wait (even as the very first thing)', async () => {
     const x = rig();
-    x.r.tick();
     x.r.playNow();
     expect(x.r.tick()).toBe('fetching');
     await x.flush();

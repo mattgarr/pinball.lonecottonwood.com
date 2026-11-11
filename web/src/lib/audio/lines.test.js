@@ -78,8 +78,8 @@ describe('announcer lines', () => {
 describe('pronunciation', () => {
   it('respells names for speech only, whole words, any case', async () => {
     const { pronounce, parsePronounce } = await import('./lines.js');
-    expect(pronounce('Give it up for Stacia and Theo!')).toBe('Give it up for Staysha and Theo!');
-    expect(pronounce('STACIA wins')).toBe('Staysha wins');
+    expect(pronounce('Give it up for Stacia and Theo!')).toBe('Give it up for Stay-sha and Theo!');
+    expect(pronounce('STACIA wins')).toBe('Stay-sha wins');
     expect(pronounce('Anastacia wins')).toBe('Anastacia wins'); // not inside other names
     expect(pronounce('Theo wins', 'Theo=Thee-oh; Bo = Bow')).toBe('Thee-oh wins');
     expect(parsePronounce('A=B, C = D\nE=F,junk')).toEqual({ A: 'B', C: 'D', E: 'F' });

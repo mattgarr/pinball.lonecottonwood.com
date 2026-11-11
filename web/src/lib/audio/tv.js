@@ -10,7 +10,8 @@
 // It reports to the host card on <channel>/audio/state (retained) and <channel>/audio/lists.
 import { AudioDirector, DEFAULT_SETTINGS, TIMING, revealEventCue } from './policy.js';
 import { playSound, stopSounds } from './synth.js';
-import { DEFAULT_PACK, loadManifest, preloadPack, prewarm, say, sayClip, setSayNames, setVoiceVolume, stopVoice } from './voice.js';
+import { BOOTH_URL, DEFAULT_PACK, auth, loadManifest, post, preloadPack, prewarm, say, sayClip, setSayNames, setVoiceVolume, stopVoice, voiceQuietFor } from './voice.js';
+import { BOOTH, BoothRunner, boothMode, boothSource, buildDigest, momentFact, nearMark } from './booth.js';
 import { clockText, momentText, revealText } from './lines.js';
 import * as sp from './spotify.js';
 import { audioCtx, ensureCtx, fxBus, setGate, sound } from '../chiptune.js';
@@ -22,6 +23,8 @@ export const AUDIO_DEFAULTS = {
   ...DEFAULT_SETTINGS,
   pack: DEFAULT_PACK, playlist: '', playlistName: '', clientId: '', output: 'tv', outputName: '',
   autoplay: true, shuffle: true, sayNames: '',
+  // The announce booth (DONNIE + DASH): on/off, how often ('less' | 'normal' | 'more'), roast ('gentle' | 'spicy').
+  boothOn: true, boothFreq: 'normal', boothRoast: 'gentle',
 };
 
 const readSettings = () => { try { return { ...AUDIO_DEFAULTS, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null') || {}) }; } catch { return { ...AUDIO_DEFAULTS }; } };
@@ -63,7 +66,7 @@ function createHost() {
   const state = {
     page: 'tv', at: Date.now(), unlocked: false, sound: sound.wanted(),
     spotify: { login: sp.hasLogin(), ready: false, playing: false, track: '', artist: '', context: '', device: '', error: '' },
-    level: 0, reveal: false, final: false, settings, notice: '',
+    level: 0, reveal: false, final: false, settings, notice: '', booth: null,
   };
 
   // ---------- state out ----------
@@ -171,7 +174,8 @@ function createHost() {
       isPlaying: () => music.isPlaying() || wantPlaying,
       sound: (name, opts) => playSound(name, opts),
       voice: clip => (settings.voiceOn && settings.sayClock !== false ? sayClip(settings.pack || DEFAULT_PACK, clip) : 0),
-      say: text => (settings.voiceOn ? say(settings.pack || DEFAULT_PACK, text) : 0),
+      // A booth bit ({ url }) plays with the neutral voice chain; text lines in the chosen announcer's voice.
+      say: text => (settings.voiceOn ? say(typeof text === 'object' ? 'booth' : settings.pack || DEFAULT_PACK, text) : 0),
       stopSounds: () => { stopSounds(); stopVoice(); },
       levels: ({ fx, voice }) => {
         const c = audioCtx(), b = fxBus();
@@ -255,7 +259,7 @@ function createHost() {
   // A takeover or toast on the TV (TV.jsx `pw:moment`): records, a new #1, someone ranked, a games
   // milestone, people joining. While results are sealed (last 15 min until the reveal) nothing about
   // the standings is said.
-  let joins = [], joinTimer = null, lastWelcome = 0;
+  let joins = [], joinTimer = null, lastWelcome = 0, lastMoment = 0;
   const WELCOME_GAP = 20000, JOIN_GATHER = 3000;
   const flushJoins = () => {
     joinTimer = null;
@@ -266,6 +270,8 @@ function createHost() {
   };
   const onMoment = e => {
     const m = e.detail;
+    lastMoment = Date.now();
+    if (m?.kind) booth.event({ kind: m.kind, text: m.sealed && ['leader', 'ranked', 'climb', 'shame'].includes(m.kind) ? null : momentFact(m) });
     if (!m?.kind || settings.muteAll || !settings.voiceOn) return;
     if (m.kind === 'join') {
       if (settings.sayJoins === false || !m.player) return;
@@ -309,6 +315,37 @@ function createHost() {
   };
   window.addEventListener('pw:revealLines', onRevealLines);
   offs.push(() => window.removeEventListener('pw:revealLines', onRevealLines));
+
+  // ---------- the announce booth ----------
+  // Every few minutes, when nothing else is being said or shown, DONNIE and DASH talk about the night
+  // (lib/audio/booth.js decides when and what they're told; the `booth` edge function writes and voices it).
+  const booth = new BoothRunner({
+    settings: () => ({ boothOn: settings.boothOn !== false && settings.voiceOn && !settings.muteAll, boothFreq: settings.boothFreq, boothRoast: settings.boothRoast }),
+    room: () => {
+      const src = boothSource();
+      // "Play a booth segment now" works in any phase but the reveal.
+      const mode = src && !director.reveal ? boothMode(src.phase, { lastCall: src.lastCall }) || (booth.force ? 'freeplay' : null) : null;
+      return {
+        mode, sealed: !!src?.sealed, nearMark: nearMark(src?.party),
+        quiet: !director.final && !src?.takeover && voiceQuietFor() > BOOTH.quietGap && Date.now() - lastMoment > BOOTH.quietGap,
+        digest: () => buildDigest({ ...src, mode, sealed: !!src?.sealed }),
+      };
+    },
+    fetchBit: async (digest, s, avoid) => {
+      const a = await auth();
+      if (!a) return null;
+      return post({ ...a, digest, roast: s.boothRoast, names: settings.sayNames || '', avoid }, 60000, BOOTH_URL);
+    },
+    play: bit => { const ok = director.speak({ url: bit.url, ms: bit.ms }); if (ok) { boothPlaying = bit; setTimeout(() => { if (boothPlaying === bit) { boothPlaying = null; emitBooth(); } }, (bit.ms || 15000) + 1500); emitBooth(); } return ok; },
+  });
+  let boothPlaying = null;
+  try { window.__pwBooth = booth; } catch { /* debugging from the console */ }
+  const emitBooth = () => {
+    state.booth = { on: settings.boothOn !== false, next: booth.nextAt, playing: !!boothPlaying, log: booth.log.map(l => ({ at: l.at, lines: l.lines })) };
+    emit();
+  };
+  const boothIv = setInterval(() => { if (booth.tick() === 'played') emitBooth(); }, 5000);
+  offs.push(() => clearInterval(boothIv));
 
   // ---------- Spotify ----------
   async function startPlayer() {
@@ -385,6 +422,8 @@ function createHost() {
       case 'stopAll': director.stopAll(); wantPlaying = false; return emit();
       case 'announce': if (m.clip) director.announce(m.clip, { lead: TIMING.chimeLead, pre: 'chime' }); return;
       case 'preview': { const p = m.pack || settings.pack; if (!audioCtx()) return; say(p, clockText(p, m.clip || 'check'), { fallbackClip: m.clip || 'check' }); return; }
+      case 'booth': booth.playNow(); booth.tick(); return emitBooth();
+      case 'boothSkip': stopVoice(); boothPlaying = null; return emitBooth();
       case 'say': {
         // The host's "Say something": through the director (music dips), or straight out if it's quiet time.
         const text = String(m.text || '').slice(0, 300).trim();

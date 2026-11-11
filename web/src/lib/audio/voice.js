@@ -29,6 +29,7 @@ export function setSayNames(v) { sayNames = String(v || ''); }
 export const DEFAULT_PACK = 'british';
 export const clipUrl = (pack, clip) => `${VOICE_BASE}/${pack}/${clip}.m4a`;
 const TTS_URL = `${SUPABASE_URL}/functions/v1/tts`;
+export const BOOTH_URL = `${SUPABASE_URL}/functions/v1/booth`;
 const CACHE_KEY = 'pw.ttsCache';
 const TOKEN_KEY = 'pw.ttsToken';
 const CACHE_MAX = 800;
@@ -60,7 +61,7 @@ function remember(key, url, ms) {
 
 // ---------- the voice service ----------
 let tokenP = null;
-async function auth() {
+export async function auth() {
   const pass = getHostPass();
   const t = ls.get(TOKEN_KEY);
   if (t?.token && t.exp - Date.now() > 24 * 3600 * 1000) return { token: t.token };
@@ -71,11 +72,11 @@ async function auth() {
   }
   return t?.token && t.exp > Date.now() ? { token: t.token } : null;
 }
-async function post(body, ms) {
+export async function post(body, ms, url = TTS_URL) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), ms);
   try {
-    const r = await fetch(TTS_URL, { method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY }, body: JSON.stringify(body) });
+    const r = await fetch(url, { method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY }, body: JSON.stringify(body) });
     const out = await r.json().catch(() => ({}));
     if (!r.ok) throw Object.assign(new Error(out.error || `tts ${r.status}`), { status: r.status });
     return out;
@@ -190,6 +191,10 @@ function playBuffer(pack, buf) {
 const queue = [];
 let busy = false;
 let stopGen = 0;
+let lastEnd = 0; // when the last line finished
+// Is the announcer talking (or about to)? And for how long has it been quiet?
+export const voiceBusy = () => busy || queue.length > 0;
+export const voiceQuietFor = () => (voiceBusy() ? 0 : Date.now() - lastEnd);
 async function pump() {
   if (busy) return;
   busy = true;
@@ -208,6 +213,7 @@ async function pump() {
       }
       item.resolve(p.ms);
       await p.done;
+      lastEnd = Date.now();
       await new Promise(r => setTimeout(r, 250)); // a breath between lines
     }
   } finally { busy = false; }
@@ -216,17 +222,18 @@ const timeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(
 
 // Speak `text` (queued behind anything playing). Resolves when it starts, with its length in ms
 // (0: skipped). fallbackClip: a pre-rendered clip to use if the line isn't ready within `wait` ms.
+// text can also be a ready-made clip { url } (the announce booth).
 export function say(pack, text, { fallbackClip = null, wait = 9000, maxWait = 25000, style } = {}) {
   if (!text) return Promise.resolve(0);
   return new Promise(resolve => {
-    const ready = (async () => {
+    const ready = typeof text === 'object' ? timeout(decode(text.url), 8000) : (async () => {
       const line = await timeout(lineUrl(pack, text, { style }), wait);
       const buf = line ? await timeout(decode(line.url), 4000) : null;
       if (buf) return buf;
       if (fallbackClip) return timeout(decode(clipUrl(pack, fallbackClip)), 3000);
       return null;
     })();
-    queue.push({ pack, text, ready, resolve, at: Date.now(), maxWait, speech: fallbackClip ? text : null });
+    queue.push({ pack, text, ready, resolve, at: Date.now(), maxWait, speech: fallbackClip && typeof text === 'string' ? text : null });
     pump();
   });
 }

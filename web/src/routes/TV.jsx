@@ -19,6 +19,7 @@ import Toast from '../components/tv/Toast.jsx';
 import Dmd from '../components/tv/Dmd.jsx';
 import Crawl from '../components/tv/Crawl.jsx';
 import { BOARD_N, useLiveEvents } from '../components/tv/useLiveEvents.js';
+import { setBoothSource } from '../lib/audio/booth.js';
 import { sfx, sound } from '../lib/chiptune.js';
 import { CountUp } from '../lib/useCountUp.js';
 import { PODIUM_MIN, computeHighScores, fmtShort } from '../lib/scoring.js';
@@ -94,6 +95,10 @@ export default function TV() {
     }
   }, [intermission, ready]); // eslint-disable-line react-hooks/exhaustive-deps
   const highScores = useMemo(() => computeHighScores({ machines, players, scores, n: FP_ROWS }), [machines, players, scores]);
+  // The announce booth reads tonight's data from here (lib/audio/booth.js). Previews and demos stay quiet.
+  const boothData = useRef(null);
+  boothData.current = { machines, players, scores, party, phase: demo || revealPreview || fpParam != null ? null : phase, lastCall, sealed: isSealed, takeover: !!live.takeover };
+  useEffect(() => { setBoothSource(() => boothData.current); return () => setBoothSource(null); }, []);
   // Sealed: hide every row down to the lowest podium place (with the 3-machine rule, 2nd or 3rd can sit
   // below rank 3, and the rows around them would give it away).
   const sealDepth = Math.max(3, ...[awards.champion, awards.second, awards.third].map(x => x?.rank ?? 0));

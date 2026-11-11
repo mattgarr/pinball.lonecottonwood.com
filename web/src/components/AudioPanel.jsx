@@ -67,6 +67,7 @@ export default function AudioPanel() {
   const cmd = (c, extra = {}) => publish('audio/cmd', { cmd: c, at: Date.now(), ...extra });
 
   const online = tv && !tv.off && now - (tv.at || 0) < FRESH_MS;
+  const booth = online ? tv.booth : null;
   const sp = online ? tv.spotify || {} : {};
   const dot = (ok, label) => <span className="lights-stat"><span className={`ls-dot ${ok === null ? 'idle' : ok ? 'ok' : 'bad'}`} />{label}</span>;
   const pct = v => Math.round((v ?? 0) * 100);
@@ -190,11 +191,45 @@ export default function AudioPanel() {
         </form>
         <label className="audio-label" htmlFor="audio-names">Say names like… (name=how to say it, commas between)</label>
         <div className="audio-line">
-          <input id="audio-names" type="text" spellCheck={false} placeholder="Stacia=Staysha, Theo=Thee-oh" value={names ?? settings.sayNames ?? ''}
+          <input id="audio-names" type="text" spellCheck={false} placeholder="Stacia=Stay-sha, Theo=Thee-oh" value={names ?? settings.sayNames ?? ''}
             onChange={e => setNames(e.target.value)} onBlur={() => { if (names != null) { change({ sayNames: names.trim() }, { now: true }); setNames(null); } }} />
           <button type="button" className="secondary" disabled={names == null} onClick={() => { change({ sayNames: (names || '').trim() }, { now: true }); setNames(null); say('Saved: the TV says those names that way now.'); }}>Save</button>
         </div>
         <p className="muted small">The announcer is an AI voice (Gemini). A brand-new line takes about 5 seconds the first time; the countdowns and the reveal's winners are made ahead of time, so they're instant.</p>
+      </div>
+
+      <div className="audio-field">
+        <div className="audio-label">Announce booth: Donnie (the DJ) and Dash (play-by-play) chat about the night every few minutes</div>
+        <div className="audio-btns">
+          <button type="button" className={settings.boothOn !== false ? 'secondary' : 'ghost'} disabled={!settings.voiceOn} onClick={() => change({ boothOn: settings.boothOn === false }, { now: true })}>
+            Booth: {settings.boothOn !== false ? 'on' : 'off'}
+          </button>
+          <button type="button" className="secondary" disabled={!online || !settings.voiceOn} onClick={() => { cmd('booth'); say('Writing a booth bit: about 10 seconds.'); }}>Play one now</button>
+          <button type="button" className="ghost danger" disabled={!booth?.playing} onClick={() => cmd('boothSkip')}>Skip bit</button>
+        </div>
+        <div className="audio-label booth-sub">How often</div>
+        <div className="audio-seg">
+          {[['less', 'Less'], ['normal', 'Normal'], ['more', 'More']].map(([v, label]) => (
+            <button key={v} type="button" className={(settings.boothFreq || 'normal') === v ? 'primary' : 'secondary'} onClick={() => change({ boothFreq: v }, { now: true })}>{label}</button>
+          ))}
+        </div>
+        <div className="audio-label booth-sub">Roast</div>
+        <div className="audio-seg">
+          {[['gentle', 'Gentle'], ['spicy', 'Spicy (PG)']].map(([v, label]) => (
+            <button key={v} type="button" className={(settings.boothRoast || 'gentle') === v ? 'primary' : 'secondary'} onClick={() => change({ boothRoast: v }, { now: true })}>{label}</button>
+          ))}
+        </div>
+        {booth?.log?.length > 0 && (
+          <ol className="booth-log">
+            {[...booth.log].reverse().slice(0, 4).map(l => (
+              <li key={l.at}>
+                <span className="muted small">{new Date(l.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+                {l.lines.map((x, i) => <div key={i} className="small"><b>{x.host === 'DONNIE' ? 'Donnie' : 'Dash'}:</b> {x.text}</div>)}
+              </li>
+            ))}
+          </ol>
+        )}
+        <p className="muted small">Every 6 to 8 minutes in the tournament (10 in free play), plus one soon after a big moment, only when nothing else is on. Never during the countdowns, the last minutes or the reveal; while results are sealed they don't talk standings. Family-safe: they only tease pinball.</p>
       </div>
 
       <div className="audio-field">

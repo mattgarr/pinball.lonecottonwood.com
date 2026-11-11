@@ -33,6 +33,9 @@ The example times below assume **tournament 6:30 PM to 9:30 PM**. If you pick ot
     (*Preview here* plays it on your phone). The announcer is an AI voice: it reads the countdowns, new machine
     records and new #1s with names and scores, welcomes people as they join, and names each winner in the reveal.
     The four toggles under it switch each kind off; *Say something on the TV* makes it say anything you type.
+    *Say names like…*: add any name it says wrong (`Name=how to say it`; Stacia is already "Stay-sha").
+    **Announce booth:** every few minutes Donnie (the DJ) and Dash (play-by-play) chat about the night and gently
+    roast people. *Play one now* to hear one; set *How often* and *Roast* to taste; *Skip bit* cuts one off.
 12. **Click the TV once** (anywhere). The "CLICK FOR SOUND + MUSIC" banner goes away. Do this after every TV reload.
 13. On the Audio card press the test buttons (Big moment, Starts in 5, Final 10 s, Reveal mute, Match spin) and listen in the garage.
 
@@ -78,6 +81,7 @@ The example times below assume **tournament 6:30 PM to 9:30 PM**. If you pick ot
 | **"⚠ offline" in the TV's corner** | Garage Wi-Fi dropped. It fixes itself when Wi-Fi is back; press Cmd+R if it stays for more than a few minutes. |
 | **No music** | Host page → Audio → *Reconnect Spotify*, then click the TV once. Still nothing: open Spotify on the Mac and play the playlist there (the TV's sounds still work). |
 | **The announcer is quiet but sound works** | Host page → Audio: *Announcer: on* and its four toggles. A brand-new line takes ~5 s; offline, only the countdowns speak (from saved clips). Unlock /host on the TV Mac once more if it's been over a week. |
+| **The booth said something off** | *Skip bit* on the Audio card; *Roast: Gentle*, or *Booth: off*. |
 | **No sound at all in the garage** | Mac Control Center → Sound → pick the WiiM again (AirPlay). Check the WiiM's volume. |
 | **Lights stuck or wrong** | Host page → Garage lights → *Back to attract loop*. Or use the remote (button 1 = attract show). Too bright/dim: the **Dimmer**. |
 | **Running late** | *Tournament times* → **+15 min** (pushes the end back; works until the reveal). The countdowns follow. |

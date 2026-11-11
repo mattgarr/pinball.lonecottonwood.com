@@ -6,6 +6,24 @@
 import { computeStandings, computeHighScores, MIN_TABLES } from '../scoring.js';
 import { speakName, speakScore, speakMachine, numberWords } from './lines.js';
 
+// The TV page registers where the booth reads tonight's data from (TV.jsx: scores, players, phase…).
+let source = null;
+export const setBoothSource = fn => { source = fn; };
+export const boothSource = () => (source ? source() : null);
+
+// A live moment as a plain fact for the hosts ("Big Dave set a new Fathom record: nine point two million").
+export function momentFact(m) {
+  const who = speakName(m?.player?.display_name), mach = speakMachine(m?.machine);
+  if (m?.kind === 'record') return `${who} set a new ${mach} record: ${speakScore(m.score)}`;
+  if (m?.kind === 'leader') return `${who} took over first place overall`;
+  if (m?.kind === 'ranked') return `${who} got their first overall rating`;
+  if (m?.kind === 'climb') return `${who} climbed ${numberWords(m.by || 1)} places in the overall standings`;
+  if (m?.kind === 'shame') return `${who} dropped to the bottom of the overall standings`;
+  if (m?.kind === 'milestone') return `the party hit ${numberWords(m.count)} games`;
+  if (m?.kind === 'join') return `${who} just joined the party`;
+  return null;
+}
+
 // ---------- the digest: a compact, speakable picture of the night ----------
 const MIN = 60000;
 const at = s => Date.parse(s?.created_at || '') || 0;
@@ -202,6 +220,7 @@ export class BoothRunner {
     if ((!s.boothOn && !this.force) || !room.mode) { this.nextAt = null; this.bit = null; this.mode = room.mode; return 'off'; }
     if (room.mode !== this.mode) { this.mode = room.mode; this.nextAt = null; this.bit = null; } // a new phase: start over
     if (this.nextAt == null) this.nextAt = t + Math.round(this.gap(room.mode) * BOOTH.firstAfter);
+    if (this.force) this.nextAt = Math.min(this.nextAt, t);
     if (this.bit && (t - this.bit.at > BOOTH.stale || this.bit.sealed !== room.sealed)) this.bit = null;
     const failedLately = this.failedAt && t - this.failedAt < 30000;
     if (!this.bit && !this.inflight && !failedLately && t >= this.nextAt - BOOTH.prefetch) { this.fetch(room); return 'fetching'; }
