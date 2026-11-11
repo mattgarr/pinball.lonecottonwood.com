@@ -32,7 +32,7 @@ const PERSONAS: Record<string, { name: string; prebuilt: string; who: string; st
   drivetime: { name: 'MIKEY', prebuilt: 'Sadachbia', who: 'a 90s morning-drive radio guy: shout-outs, call-in-show energy, quick jokes', style: 'fast and bright radio voice, chatting with his co-host' },
   countdown: { name: 'CHUCK', prebuilt: 'Algieba', who: 'a smooth top-40 countdown host: warm, sincere, talks about scores like chart positions', style: 'smooth and warm, chatting with his co-host' },
   rumble: { name: 'THUNDER', prebuilt: 'Algenib', who: 'a booming monster-truck and boxing arena announcer: dramatic, everything is the main event', style: 'booming and dramatic, chatting with his co-host' },
-  valley: { name: 'TIFFANI', prebuilt: 'Leda', who: 'a 90s Beverly Hills valley girl: "totally", "like", "as if!", "way harsh", rates scores like outfits, upbeat and fast (an original character)', style: 'bubbly, fast valley-girl voice, chatting with her co-host' },
+  valley: { name: 'TIFFANI', prebuilt: 'Leda', who: 'a 90s Beverly Hills valley girl (an original character, no movie quotes or movie names): upbeat and fast, rates every score like an outfit or a mall haul (makeovers, "that score is so last season", "the red carpet", "the food court", "a total wardrobe malfunction on the playfield"), and sprinkles short 80s/90s slang into her own lines, rotating it: as if, whatever, totally buggin\', way harsh, gag me with a spoon, grody to the max, bodacious, tubular, most triumphant, excellent, talk to the hand, not, gnarly, radical, party on, all that and a bag of chips, da bomb, psych, take a chill pill. At most one catchphrase per line, never the same one twice in a row', style: 'bubbly, fast valley-girl voice, chatting with her co-host' },
   vj: { name: 'KAT', prebuilt: 'Aoede', who: 'a cool 90s music-TV VJ: quick, confident, rock-and-roll energy, introduces every game like a world-premiere video', style: 'cool, quick and confident, chatting with her co-host' },
   rink: { name: 'STARLA', prebuilt: 'Sulafat', who: 'an 80s roller-rink DJ: disco-ball glow, couples-skate cheese, "clear the floor!", warm and smooth', style: 'warm, smooth and glittery, chatting with her co-host' },
 };
@@ -107,7 +107,7 @@ Rules, always: PG and kind. Tease only pinball play (scores, drains, luck, strea
 gender, family, job, intelligence, or anything else about them. No swearing, no innuendo, no alcohol, no politics.
 Never make up scores, names or events. Don't mention prizes or awards.
 ${(digest as { sealed?: boolean })?.sealed ? 'The standings are SECRET right now: never say who is leading, any ranks, ratings or who might win. Talk about the clock, the games being played and the excitement instead.' : ''}
-${avoid.length ? `Don't repeat these recent bits:\n${avoid.map(a => `- ${a}`).join('\n')}\nAnd don't start any line with these openers: ${[...new Set(avoid.map(openerKey).filter(Boolean))].map(o => `"${o}"`).join(', ')}.` : ''}
+${avoid.length ? `Don't repeat these recent bits:\n${avoid.map(a => `- ${a}`).join('\n')}\nAnd don't start any line with these openers: ${[...new Set(avoid.map(openerKey).filter(Boolean))].map(o => `"${o}"`).join(', ')}.${(() => { const c = [...new Set(avoid.flatMap(catchphrasesIn))]; return c.length ? `\nDon't use these catchphrases this time (used recently): ${c.map(x => `"${x}"`).join(', ')}.` : ''; })()}` : ''}
 
 Digest (JSON):
 ${JSON.stringify(digest)}`;
@@ -200,6 +200,15 @@ function repeatsOpener(lines: Line[], recent: string[]) {
 }
 const LAUGH = /(\*[^*]*laugh[^*]*\*|<laugh>|\b(?:ha[ -]?){2,}h?a?\b|\bheh(?:[ -]?heh)*\b|\bhehe+\b|\bhaha+\b)[,.!]*\s*/gi;
 const ALL_RIGHT = /^\s*a+l+\s*r+i+g+h+t+[,.!]*\s*/i;
+const CATCHPHRASES = ['as if', 'whatever', 'totally buggin', 'way harsh', 'gag me with a spoon', 'grody to the max', 'bodacious',
+  'tubular', 'most triumphant', 'excellent', 'talk to the hand', 'not', 'so last season', 'like totally', 'oh my gosh', 'iconic',
+  'gnarly', 'radical', 'righteous', 'party on', 'booyah', 'all that and a bag of chips', 'da bomb', 'psych', 'take a chill pill', 'eat my shorts'];
+const phraseRe = (c: string) => new RegExp(`(^|[^a-z])${c.replace(/ /g, '[^a-z]+')}($|[^a-z])`, 'i');
+function catchphrasesIn(text: string) { return CATCHPHRASES.filter(c => phraseRe(c).test(String(text || '').replace(/[’']/g, ''))); }
+function repeatsCatchphrase(lines: Line[], recent: string[]) {
+  const used = new Set(recent.flatMap(catchphrasesIn).filter(c => c !== 'not'));
+  return lines.some(l => catchphrasesIn(l.text).some(c => used.has(c)));
+}
 function tidyLines(lines: Line[], laughOk: boolean, allRightOk: boolean) {
   return lines.map(l => {
     let t = l.text;
@@ -239,7 +248,7 @@ async function write(key: string, digest: unknown, roast: string, avoid: string[
     try { parsed = txt ? JSON.parse(txt) : null; } catch { /* bad JSON */ }
     let lines = check(parsed, names, !!(digest as { sealed?: boolean })?.sealed, short);
     // Opens like a recent bit: one more try (the last try is kept, minus the repeated "All right").
-    if (lines && attempt < 2 && repeatsOpener(lines, avoid)) { console.error('booth repeat opener', lines[0]?.text?.slice(0, 40)); continue; }
+    if (lines && attempt < 2 && (repeatsOpener(lines, avoid) || repeatsCatchphrase(lines, avoid))) { console.error('booth repeat', lines.map(l => l.text.slice(0, 30)).join(' | ')); continue; }
     // A written laugh in about 1 bit in 4, an "All right!" opener rarely; otherwise they're taken out.
     if (lines) lines = tidyLines(lines, Math.random() < 0.25, Math.random() < 0.1);
     if (lines && lines.length >= 2) return lines;

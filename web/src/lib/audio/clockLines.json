@@ -775,19 +775,19 @@
  "valley": {
   "start5": [
    "Okay, everybody, five minutes till the tournament! Like, totally get ready!",
-   "Five minutes, you guys! Fix your hair, grab a machine!"
+   "Five minutes, you guys! Fix your hair, pick a machine. Tubular!"
   ],
   "start4": [
-   "Four minutes! There's, like, so much time for a warm-up game!",
-   "Four minutes, you guys!"
+   "Four minutes! That's, like, so much time for a warm-up game!",
+   "Four minutes! Not a drill, you guys. Okay, kind of a drill."
   ],
   "start3": [
-   "Three minutes! Pick a machine. Not that one. Okay, fine, that one!",
-   "Three minutes! This is gonna be so fun!"
+   "Three minutes! Pick a machine. Not that one. Whatever, that one!",
+   "Three minutes! This is gonna be most triumphant!"
   ],
   "start2": [
    "Two minutes! Get to a machine, like, now!",
-   "Two minutes, you guys! Totally almost time!"
+   "Two minutes, you guys! I'm totally buggin'!"
   ],
   "start1": [
    "One minute! The next game you start, like, actually counts!",
@@ -795,15 +795,15 @@
   ],
   "on": [
    "Okay, the tournament is on! Every game counts, so, like, try!",
-   "It's on, you guys! Every score counts now!"
+   "It's on, you guys! Every score counts now. Bodacious!"
   ],
   "end15": [
    "Fifteen minutes left! And the leaderboard is a total secret now. Don't even ask!",
-   "Last call, you guys! Fifteen minutes!"
+   "Last call, you guys! Fifteen minutes! Talk to the hand, leaderboard, you're hidden now!"
   ],
   "end10": [
    "Ten minutes left! Keep going, you're doing, like, so good!",
-   "Ten minutes! Whatever, you got this!"
+   "Ten minutes! Whatever happens, you look fabulous!"
   ],
   "end5": [
    "Five minutes! Start your last game, like, right now!",
@@ -827,19 +827,19 @@
   ],
   "timesup": [
    "Time's up! Log your last score, you've got three minutes. Go, go, go!",
-   "That's time, you guys! Get those scores in!"
+   "That's time, you guys! Get those scores in. Excellent!"
   ],
   "awards": [
    "Okay, everybody, gather round the TV! It's awards time, and I'm, like, so excited!",
-   "The results are in! Come over to the TV, you guys!"
+   "The results are in! Come over to the TV, you guys! It's, like, the red carpet!"
   ],
   "freeplay": [
    "Free play is open! Nothing counts, so, like, just have fun!",
-   "It's free play, you guys! Play whatever!"
+   "It's free play, you guys! Play whatever. It's totally the mall after closing!"
   ],
   "check": [
    "Hi, everybody! Is this thing on? Totally!",
-   "Sound check! Like, can you hear me?"
+   "Sound check! Like, can you hear me? Excellent!"
   ]
  },
  "vj": {

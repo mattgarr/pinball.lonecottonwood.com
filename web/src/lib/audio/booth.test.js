@@ -210,3 +210,15 @@ describe('booth variety', () => {
     expect(tidyLines([{ host: 'DONNIE', text: 'Hats off to Theo.' }])[0].text).toBe('Hats off to Theo.'); // "Hats" isn't a laugh
   });
 });
+
+describe('booth catchphrases', () => {
+  it('no catchphrase twice in a row', async () => {
+    const { catchphrasesIn, repeatsCatchphrase } = await import('./booth.js');
+    expect(catchphrasesIn("Way harsh, Omar! That score is so last season.")).toEqual(['way harsh', 'so last season']);
+    expect(catchphrasesIn("Totally buggin', you guys!")).toEqual(['totally buggin']);
+    const recent = ['Way harsh, Omar!', 'Talk to the hand, leaderboard!'];
+    expect(repeatsCatchphrase([{ host: 'TIFFANI', text: 'Okay, way harsh again.' }], recent)).toBe(true);
+    expect(repeatsCatchphrase([{ host: 'TIFFANI', text: 'Gag me with a spoon, that drain!' }], recent)).toBe(false);
+    expect(repeatsCatchphrase([{ host: 'TIFFANI', text: 'That is not a drill.' }], ['Not!'])).toBe(false);
+  });
+});

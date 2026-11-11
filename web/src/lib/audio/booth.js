@@ -201,6 +201,17 @@ export function tidyLines(lines, { laughOk = false, allRightOk = false } = {}) {
   }).filter(l => /[a-z]/i.test(l.text));
 }
 
+// Era catchphrases: never the same one in two bits running.
+export const CATCHPHRASES = ['as if', 'whatever', 'totally buggin', 'way harsh', 'gag me with a spoon', 'grody to the max', 'bodacious',
+  'tubular', 'most triumphant', 'excellent', 'talk to the hand', 'not', 'so last season', 'like totally', 'oh my gosh', 'iconic',
+  'gnarly', 'radical', 'righteous', 'party on', 'booyah', 'all that and a bag of chips', 'da bomb', 'psych', 'take a chill pill', 'eat my shorts'];
+const phraseRe = c => new RegExp(`(^|[^a-z])${c.replace(/ /g, '[^a-z]+')}($|[^a-z])`, 'i');
+export const catchphrasesIn = text => CATCHPHRASES.filter(c => phraseRe(c).test(String(text || '').replace(/[’']/g, '')));
+export function repeatsCatchphrase(lines, recent = []) {
+  const used = new Set(recent.flatMap(catchphrasesIn).filter(c => c !== 'not')); // "not" is too common to police
+  return lines.some(l => catchphrasesIn(l.text).some(c => used.has(c)));
+}
+
 // ---------- when ----------
 export const BOOTH_GAP_MIN = { warmup: [7, 9], tournament: [6, 8], lastcall: [5, 6], freeplay: [9, 11] };
 export const BOOTH_FREQ = { less: 2, normal: 1, more: 0.6 }; // less = about half as often
