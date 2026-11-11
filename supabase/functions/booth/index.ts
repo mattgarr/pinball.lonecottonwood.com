@@ -23,7 +23,7 @@ const json = (body: unknown, status = 200) =>
 const PERSONAS: Record<string, { name: string; prebuilt: string; who: string; style: string }> = {
   aerobics: { name: 'ROXY', prebuilt: 'Laomedeia', who: 'a peppy 80s aerobics instructor in leg warmers: cheers everyone on, workout puns ("feel the burn", "and reach!", "five more!"), treats every game like a workout', style: 'peppy, bubbly and encouraging, chatting with her co-host' },
   hype: { name: 'DASH', prebuilt: 'Fenrir', who: 'a fast play-by-play sportscaster: stats, drama, calls every game like a championship', style: 'fast, excited play-by-play, chatting with his co-host' },
-  dj: { name: 'DONNIE', prebuilt: 'Puck', who: 'a cheesy fun-center DJ: warm hype-dad energy, puns, loves everybody. He mixes up how he jumps in ("Whoa, whoa, whoa!", "Folks, are you seeing this?", "Hold the phone!", "Get this:", "Oh, buddy!", "Ladies and gentlemen of the garage", "Somebody check that tilt!", "Well, butter my flippers!", or just straight in with the news); these are examples, not a script, and he never uses the same one twice in a row', style: 'warm, upbeat cheesy-dad energy, smiling but not laughing, chatting with his co-host' },
+  dj: { name: 'DONNIE', prebuilt: 'Puck', who: 'a cheesy fun-center DJ: warm hype-dad energy, puns, loves everybody. He mixes up how he jumps in ("Whoa, whoa, whoa!", "Folks, are you seeing this?", "Hold the phone!", "Get this:", "Oh, buddy!", "Ladies and gentlemen of the garage", "Somebody check that tilt!", "Well, butter my flippers!", or straight in with the news) and never uses the same one twice in a row. He sprinkles short 80s sayings into his own lines, rotating them: radical, gnarly, cowabunga, where\'s the beef, I pity the fool, rad to the max, totally awesome, don\'t have a cow, psych, hasta la vista, party on. And fun-center jokes: couples skate, skee-ball, mini-golf windmills, tickets for the prize counter, "that\'s how we roll at the fun center". At most one catchphrase per line', style: 'warm, upbeat cheesy-dad energy, smiling but not laughing, chatting with his co-host' },
   british: { name: 'STERLING', prebuilt: 'Algieba', who: 'a suave British secret-agent type: dry wit, understatement, unflappable', style: 'smooth, dry and amused, chatting with his co-host' },
   ship: { name: 'ORBIT', prebuilt: 'Iapetus', who: 'a calm, polite spaceship computer: deadpan, precise, takes everything literally', style: 'calm, even and deadpan, chatting with its co-host' },
   '8bit': { name: 'BYTE', prebuilt: 'Orus', who: 'a retro 8-bit robot: literal, says "beep boop", calls people "humans", loves high scores', style: 'flat robotic voice, chatting with its co-host' },
@@ -87,8 +87,8 @@ The hosts (use exactly these names in "host"):
 - ${A.name}: ${A.who}.
 - ${B.name}: ${B.who}.
 They riff off each other like real broadcast partners: short back-and-forth, natural, contractions, never stiff.
-Vary how every bit starts: never open a line with "All right" or "Alright", and don't open the way your recent bits
-did. No written laughs ("ha ha", "heh", "*laughs*"); let the words be the fun.
+Vary how every bit starts: never open a line with "All right" or "Alright", don't lean on "Talk about…", and don't
+open the way your recent bits did. No written laughs ("ha ha", "heh", "*laughs*"); let the words be the fun.
 
 ${short
     ? 'Keep it SHORT: 2 or 3 lines, alternating hosts, about 10 seconds out loud (20 to 35 words).'
@@ -202,7 +202,8 @@ const LAUGH = /(\*[^*]*laugh[^*]*\*|<laugh>|\b(?:ha[ -]?){2,}h?a?\b|\bheh(?:[ -]
 const ALL_RIGHT = /^\s*a+l+\s*r+i+g+h+t+[,.!]*\s*/i;
 const CATCHPHRASES = ['as if', 'whatever', 'totally buggin', 'way harsh', 'gag me with a spoon', 'grody to the max', 'bodacious',
   'tubular', 'most triumphant', 'excellent', 'talk to the hand', 'not', 'so last season', 'like totally', 'oh my gosh', 'iconic',
-  'gnarly', 'radical', 'righteous', 'party on', 'booyah', 'all that and a bag of chips', 'da bomb', 'psych', 'take a chill pill', 'eat my shorts'];
+  'gnarly', 'radical', 'righteous', 'party on', 'booyah', 'all that and a bag of chips', 'da bomb', 'psych', 'take a chill pill', 'eat my shorts',
+  'cowabunga', 'wheres the beef', 'i pity the fool', 'rad to the max', 'totally awesome', 'dont have a cow', 'hasta la vista', 'how we roll'];
 const phraseRe = (c: string) => new RegExp(`(^|[^a-z])${c.replace(/ /g, '[^a-z]+')}($|[^a-z])`, 'i');
 function catchphrasesIn(text: string) { return CATCHPHRASES.filter(c => phraseRe(c).test(String(text || '').replace(/[’']/g, ''))); }
 function repeatsCatchphrase(lines: Line[], recent: string[]) {

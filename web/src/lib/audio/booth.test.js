@@ -222,3 +222,12 @@ describe('booth catchphrases', () => {
     expect(repeatsCatchphrase([{ host: 'TIFFANI', text: 'That is not a drill.' }], ['Not!'])).toBe(false);
   });
 });
+
+describe('Donnie catchphrases', () => {
+  it('his 80s sayings count too', async () => {
+    const { catchphrasesIn, repeatsCatchphrase } = await import('./booth.js');
+    expect(catchphrasesIn("Where's the beef, Omar?")).toEqual(['wheres the beef']);
+    expect(catchphrasesIn("Don't have a cow, man!")).toEqual(['dont have a cow']);
+    expect(repeatsCatchphrase([{ host: 'DONNIE', text: 'Cowabunga, Theo!' }], ['Cowabunga, dudes!'])).toBe(true);
+  });
+});

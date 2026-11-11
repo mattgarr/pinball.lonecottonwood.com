@@ -204,7 +204,8 @@ export function tidyLines(lines, { laughOk = false, allRightOk = false } = {}) {
 // Era catchphrases: never the same one in two bits running.
 export const CATCHPHRASES = ['as if', 'whatever', 'totally buggin', 'way harsh', 'gag me with a spoon', 'grody to the max', 'bodacious',
   'tubular', 'most triumphant', 'excellent', 'talk to the hand', 'not', 'so last season', 'like totally', 'oh my gosh', 'iconic',
-  'gnarly', 'radical', 'righteous', 'party on', 'booyah', 'all that and a bag of chips', 'da bomb', 'psych', 'take a chill pill', 'eat my shorts'];
+  'gnarly', 'radical', 'righteous', 'party on', 'booyah', 'all that and a bag of chips', 'da bomb', 'psych', 'take a chill pill', 'eat my shorts',
+  'cowabunga', 'wheres the beef', 'i pity the fool', 'rad to the max', 'totally awesome', 'dont have a cow', 'hasta la vista', 'how we roll'];
 const phraseRe = c => new RegExp(`(^|[^a-z])${c.replace(/ /g, '[^a-z]+')}($|[^a-z])`, 'i');
 export const catchphrasesIn = text => CATCHPHRASES.filter(c => phraseRe(c).test(String(text || '').replace(/[’']/g, '')));
 export function repeatsCatchphrase(lines, recent = []) {

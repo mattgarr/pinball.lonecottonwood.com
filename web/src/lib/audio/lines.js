@@ -127,8 +127,8 @@ const MOMENTS = {
     record: ['Whoa, whoa, whoa! New {machine} record! {name} just put up {score}! Let\'s hear it!', 'Give it up for {name}! {score} on {machine}! New record!'],
     leader: ['New number one! Woo! {name}, come on down!', "Look who's on top! It's {name}! Big round of applause!"],
     ranked: ['{name} is on the board in {ordinal} place! Woo!', 'Hey, {name} just cracked the rankings! {Ordinal} place!'],
-    milestone: ['{count} games tonight! You people are machines!', "{count} games! That's a lot of quarters, if we were using quarters!"],
-    join: ['Give it up for {names}! Welcome to the party!', 'Hey hey, {names} in the house!'],
+    milestone: ['{count} games tonight! You people are machines!', "{count} games! That's a lot of tickets for the prize counter!"],
+    join: ['Give it up for {names}! Welcome to the party!', 'Hey hey, {names} in the house!', 'Welcome, {names}! Grab your skates. I mean flippers!'],
   },
   wedding: {
     record: ['Whoa! New {machine} record! {name} just put up {score}! Give it up!', "Somebody stop {name}! {score} on {machine}! That's a new record!"],
