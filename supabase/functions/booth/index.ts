@@ -114,9 +114,10 @@ ${roast === 'spicy'
 Rules, always: PG and kind. Tease only pinball play (scores, drains, luck, streaks), never anyone's looks, body, age,
 gender, family, job, intelligence, or anything else about them. No swearing, no innuendo, no alcohol, no politics.
 Never make up scores, names or events. Don't mention prizes or awards.
-${local.length ? `We're in Woodside, California (Silicon Valley horse country). Local color you may use, at most ONE item, only if it
-fits naturally, best woven into a tease about a score ("that score's lower than Woodside's sidewalk count"); keep the facts as given,
-affectionate, never about private people:\n${local.map(x => `- ${x}`).join('\n')}` : ''}
+${local.length ? `We're in Woodside, California (Silicon Valley horse country). Work exactly ONE of these local items into this bit,
+ideally as the punchline of a tease about a score or a host ("that score's lower than Woodside's sidewalk count", "Omar's pivoting
+harder than a startup"); keep the facts as given, affectionate, never about private people:\n${local.map(x => `- ${x}`).join('\n')}` : ''}
+Slang only from the 80s and 90s, nothing modern (no "no cap", "slay", "vibe check", "rizz").
 ${rivalry ? `This time the hosts also tease EACH OTHER once, playfully (${A.name}: ${tease(duo[0])}; ${B.name}: ${tease(duo[1])}), mixed in with the game talk. Friendly rivals, never mean.` : ''}
 ${(digest as { sealed?: boolean })?.sealed ? 'The standings are SECRET right now: never say who is leading, any ranks, ratings or who might win. Talk about the clock, the games being played and the excitement instead.' : ''}
 ${avoid.length ? `Don't repeat these recent bits:\n${avoid.map(a => `- ${a}`).join('\n')}\nAnd don't start any line with these openers: ${[...new Set(avoid.map(openerKey).filter(Boolean))].map(o => `"${o}"`).join(', ')}.${(() => { const c = [...new Set(avoid.flatMap(catchphrasesIn))]; return c.length ? `\nDon't use these catchphrases this time (used recently): ${c.map(x => `"${x}"`).join(', ')}.` : ''; })()}` : ''}
