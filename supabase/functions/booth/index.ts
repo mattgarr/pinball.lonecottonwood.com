@@ -23,7 +23,7 @@ const json = (body: unknown, status = 200) =>
 const PERSONAS: Record<string, { name: string; prebuilt: string; who: string; style: string }> = {
   aerobics: { name: 'ROXY', prebuilt: 'Laomedeia', who: 'a peppy 80s aerobics instructor in leg warmers: cheers everyone on, workout puns ("feel the burn", "and reach!", "five more!"), treats every game like a workout', style: 'peppy, bubbly and encouraging, chatting with her co-host' },
   hype: { name: 'DASH', prebuilt: 'Fenrir', who: 'a fast play-by-play sportscaster: stats, drama, calls every game like a championship', style: 'fast, excited play-by-play, chatting with his co-host' },
-  dj: { name: 'DONNIE', prebuilt: 'Puck', who: 'a warm, cheesy fun-center DJ: hype-dad energy, corny puns, loves everybody, easy to wind up', style: 'warm, upbeat cheesy-dad energy, smiling but not laughing, chatting with his co-host' },
+  dj: { name: 'DONNIE', prebuilt: 'Puck', who: 'a big-hearted, cheesy fun-center dad who loves everyone, and is secretly quick-witted: his comebacks are warm, a little corny and surprisingly sharp, and they always pick up exactly what was just said', style: 'warm, upbeat cheesy-dad energy, smiling but not laughing, chatting with his co-host' },
   british: { name: 'STERLING', prebuilt: 'Algieba', who: 'a suave British secret-agent type: dry wit, understatement, unflappable', style: 'smooth, dry and amused, chatting with his co-host' },
   ship: { name: 'ORBIT', prebuilt: 'Iapetus', who: 'a calm, polite spaceship computer: deadpan, precise, takes everything literally', style: 'calm, even and deadpan, chatting with its co-host' },
   '8bit': { name: 'BYTE', prebuilt: 'Orus', who: 'a retro 8-bit robot: literal, says "beep boop", calls people "humans", loves high scores', style: 'flat robotic voice, chatting with its co-host' },
@@ -32,7 +32,7 @@ const PERSONAS: Record<string, { name: string; prebuilt: string; who: string; st
   drivetime: { name: 'MIKEY', prebuilt: 'Sadachbia', who: 'a 90s morning-drive radio guy: shout-outs, call-in-show energy, quick jokes', style: 'fast and bright radio voice, chatting with his co-host' },
   countdown: { name: 'CHUCK', prebuilt: 'Algieba', who: 'a smooth top-40 countdown host: warm, sincere, talks about scores like chart positions', style: 'smooth and warm, chatting with his co-host' },
   rumble: { name: 'THUNDER', prebuilt: 'Algenib', who: 'a booming monster-truck and boxing arena announcer: dramatic, everything is the main event', style: 'booming and dramatic, chatting with his co-host' },
-  valley: { name: 'TIFFANI', prebuilt: 'Leda', who: 'a quick, sassy 90s valley girl (an original character): upbeat, fast, judges scores the way she judges outfits, never misses a chance to needle her co-host', style: 'bubbly, fast valley-girl voice, chatting with her co-host' },
+  valley: { name: 'TIFFANI', prebuilt: 'Leda', who: 'a quick, stylish 90s valley girl (an original character): sassy but sweet, a sharp observer who notices everything, judges scores the way she judges outfits, and teases her co-host because she adores him', style: 'bubbly, fast valley-girl voice, chatting with her co-host' },
   vj: { name: 'KAT', prebuilt: 'Aoede', who: 'a cool 90s music-TV VJ: quick, confident, rock-and-roll energy, introduces every game like a world-premiere video', style: 'cool, quick and confident, chatting with her co-host' },
   rink: { name: 'STARLA', prebuilt: 'Sulafat', who: 'an 80s roller-rink DJ: disco-ball glow, couples-skate cheese, "clear the floor!", warm and smooth', style: 'warm, smooth and glittery, chatting with her co-host' },
 };
@@ -106,7 +106,9 @@ script, not a string of one-liners, not a list of catchphrases. Character comes 
 The hosts (use exactly these names in "host"):
 - ${A.name}: ${A.who}.
 - ${B.name}: ${B.who}.
-When something's roastable, they tease the players and each other, like friends would. ${PERSONAS[main].name} is the
+The mood is playful and warm, never negative: they celebrate far more than they mock. When something's roastable, they tease
+the players and each other like friends would, and every tease ends with the person still smiling (a compliment, a cheer, a
+"we love you, Omar"). ${PERSONAS[main].name} is the
 quicker, sassier one and does more of the teasing (about two to one); ${PERSONAS[other].name} gives as good as he gets${other === 'dj' ? ', usually with a cheesy dad comeback' : ''}.
 What they might tease each other about: ${PERSONAS[duo[0]].name}, ${tease(duo[0])}; ${PERSONAS[duo[1]].name}, ${tease(duo[1])}. Only when it comes up naturally.
 
@@ -114,10 +116,12 @@ What to talk about: ONLY the facts in the digest below. Real names, machines and
 already written as words; keep them that way). If "justHappened" has anything, that's why you're on the air: react to it.
 Otherwise pick ONE interesting thing (a big game, a rough game, a close race, someone on a streak) and talk about it like
 you just noticed it. Don't list stats. If nothing much is happening, chat about the room or the time left.
-${roast === 'spicy' ? 'Teasing can be cheeky (friendly trash talk about bad games, drains, cold streaks).' : 'Teasing stays gentle and warm: tease a rough game lightly, then cheer them on.'}
+${roast === 'spicy' ? 'Teasing can be a bit cheekier (friendly trash talk about bad games and drains), still affectionate.' : 'Teasing stays gentle: tease a rough game lightly, then cheer them on.'}
 
 ${short ? 'Keep it SHORT: 2 or 3 lines, about 10 seconds out loud (20 to 35 words).' : '2 to 5 lines, about 15 to 20 seconds out loud (40 to 55 words, never more than 60).'}
-One or two short sentences per line, easy to hear in a noisy room. Every line earns its place: a fact, a real reaction or a
+Every reply follows directly from the line before it: it picks up a word, an image or the point just made and builds on it
+or twists it. No non-sequiturs, no reacting to something nobody said. One or two short sentences per line, easy to hear in a
+noisy room. Every line earns its place: a fact, a real reaction or a
 joke that lands. Clean, simple jokes beat clever-sounding ones; no mixed or muddled metaphors, no filler. End the bit on its
 best line, a little button the room can laugh at. Never open a line with "All right" or "Alright", don't lean
 on "Talk about…", and don't open the way the recent bits did. No written laughs.
@@ -277,15 +281,50 @@ function check(out: unknown, names: string[], sealed = false, short = false): Li
   return clean;
 }
 
+// Self-check: a second, quick read of the draft. Does every reply follow from the line before it, is the tone kind and
+// playful (celebrates more than mocks, nobody left feeling bad), and is it pleasant to hear at a party?
+const REVIEW_SCHEMA = { type: 'object', properties: { connected: { type: 'boolean' }, kind: { type: 'boolean' }, fun: { type: 'integer' }, note: { type: 'string' } }, required: ['connected', 'kind', 'fun', 'note'] };
+async function review(key: string, lines: Line[]) {
+  try {
+    const r = await fetch(`${API}/interactions`, {
+      method: 'POST', signal: AbortSignal.timeout(20000),
+      headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json', 'Api-Revision': '2026-05-20' },
+      body: JSON.stringify({
+        model: TEXT_MODEL, store: false,
+        input: [{ type: 'text', text: `You check banter for two announcers at a family pinball party before it goes on the speakers.
+Script:
+${lines.map(l => `${l.host}: ${l.text}`).join('\n')}
+
+connected: true only if every line after the first clearly responds to the line right before it (picks up what was just said,
+builds on it or twists it); false if any line ignores the previous one or reacts to something nobody said.
+kind: true only if the tone is playful and warm, anyone teased would still be smiling, nothing mean or negative overall.
+fun: 1-5, how pleasant and funny this would be to hear at a party (5 = people laugh).
+note: one short sentence naming the weakest line and why (or "ok").` }],
+        response_format: { type: 'text', mime_type: 'application/json', schema: REVIEW_SCHEMA },
+        generation_config: { thinking_level: 'low', temperature: 0 },
+      }),
+    });
+    const out = await r.json().catch(() => null);
+    const txt = (function find(n: unknown): string | null {
+      if (typeof n === 'string') { try { const v = JSON.parse(n); if (v && typeof v.connected === 'boolean') return n; } catch { /* no */ } return null; }
+      if (Array.isArray(n)) { for (let i = n.length - 1; i >= 0; i--) { const x = find(n[i]); if (x) return x; } return null; }
+      if (n && typeof n === 'object') { for (const v of Object.values(n as Record<string, unknown>)) { const x = find(v); if (x) return x; } }
+      return null;
+    })(out);
+    return txt ? JSON.parse(txt) as { connected: boolean; kind: boolean; fun: number; note: string } : null;
+  } catch { return null; } // the check is a bonus: if it can't run, the draft stands
+}
+
 async function write(key: string, digest: unknown, roast: string, avoid: string[], duo: string[], short: boolean, local: string[], rivalry: boolean, rep: Record<string, string[]>, avoidPhrases: string[]) {
   const names = duo.map(k => PERSONAS[k].name);
+  let feedback = '';
   for (let attempt = 0; attempt < 3; attempt++) {
     const r = await fetch(`${API}/interactions`, {
       method: 'POST', signal: AbortSignal.timeout(30000),
       headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json', 'Api-Revision': '2026-05-20' },
       body: JSON.stringify({
         model: TEXT_MODEL, store: false,
-        input: [{ type: 'text', text: prompt(digest, roast, avoid, duo, short, local, rivalry, rep, avoidPhrases) }],
+        input: [{ type: 'text', text: prompt(digest, roast, avoid, duo, short, local, rivalry, rep, avoidPhrases) + feedback }],
         response_format: { type: 'text', mime_type: 'application/json', schema: schema(names) },
         generation_config: { thinking_level: 'low', temperature: 1.0 },
       }),
@@ -301,6 +340,15 @@ async function write(key: string, digest: unknown, roast: string, avoid: string[
     if (lines && attempt < 2 && (repeatsOpener(lines, avoid) || repeatsCatchphrase(lines, avoid, Object.values(rep).flat()) || reusesPhrase(lines, avoidPhrases))) { console.error('booth repeat', lines.map(l => l.text.slice(0, 30)).join(' | ')); continue; }
     // A written laugh in about 1 bit in 4, an "All right!" opener rarely; otherwise they're taken out.
     if (lines) lines = tidyLines(lines, Math.random() < 0.25, Math.random() < 0.1);
+    // The self-check: rewrite a draft whose replies don't connect, that isn't kind, or that falls flat.
+    if (lines && lines.length >= 2 && attempt < 2) {
+      const rv = await review(key, lines);
+      if (rv && (!rv.connected || !rv.kind || rv.fun < 3)) {
+        console.error('booth review', JSON.stringify(rv), lines.map(l => l.text.slice(0, 40)).join(' | '));
+        feedback = `\n\nA previous draft was rejected (${!rv.connected ? 'a reply did not follow from the line before it' : !rv.kind ? 'the tone was not kind enough' : 'it fell flat'}: ${rv.note}). Write a better one.`;
+        continue;
+      }
+    }
     if (lines && lines.length >= 2) return Object.assign(lines, { woodside: !!(parsed as { woodside?: boolean })?.woodside });
     console.error('booth rejected', txt?.slice(0, 600));
   }
