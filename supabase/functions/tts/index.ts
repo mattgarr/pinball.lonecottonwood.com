@@ -52,6 +52,12 @@ const PACKS: Record<string, { name: string; gender: string; lang: string; prompt
       + 'every sentence delivered like breaking news.',
     style: 'fast, dramatic and enthusiastic',
   },
+  dj: {
+    name: 'Woodside fun-center DJ', gender: 'male', lang: 'en-US', prebuilt: 'Puck',
+    prompt: 'A corny, over-the-top American DJ on the microphone at a roller rink or family fun center, in his forties: a big cheesy '
+      + 'grin in the voice, stretched-out "Alllll right!" energy, upbeat and goofy with dad-joke enthusiasm, warm and friendly, never mean.',
+    style: 'cheesy, upbeat and enthusiastic, like a roller-rink DJ on the mic',
+  },
 };
 
 function serviceDb() {
@@ -187,7 +193,7 @@ Deno.serve(async req => {
     if (!text) return json({ error: 'Nothing to say.' }, 400);
     const rows = await voices(db);
     const voice = rows[pack]?.voice || PACKS[pack].prebuilt;
-    const model = rows[pack]?.model || MODEL;
+    const model = ['gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts'].includes(body.model) ? body.model : rows[pack]?.model || MODEL;
     const mood = typeof body.style === 'string' ? body.style.slice(0, 120).trim() : '';
     const style = mood || rows[pack]?.style || PACKS[pack].style;
     const name = `${(await sha256(`${model}|${voice}|${style}|${text}`)).slice(0, 40)}.wav`;
