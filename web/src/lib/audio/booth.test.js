@@ -153,3 +153,38 @@ describe('booth scheduler', () => {
     expect(x.r.tick()).toBe('played');
   });
 });
+
+describe('booth duo and chill', () => {
+  it('any two voices, never the same twice; default Roxy + Dash', async () => {
+    const { boothDuo, BOOTH_PERSONAS } = await import('./booth.js');
+    expect(boothDuo({})).toEqual(['aerobics', 'hype']);
+    expect(boothDuo({ boothA: 'valley', boothB: 'hype' })).toEqual(['valley', 'hype']);
+    expect(boothDuo({ boothA: 'hype', boothB: 'hype' })).toEqual(['hype', 'aerobics']);
+    expect(boothDuo({ boothA: 'nope', boothB: 'rink' })).toEqual(['aerobics', 'rink']);
+    expect(Object.keys(BOOTH_PERSONAS)).toHaveLength(14);
+    expect(new Set(Object.values(BOOTH_PERSONAS).map(p => p.name)).size).toBe(14);
+  });
+  it('checks lines against the chosen hosts', () => {
+    const lines = [{ host: 'ROXY', text: 'Feel the burn!' }, { host: 'DASH', text: 'What a game!' }];
+    expect(safeLines(lines, { hosts: ['ROXY', 'DASH'] })).toBe(lines);
+    expect(safeLines(lines, { hosts: ['TIFFANI', 'DASH'] })).toBeNull();
+  });
+  it('chill: no extra bit after a juicy moment', () => {
+    let t = Date.parse('2026-11-15T03:00:00Z');
+    const r = new BoothRunner({ now: () => t, rand: () => 0, settings: () => ({ boothOn: true, boothExtras: false }), room: () => ({ mode: 'tournament', quiet: true, digest: () => ({}) }), fetchBit: () => null, play: () => true });
+    r.tick();
+    const due = r.nextAt;
+    r.event({ kind: 'record', text: 'x' });
+    expect(r.nextAt).toBe(due);
+    expect(r.events).toHaveLength(1); // still told about it
+  });
+  it('a different duo throws away the bit made for the old one', async () => {
+    let t = Date.parse('2026-11-15T03:00:00Z'), duo = 'aerobics+hype';
+    const r = new BoothRunner({ now: () => t, rand: () => 0, settings: () => ({ boothOn: true, duo }), room: () => ({ mode: 'tournament', quiet: true, digest: () => ({}) }),
+      fetchBit: () => Promise.resolve({ url: 'u', ms: 1000, hosts: ['ROXY', 'DASH'], lines: [{ host: 'ROXY', text: 'Hi there!' }, { host: 'DASH', text: 'Here we go!' }] }), play: () => true });
+    r.playNow(); r.tick(); await new Promise(res => setTimeout(res, 0));
+    expect(r.bit?.duo).toBe('aerobics+hype');
+    duo = 'valley+hype';
+    expect(r.tick()).toBe('fetching');
+  });
+});

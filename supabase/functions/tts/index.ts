@@ -90,8 +90,9 @@ const PACKS: Record<string, { name: string; gender: string; lang: string; prompt
   },
   valley: {
     name: 'Woodside valley girl', gender: 'female', lang: 'en-US', prebuilt: 'Leda',
-    prompt: 'A bubbly 1990s Southern California teenage girl from the valley, about seventeen: fast, upbeat, sing-song upspeak, '
-      + 'dramatic and fun, totally enthusiastic about everything. An original character.',
+    // (An earlier "teenage" wording was refused by the safety filter; the voice is an adult.)
+    prompt: 'A bubbly woman in her twenties with a 1990s Southern California valley accent: fast, upbeat, sing-song upspeak, '
+      + 'dramatic and fun, enthusiastic about everything.',
     style: 'bubbly, fast and upbeat valley-girl delivery',
   },
   vj: {

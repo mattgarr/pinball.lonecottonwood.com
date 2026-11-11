@@ -6,6 +6,33 @@
 import { computeStandings, computeHighScores, MIN_TABLES } from '../scoring.js';
 import { speakName, speakScore, speakMachine, numberWords } from './lines.js';
 
+// Who's in the booth: any two of the announcer voices, each a character (keep the names in sync with
+// the booth edge function, which also has each one's personality for the script).
+export const BOOTH_PERSONAS = {
+  aerobics: { name: 'Roxy', blurb: '80s aerobics instructor: leg warmers, workout puns, cheers everyone on' },
+  hype: { name: 'Dash', blurb: 'fast play-by-play sportscaster: stats and drama' },
+  dj: { name: 'Donnie', blurb: 'cheesy fun-center DJ: hype dad, puns' },
+  british: { name: 'Sterling', blurb: 'suave British secret agent: dry wit' },
+  ship: { name: 'Orbit', blurb: 'calm, polite ship computer: deadpan' },
+  '8bit': { name: 'Byte', blurb: 'retro 8-bit robot: literal, beeps' },
+  newsreel: { name: 'Buzz', blurb: '1940s newsreel narrator: breathless headlines' },
+  wedding: { name: 'Ricky', blurb: '80s wedding DJ: dance-floor hype, cheesy toasts' },
+  drivetime: { name: 'Mikey', blurb: '90s morning-drive radio guy: shout-outs, sound-effect energy' },
+  countdown: { name: 'Chuck', blurb: 'smooth top-40 countdown host: warm, sincere, chart talk' },
+  rumble: { name: 'Thunder', blurb: 'monster-truck / boxing arena announcer: booming, dramatic' },
+  valley: { name: 'Tiffani', blurb: '90s Beverly Hills valley girl: totally, like, judges the scores like outfits' },
+  vj: { name: 'Kat', blurb: '90s music-TV VJ: cool, quick, rock-and-roll energy' },
+  rink: { name: 'Starla', blurb: '80s roller-rink DJ: disco-ball glow, couples-skate cheese, warm and smooth' },
+};
+export const DEFAULT_DUO = ['aerobics', 'hype'];
+// The two booth voices from the settings: two different known voices, else the default duo.
+export function boothDuo(s = {}) {
+  let a = BOOTH_PERSONAS[s.boothA] ? s.boothA : DEFAULT_DUO[0];
+  let b = BOOTH_PERSONAS[s.boothB] ? s.boothB : DEFAULT_DUO[1];
+  if (a === b) b = a === DEFAULT_DUO[1] ? DEFAULT_DUO[0] : DEFAULT_DUO[1];
+  return [a, b];
+}
+
 // The TV page registers where the booth reads tonight's data from (TV.jsx: scores, players, phase…).
 let source = null;
 export const setBoothSource = fn => { source = fn; };
@@ -139,10 +166,11 @@ export function unsafe(text) {
 const SEALED = /\b(lead|leads|leader|leading|first place|second place|third place|number one|rank|ranked|ranking|rankings|rating|rated|podium|winning|frontrunner|top spot|in front|ahead)\b/i;
 // A bit from the booth function, checked again here: 2-5 lines from the two hosts, short, clean, and
 // (while sealed) nothing about the standings. Returns the lines, or null.
-export function safeLines(lines, { sealed = false } = {}) {
+export function safeLines(lines, { sealed = false, hosts = ['DONNIE', 'DASH'] } = {}) {
   if (!Array.isArray(lines) || lines.length < 2 || lines.length > 5) return null;
+  const ok = hosts.map(h => String(h).toUpperCase());
   for (const l of lines) {
-    if (!['DONNIE', 'DASH'].includes(l?.host) || typeof l.text !== 'string' || !l.text.trim() || l.text.length > 220) return null;
+    if (!ok.includes(String(l?.host).toUpperCase()) || typeof l.text !== 'string' || !l.text.trim() || l.text.length > 220) return null;
     if (unsafe(l.text) || (sealed && SEALED.test(l.text))) return null;
   }
   return lines;
@@ -150,7 +178,7 @@ export function safeLines(lines, { sealed = false } = {}) {
 
 // ---------- when ----------
 export const BOOTH_GAP_MIN = { warmup: [7, 9], tournament: [6, 8], lastcall: [5, 6], freeplay: [9, 11] };
-export const BOOTH_FREQ = { less: 1.6, normal: 1, more: 0.6 };
+export const BOOTH_FREQ = { less: 2, normal: 1, more: 0.6 }; // less = about half as often
 export const BOOTH = {
   firstAfter: 0.5,        // the first bit comes after half a gap
   prefetch: 90 * 1000,    // start making the next bit this long before it's due
@@ -179,7 +207,7 @@ const JUICY = new Set(['record', 'leader', 'ranked', 'shame', 'climb']);
 //   now()                      clock
 //   room()                     { mode, sealed, quiet: true when no takeover/voice/announcement for a bit,
 //                                nearMark, digest() }
-//   settings()                 { boothOn, boothFreq, boothRoast }
+//   settings()                 { boothOn, boothFreq, boothRoast, boothShort, boothExtras, duo: 'aerobics+hype' }
 //   fetchBit(digest, settings) -> Promise<{ url, ms, lines }|null>
 //   play(bit)                  -> true if it started (false: not now, try again soon)
 export class BoothRunner {
@@ -194,7 +222,8 @@ export class BoothRunner {
   event(m) {
     const t = this.now();
     if (m?.text) this.events = [...this.events.filter(e => t - e.t < 10 * MIN), { t, text: m.text }].slice(-5);
-    if (!JUICY.has(m?.kind) || !this.settings().boothOn) return;
+    const s = this.settings();
+    if (!JUICY.has(m?.kind) || !s.boothOn || s.boothExtras === false) return;
     if (t - this.lastExtra < BOOTH.extraEvery) return;
     this.lastExtra = t;
     const soon = t + BOOTH.extraAfter;
@@ -208,7 +237,7 @@ export class BoothRunner {
     const digest = { ...room.digest(), ...(this.events.length ? { justHappened: this.events.map(e => e.text) } : {}) };
     this.inflight = Promise.resolve(this.fetchBit(digest, this.settings(), this.log.slice(-4).flatMap(l => l.lines.map(x => x.text))))
       .then(b => {
-        if (b && safeLines(b.lines, { sealed: room.sealed })) this.bit = { ...b, at: t, sealed: room.sealed };
+        if (b && safeLines(b.lines, { sealed: room.sealed, hosts: b.hosts })) this.bit = { ...b, at: t, sealed: room.sealed, duo: this.settings().duo };
         else this.failedAt = this.now();
       })
       .catch(() => { this.failedAt = this.now(); })
@@ -221,7 +250,7 @@ export class BoothRunner {
     if (room.mode !== this.mode) { this.mode = room.mode; this.nextAt = null; this.bit = null; } // a new phase: start over
     if (this.nextAt == null) this.nextAt = t + Math.round(this.gap(room.mode) * BOOTH.firstAfter);
     if (this.force) this.nextAt = Math.min(this.nextAt, t);
-    if (this.bit && (t - this.bit.at > BOOTH.stale || this.bit.sealed !== room.sealed)) this.bit = null;
+    if (this.bit && (t - this.bit.at > BOOTH.stale || this.bit.sealed !== room.sealed || this.bit.duo !== s.duo)) this.bit = null;
     const failedLately = this.failedAt && t - this.failedAt < 30000;
     if (!this.bit && !this.inflight && !failedLately && t >= this.nextAt - BOOTH.prefetch) { this.fetch(room); return 'fetching'; }
     if (t < this.nextAt || !this.bit) return 'waiting';

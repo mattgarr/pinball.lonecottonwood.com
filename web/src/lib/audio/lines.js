@@ -7,7 +7,7 @@
 import CLOCK from './clockLines.json';
 import PRONOUNCE from './pronounce.json';
 
-export const PACKS = ['british', 'hype', 'ship', '8bit', 'newsreel', 'dj', 'wedding', 'drivetime', 'countdown', 'aerobics', 'rumble'];
+export const PACKS = ['british', 'hype', 'ship', '8bit', 'newsreel', 'dj', 'wedding', 'drivetime', 'countdown', 'aerobics', 'rumble', 'valley', 'vj', 'rink'];
 const packOf = p => (PACKS.includes(p) ? p : 'british');
 
 // ---------- speech-friendly words ----------
@@ -165,6 +165,27 @@ const MOMENTS = {
     milestone: ['{count} games tonight! And we are just getting started!', "That's {count} games! Incredible!"],
     join: ['A new challenger approaches! {names}!', 'Entering the arena: {names}!'],
   },
+  valley: {
+    record: ['Oh my gosh! New {machine} record! {name} just put up {score}! Totally iconic!', "Okay, {name} just got {score} on {machine}. That's a new record. Like, wow!"],
+    leader: ['New number one! {name}, you are, like, so on top!', "{name} is in first place now. Totally called it!"],
+    ranked: ['{name} is on the board in {ordinal} place! Cute!', '{name} made the rankings! {Ordinal} place, totally!'],
+    milestone: ["{count} games tonight! That's, like, a lot!", '{count} games, you guys! Oh my gosh!'],
+    join: ['Hi, {names}! Welcome! Love that for you!', 'Oh my gosh, {names} is here! Welcome!'],
+  },
+  vj: {
+    record: ['World premiere! New {machine} record! {name}, {score}!', '{name} just dropped a new {machine} record: {score}! Crank it up!'],
+    leader: ["There's a new number one on the countdown: {name}!", '{name} is topping the charts now! Let\'s rock!'],
+    ranked: ['{name} debuts on the chart in {ordinal}!', 'New on the board: {name}, at number {rankWords}!'],
+    milestone: ['{count} games tonight! Keep it loud!', "That's {count} games, Woodside!"],
+    join: ['Shout out to {names}! Welcome to the party!', "What's up, {names}! Welcome in!"],
+  },
+  rink: {
+    record: ['Whoa, skaters! New {machine} record! {name} just rolled up {score}!', 'Smooth moves! {name} sets the {machine} record with {score}!'],
+    leader: ["We've got a new number one! {name}, take a victory lap!", '{name} skates into first place!'],
+    ranked: ['{name} rolls onto the board in {ordinal} place!', '{name} made the rankings! {Ordinal} place!'],
+    milestone: ['{count} games tonight! Keep on rolling!', "That's {count} games, skaters!"],
+    join: ['Hey hey, {names}! Welcome to the floor!', 'Everybody wave to {names}! Welcome!'],
+  },
 };
 
 // moment: { kind: 'record'|'leader'|'ranked'|'milestone'|'join', player, players, machine, score, rank, count }
@@ -318,6 +339,42 @@ const REVEAL = {
     match: 'Match {drawn}! The Match goes to {name}!',
     empty: 'No winner for {prize} tonight!',
     finale: 'Ladies and gentlemen, your winners! Winners, up front for the group photo!',
+  },
+  valley: {
+    intro: "Okay, everybody, it's awards time! Twelve prizes! I'm, like, freaking out!",
+    grand: 'Your Grand Champion! {name}! Rated {rating}! Totally deserved!',
+    second: 'Second place, {name}! So good!',
+    third: 'Third place, {name}! Cute!',
+    machine: 'Your {machine} champion! {name}, with {score}! Iconic!',
+    grinder: 'The Grinder! {name}, with {plays} games! Like, take a break sometime!',
+    whiff: "And The Big Whiff goes to {name}! Way harsh, but, like, you're still fabulous!",
+    match: 'Match {drawn}! The Match goes to {name}! Lucky!',
+    empty: 'No winner for {prize} tonight. Whatever!',
+    finale: 'Yay, everybody! Winners, up front for the group photo! Smile!',
+  },
+  vj: {
+    intro: "What's up, Woodside! It's awards time! Twelve prizes, coming up!",
+    grand: 'Your Grand Champion! {name}! Rated {rating}! Let\'s rock!',
+    second: 'Second place, {name}!',
+    third: 'Third place, {name}!',
+    machine: 'Your {machine} champion! {name}, with {score}!',
+    grinder: 'The Grinder! {name}, with {plays} games! Total marathon!',
+    whiff: 'And The Big Whiff goes to {name}! Hey, every legend needs a blooper reel!',
+    match: 'Match {drawn}! The Match goes to {name}!',
+    empty: 'No winner for {prize} tonight!',
+    finale: "That's a wrap, Woodside! Winners, up front for the group photo!",
+  },
+  rink: {
+    intro: "Alright, skaters, clear the floor! It's awards time! Twelve prizes!",
+    grand: 'Your Grand Champion! {name}! Rated {rating}! Take a victory lap!',
+    second: 'Second place, {name}!',
+    third: 'Third place, {name}!',
+    machine: 'Your {machine} champion! {name}, with {score}!',
+    grinder: 'The Grinder! {name}, with {plays} games! Never left the floor!',
+    whiff: 'And The Big Whiff goes to {name}! Hey, everybody falls on their first lap!',
+    match: 'Match {drawn}! The Match goes to {name}!',
+    empty: 'No winner for {prize} tonight!',
+    finale: "That's the last skate, everybody! Winners, up front for the group photo!",
   },
 };
 

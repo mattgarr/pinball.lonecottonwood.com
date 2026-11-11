@@ -10,6 +10,8 @@ import { PACK_GROUPS, PACK_NAMES, clipUrl, lineUrl, setSayNames } from '../lib/a
 import { clockText } from '../lib/audio/lines.js';
 import { SAY_TOPICS } from '../lib/audio/policy.js';
 import { SPOTIFY_CLIENT_ID, parseSpotifyUri } from '../lib/audio/spotify.js';
+import CommentaryLevel from './CommentaryLevel.jsx';
+import { BOOTH_PERSONAS, boothDuo } from '../lib/audio/booth.js';
 import '../audio.css';
 
 const FRESH_MS = 60000;
@@ -93,6 +95,7 @@ export default function AudioPanel() {
         {online && dot(sp.login ? !!sp.ready || !!sp.device : false, sp.login ? (sp.ready ? 'Spotify ready' : sp.device ? `Spotify: ${sp.device}` : 'Spotify connecting') : 'Spotify not connected')}
         {!conn && <span className="muted small">{topic ? 'Connecting…' : 'Unlock the host page to control the TV'}</span>}
       </div>
+      <CommentaryLevel />
       {online && sp.track && <p className="audio-now">♫ {sp.playing ? '' : '(paused) '}{sp.track}{sp.artist ? ` · ${sp.artist}` : ''}</p>}
       {online && sp.error && <p className="audio-err small">{sp.error}</p>}
       {online && (tv.reveal || tv.final || settings.muteAll) && <p className="muted small">{settings.muteAll ? 'Everything is muted.' : tv.reveal ? 'Reveal: music is off until the reveal ends.' : 'Final countdown: music is ducked.'}</p>}
@@ -199,7 +202,7 @@ export default function AudioPanel() {
       </div>
 
       <div className="audio-field">
-        <div className="audio-label">Announce booth: Donnie (the DJ) and Dash (play-by-play) chat about the night every few minutes</div>
+        <div className="audio-label">Announce booth: two hosts chat about the night every few minutes</div>
         <div className="audio-btns">
           <button type="button" className={settings.boothOn !== false ? 'secondary' : 'ghost'} disabled={!settings.voiceOn} onClick={() => change({ boothOn: settings.boothOn === false }, { now: true })}>
             Booth: {settings.boothOn !== false ? 'on' : 'off'}
@@ -207,6 +210,26 @@ export default function AudioPanel() {
           <button type="button" className="secondary" disabled={!online || !settings.voiceOn} onClick={() => { cmd('booth'); say('Writing a booth bit: about 10 seconds.'); }}>Play one now</button>
           <button type="button" className="ghost danger" disabled={!booth?.playing} onClick={() => cmd('boothSkip')}>Skip bit</button>
         </div>
+        <div className="audio-label booth-sub">In the booth</div>
+        <div className="booth-duo">
+          {[['boothA', 0], ['boothB', 1]].map(([k, i]) => {
+            const duo = boothDuo(settings);
+            return (
+              <select key={k} aria-label={`Booth host ${i + 1}`} value={duo[i]} onChange={e => {
+                const next = [...duo]; next[i] = e.target.value;
+                if (next[0] === next[1]) next[1 - i] = duo[i]; // picking the other host's voice swaps them
+                change({ boothA: next[0], boothB: next[1] }, { now: true });
+              }}>
+                {PACK_GROUPS.map(([group, ids]) => (
+                  <optgroup key={group} label={group}>
+                    {ids.filter(id => BOOTH_PERSONAS[id]).map(id => <option key={id} value={id}>{BOOTH_PERSONAS[id].name} ({PACK_NAMES[id]})</option>)}
+                  </optgroup>
+                ))}
+              </select>
+            );
+          })}
+        </div>
+        <p className="muted small">{boothDuo(settings).map(id => `${BOOTH_PERSONAS[id].name}: ${BOOTH_PERSONAS[id].blurb}`).join(' · ')}</p>
         <div className="audio-label booth-sub">How often</div>
         <div className="audio-seg">
           {[['less', 'Less'], ['normal', 'Normal'], ['more', 'More']].map(([v, label]) => (
@@ -224,12 +247,12 @@ export default function AudioPanel() {
             {[...booth.log].reverse().slice(0, 4).map(l => (
               <li key={l.at}>
                 <span className="muted small">{new Date(l.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
-                {l.lines.map((x, i) => <div key={i} className="small"><b>{x.host === 'DONNIE' ? 'Donnie' : 'Dash'}:</b> {x.text}</div>)}
+                {l.lines.map((x, i) => <div key={i} className="small"><b>{x.host.charAt(0) + x.host.slice(1).toLowerCase()}:</b> {x.text}</div>)}
               </li>
             ))}
           </ol>
         )}
-        <p className="muted small">Every 6 to 8 minutes in the tournament (10 in free play), plus one soon after a big moment, only when nothing else is on. Never during the countdowns, the last minutes or the reveal; while results are sealed they don't talk standings. Family-safe: they only tease pinball.</p>
+        <p className="muted small">Every 6 to 8 minutes in the tournament (10 in free play; Less = half as often), plus one soon after a big moment, only when nothing else is on. Never during the countdowns, the last minutes or the reveal; while results are sealed they don't talk standings. Family-safe: they only tease pinball.</p>
       </div>
 
       <div className="audio-field">

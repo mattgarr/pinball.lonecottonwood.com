@@ -71,3 +71,12 @@
 .audio-seg > button { margin: 0; min-width: 0; }
 .audio-field .booth-sub { margin-top: 12px; }
 .audio-card button:disabled { opacity: 0.45; cursor: default; }
+.commentary-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; min-width: 0; }
+.commentary-seg > button { margin: 0; min-width: 0; padding-left: 6px; padding-right: 6px; }
+@media (max-width: 720px) { .commentary-seg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.commentary { margin-top: 12px; min-width: 0; }
+.commentary-card .commentary { margin-top: 0; }
+.commentary p { margin: 6px 0 0; }
+.booth-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; min-width: 0; }
+.booth-duo select { min-width: 0; width: 100%; }
+@media (max-width: 520px) { .booth-duo { grid-template-columns: 1fr; } }

@@ -771,5 +771,215 @@
    "Testing! Is everybody ready?",
    "Sound check! Woodside, make some noise!"
   ]
+ },
+ "valley": {
+  "start5": [
+   "Okay, everybody, five minutes till the tournament! Like, totally get ready!",
+   "Five minutes, you guys! Fix your hair, grab a machine!"
+  ],
+  "start4": [
+   "Four minutes! There's, like, so much time for a warm-up game!",
+   "Four minutes, you guys!"
+  ],
+  "start3": [
+   "Three minutes! Pick a machine. Not that one. Okay, fine, that one!",
+   "Three minutes! This is gonna be so fun!"
+  ],
+  "start2": [
+   "Two minutes! Get to a machine, like, now!",
+   "Two minutes, you guys! Totally almost time!"
+  ],
+  "start1": [
+   "One minute! The next game you start, like, actually counts!",
+   "One minute! Oh my gosh, here we go!"
+  ],
+  "on": [
+   "Okay, the tournament is on! Every game counts, so, like, try!",
+   "It's on, you guys! Every score counts now!"
+  ],
+  "end15": [
+   "Fifteen minutes left! And the leaderboard is a total secret now. Don't even ask!",
+   "Last call, you guys! Fifteen minutes!"
+  ],
+  "end10": [
+   "Ten minutes left! Keep going, you're doing, like, so good!",
+   "Ten minutes! Whatever, you got this!"
+  ],
+  "end5": [
+   "Five minutes! Start your last game, like, right now!",
+   "Five minutes left! Make it cute!"
+  ],
+  "end4": [
+   "Four minutes!",
+   "Four minutes, you guys!"
+  ],
+  "end3": [
+   "Three minutes!",
+   "Three minutes! Totally don't drain!"
+  ],
+  "end2": [
+   "Two minutes! Bring it home!",
+   "Two minutes left! Oh my gosh!"
+  ],
+  "end1": [
+   "One minute! Finish up and log that score!",
+   "Last minute! Like, make it count!"
+  ],
+  "timesup": [
+   "Time's up! Log your last score, you've got three minutes. Go, go, go!",
+   "That's time, you guys! Get those scores in!"
+  ],
+  "awards": [
+   "Okay, everybody, gather round the TV! It's awards time, and I'm, like, so excited!",
+   "The results are in! Come over to the TV, you guys!"
+  ],
+  "freeplay": [
+   "Free play is open! Nothing counts, so, like, just have fun!",
+   "It's free play, you guys! Play whatever!"
+  ],
+  "check": [
+   "Hi, everybody! Is this thing on? Totally!",
+   "Sound check! Like, can you hear me?"
+  ]
+ },
+ "vj": {
+  "start5": [
+   "What's up, Woodside! Five minutes till the tournament. Stay tuned!",
+   "Five minutes to showtime, people!"
+  ],
+  "start4": [
+   "Four minutes! Squeeze in one more warm-up!",
+   "Four minutes to go. Don't change that channel!"
+  ],
+  "start3": [
+   "Three minutes! Find your machine!",
+   "Three minutes, Woodside!"
+  ],
+  "start2": [
+   "Two minutes! Get in position!",
+   "Two minutes to go. Here it comes!"
+  ],
+  "start1": [
+   "One minute! The next game you start is for real!",
+   "One minute! Coming up next: the tournament!"
+  ],
+  "on": [
+   "We are live! The tournament is on, and every game counts!",
+   "It's on! Every score counts from right now. Let's rock!"
+  ],
+  "end15": [
+   "Fifteen minutes left! And the leaderboard just went off the air till the awards!",
+   "Last call, Woodside! Fifteen minutes!"
+  ],
+  "end10": [
+   "Ten minutes left! Keep it loud!",
+   "Ten minutes to go!"
+  ],
+  "end5": [
+   "Five minutes! Start your last game now!",
+   "Five minutes left! This is your final set!"
+  ],
+  "end4": [
+   "Four minutes!",
+   "Four minutes left!"
+  ],
+  "end3": [
+   "Three minutes!",
+   "Three minutes! Crank it up!"
+  ],
+  "end2": [
+   "Two minutes! Bring it home!",
+   "Two minutes left!"
+  ],
+  "end1": [
+   "One minute! Finish strong and log that score!",
+   "Last minute, Woodside! Make it count!"
+  ],
+  "timesup": [
+   "That's a wrap! Log your last score, you've got three minutes!",
+   "Time's up! Get those scores in!"
+  ],
+  "awards": [
+   "The results are in! Everybody to the TV for the awards!",
+   "Coming up: the awards! Gather round the TV!"
+  ],
+  "freeplay": [
+   "Free play is open! Nothing counts, so just rock out!",
+   "It's free play, Woodside! Play whatever you want!"
+  ],
+  "check": [
+   "What's up, Woodside! Your VJ is live!",
+   "Sound check! Turn it up!"
+  ]
+ },
+ "rink": {
+  "start5": [
+   "Hey hey, skaters! Five minutes till the tournament! Lace 'em up!",
+   "Five minutes, everybody! Find your groove!"
+  ],
+  "start4": [
+   "Four minutes! Time for one more warm-up lap. I mean game!",
+   "Four minutes, rollers!"
+  ],
+  "start3": [
+   "Three minutes! Everybody find a machine, nice and smooth!",
+   "Three minutes till we roll!"
+  ],
+  "start2": [
+   "Two minutes! Clear the floor and get to your machines!",
+   "Two minutes, everybody!"
+  ],
+  "start1": [
+   "One minute! The next game you start counts!",
+   "One minute! Here we go, round and round!"
+  ],
+  "on": [
+   "The tournament is on! Every game counts! Let's roll!",
+   "Alright, skaters, it's tournament time! Every score counts now!"
+  ],
+  "end15": [
+   "Fifteen minutes left! And the leaderboard goes dark like the disco ball, till the awards!",
+   "Last call, skaters! Fifteen minutes!"
+  ],
+  "end10": [
+   "Ten minutes left! Keep on rolling!",
+   "Ten minutes! You're all looking smooth!"
+  ],
+  "end5": [
+   "Five minutes! Start your last game now. It's the last skate of the night!",
+   "Five minutes left! Last game, make it count!"
+  ],
+  "end4": [
+   "Four minutes!",
+   "Four minutes left, skaters!"
+  ],
+  "end3": [
+   "Three minutes!",
+   "Three minutes! Keep it smooth!"
+  ],
+  "end2": [
+   "Two minutes! Bring it home!",
+   "Two minutes left!"
+  ],
+  "end1": [
+   "One minute! Finish up and log that score!",
+   "Last minute, everybody! Make it shine!"
+  ],
+  "timesup": [
+   "And that's the last skate! Log your score, you've got three minutes!",
+   "Time's up, skaters! Get those scores in!"
+  ],
+  "awards": [
+   "Alright, everybody, roll on over to the TV! It's awards time!",
+   "The results are in! Gather round the TV, skaters!"
+  ],
+  "freeplay": [
+   "Free play is open! Nothing counts, so just roll with it!",
+   "It's free skate! I mean free play! Play anything you want!"
+  ],
+  "check": [
+   "Hey hey, Woodside! Your rink DJ is on the mic!",
+   "Sound check! Can you hear me out on the floor?"
+  ]
  }
 }

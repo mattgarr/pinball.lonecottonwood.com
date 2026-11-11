@@ -38,7 +38,7 @@ describe('announcer words', () => {
 
 describe('announcer lines', () => {
   it('every pack has every countdown line, with 2+ ways to say each', () => {
-    expect(PACKS).toHaveLength(11);
+    expect(PACKS).toHaveLength(14);
     expect(CLIPS).toHaveLength(17);
     for (const p of PACKS) for (const c of CLIPS) {
       expect(clockVariants(p, c).length).toBeGreaterThanOrEqual(2);

@@ -34,8 +34,10 @@ The example times below assume **tournament 6:30 PM to 9:30 PM**. If you pick ot
     records and new #1s with names and scores, welcomes people as they join, and names each winner in the reveal.
     The four toggles under it switch each kind off; *Say something on the TV* makes it say anything you type.
     *Say names like…*: add any name it says wrong (`Name=how to say it`; Stacia is already "Stay-sha").
-    **Announce booth:** every few minutes Donnie (the DJ) and Dash (play-by-play) chat about the night and gently
-    roast people. *Play one now* to hear one; set *How often* and *Roast* to taste; *Skip bit* cuts one off.
+    **Announce booth:** every few minutes two hosts (Roxy the aerobics instructor and Dash the play-by-play guy;
+    change them under *In the booth*) chat about the night and gently roast people. *Play one now* to hear one;
+    *Skip bit* cuts one off. **Commentary** (top of *Party night* and of the Audio card) sets how much talking
+    there is in one tap: Full booth / Chill booth / Announcer / Effects only.
 12. **Click the TV once** (anywhere). The "CLICK FOR SOUND + MUSIC" banner goes away. Do this after every TV reload.
 13. On the Audio card press the test buttons (Big moment, Starts in 5, Final 10 s, Reveal mute, Match spin) and listen in the garage.
 
@@ -81,7 +83,8 @@ The example times below assume **tournament 6:30 PM to 9:30 PM**. If you pick ot
 | **"⚠ offline" in the TV's corner** | Garage Wi-Fi dropped. It fixes itself when Wi-Fi is back; press Cmd+R if it stays for more than a few minutes. |
 | **No music** | Host page → Audio → *Reconnect Spotify*, then click the TV once. Still nothing: open Spotify on the Mac and play the playlist there (the TV's sounds still work). |
 | **The announcer is quiet but sound works** | Host page → Audio: *Announcer: on* and its four toggles. A brand-new line takes ~5 s; offline, only the countdowns speak (from saved clips). Unlock /host on the TV Mac once more if it's been over a week. |
-| **The booth said something off** | *Skip bit* on the Audio card; *Roast: Gentle*, or *Booth: off*. |
+| **The booth said something off** | *Skip bit* on the Audio card, then *Roast: Gentle*. |
+| **Booth getting annoying** | **Commentary** (top of *Party night*): *Chill booth* (half as often, shorter), *Announcer* (no booth) or *Effects only* (no voices at all). It cuts off a bit that's playing. |
 | **No sound at all in the garage** | Mac Control Center → Sound → pick the WiiM again (AirPlay). Check the WiiM's volume. |
 | **Lights stuck or wrong** | Host page → Garage lights → *Back to attract loop*. Or use the remote (button 1 = attract show). Too bright/dim: the **Dimmer**. |
 | **Running late** | *Tournament times* → **+15 min** (pushes the end back; works until the reveal). The countdowns follow. |

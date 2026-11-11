@@ -14,6 +14,7 @@ import { hostPixelize } from '../lib/pixelAvatar.js';
 import HostEvents from '../components/HostEvents.jsx';
 import LightsPanel from '../components/LightsPanel.jsx';
 import AudioPanel from '../components/AudioPanel.jsx';
+import CommentaryLevel from '../components/CommentaryLevel.jsx';
 import HostAccess from '../components/HostAccess.jsx';
 
 const SITE_HOST = 'pinball.lonecottonwood.com';
@@ -163,6 +164,7 @@ function HostPanel({ onLogout }) {
         <a href="#sec-scores" className="host-nav-pill">Scores ({liveScores})</a>
         <a href="#sec-players" className="host-nav-pill">Players ({inCurrentEvent.size})</a>
         <a href="#sec-lights" className="host-nav-pill">Lights</a>
+        <a href="#sec-audio" className="host-nav-pill">Audio</a>
         <a href="#sec-end" className="host-nav-pill">End of night</a>
         <a href="#sec-setup" className="host-nav-pill">Setup</a>
       </nav>
@@ -174,6 +176,10 @@ function HostPanel({ onLogout }) {
       <HostAccess run={run} busy={busy} />
 
       <h2 id="sec-party" className="host-section">Party night</h2>
+
+      <section className="card audio-card commentary-card">
+        <CommentaryLevel compact />
+      </section>
 
       <div className="host-grid-2">
         <section className="card">

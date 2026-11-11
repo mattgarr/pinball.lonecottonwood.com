@@ -10,8 +10,8 @@
 // It reports to the host card on <channel>/audio/state (retained) and <channel>/audio/lists.
 import { AudioDirector, DEFAULT_SETTINGS, TIMING, revealEventCue } from './policy.js';
 import { playSound, stopSounds } from './synth.js';
-import { BOOTH_URL, DEFAULT_PACK, auth, loadManifest, post, preloadPack, prewarm, say, sayClip, setSayNames, setVoiceVolume, stopVoice, voiceQuietFor } from './voice.js';
-import { BOOTH, BoothRunner, boothMode, boothSource, buildDigest, momentFact, nearMark } from './booth.js';
+import { BOOTH_URL, DEFAULT_PACK, auth, loadManifest, post, preloadPack, prewarm, say, sayClip, setSayNames, setVoiceVolume, stopVoice, voiceBusy, voiceQuietFor } from './voice.js';
+import { BOOTH, BoothRunner, boothDuo, boothMode, boothSource, buildDigest, momentFact, nearMark } from './booth.js';
 import { clockText, momentText, revealText } from './lines.js';
 import * as sp from './spotify.js';
 import { audioCtx, ensureCtx, fxBus, setGate, sound } from '../chiptune.js';
@@ -24,7 +24,9 @@ export const AUDIO_DEFAULTS = {
   pack: DEFAULT_PACK, playlist: '', playlistName: '', clientId: '', output: 'tv', outputName: '',
   autoplay: true, shuffle: true, sayNames: '',
   // The announce booth (DONNIE + DASH): on/off, how often ('less' | 'normal' | 'more'), roast ('gentle' | 'spicy').
-  boothOn: true, boothFreq: 'normal', boothRoast: 'gentle',
+  boothOn: true, boothFreq: 'normal', boothRoast: 'gentle', boothShort: false, boothExtras: true,
+  // The booth's two hosts (any two announcer voices). Matt's favourite: Roxy (aerobics) + Dash (arcade hype).
+  boothA: 'aerobics', boothB: 'hype',
 };
 
 const readSettings = () => { try { return { ...AUDIO_DEFAULTS, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null') || {}) }; } catch { return { ...AUDIO_DEFAULTS }; } };
@@ -187,6 +189,7 @@ function createHost() {
   const origSetSettings = director.setSettings.bind(director);
   setGate(name => director.gate(name));
 
+  let boothPlaying = null; // the booth bit on air (the level control can cut it off)
   function applySettings(next, { fromHost = false } = {}) {
     const prev = settings;
     settings = { ...AUDIO_DEFAULTS, ...next };
@@ -195,6 +198,9 @@ function createHost() {
     origSetSettings({ musicVol: settings.musicVol, fxVol: settings.fxVol, voiceVol: settings.voiceVol, voiceOn: settings.voiceOn, muteAll: settings.muteAll, pack: settings.pack,
       sayClock: settings.sayClock, sayRecords: settings.sayRecords, sayJoins: settings.sayJoins, sayReveal: settings.sayReveal });
     if (settings.pack !== prev.pack && state.unlocked) preloadPack(settings.pack);
+    // Turning the voices (or the booth) down cuts off whatever is being said right now.
+    if (fromHost && prev.voiceOn !== false && settings.voiceOn === false) { stopVoice(); boothPlaying = null; emitBooth(); }
+    else if (fromHost && boothPlaying && (settings.boothOn === false || (settings.boothShort && !prev.boothShort))) { stopVoice(); boothPlaying = null; emitBooth(); }
     if (fromHost) {
       if (prev.muteAll && !settings.muteAll && !director.reveal) music.resume();
       const outChanged = settings.output !== prev.output;
@@ -320,7 +326,10 @@ function createHost() {
   // Every few minutes, when nothing else is being said or shown, DONNIE and DASH talk about the night
   // (lib/audio/booth.js decides when and what they're told; the `booth` edge function writes and voices it).
   const booth = new BoothRunner({
-    settings: () => ({ boothOn: settings.boothOn !== false && settings.voiceOn && !settings.muteAll, boothFreq: settings.boothFreq, boothRoast: settings.boothRoast }),
+    settings: () => ({
+      boothOn: settings.boothOn !== false && settings.voiceOn && !settings.muteAll, boothFreq: settings.boothFreq, boothRoast: settings.boothRoast,
+      boothShort: !!settings.boothShort, boothExtras: settings.boothExtras !== false, duo: boothDuo(settings).join('+'),
+    }),
     room: () => {
       const src = boothSource();
       // "Play a booth segment now" works in any phase but the reveal.
@@ -334,14 +343,13 @@ function createHost() {
     fetchBit: async (digest, s, avoid) => {
       const a = await auth();
       if (!a) return null;
-      return post({ ...a, digest, roast: s.boothRoast, names: settings.sayNames || '', avoid }, 60000, BOOTH_URL);
+      return post({ ...a, digest, roast: s.boothRoast, short: s.boothShort, hosts: s.duo.split('+'), names: settings.sayNames || '', avoid }, 60000, BOOTH_URL);
     },
     play: bit => { const ok = director.speak({ url: bit.url, ms: bit.ms }); if (ok) { boothPlaying = bit; setTimeout(() => { if (boothPlaying === bit) { boothPlaying = null; emitBooth(); } }, (bit.ms || 15000) + 1500); emitBooth(); } return ok; },
   });
-  let boothPlaying = null;
   try { window.__pwBooth = booth; } catch { /* debugging from the console */ }
   const emitBooth = () => {
-    state.booth = { on: settings.boothOn !== false, next: booth.nextAt, playing: !!boothPlaying, log: booth.log.map(l => ({ at: l.at, lines: l.lines })) };
+    state.booth = { on: settings.boothOn !== false, next: booth.nextAt, playing: !!boothPlaying, duo: boothDuo(settings), log: booth.log.map(l => ({ at: l.at, lines: l.lines })) };
     emit();
   };
   const boothIv = setInterval(() => { if (booth.tick() === 'played') emitBooth(); }, 5000);
@@ -490,6 +498,8 @@ function createHost() {
     connect: () => sp.login(settings.clientId || sp.SPOTIFY_CLIENT_ID),
     director,
     command,
+    applySettings: s => applySettings({ ...settings, ...s }, { fromHost: true }), // as if from the host card
+    voiceBusy,
     // The TV shows / leaves the reveal (TvAudio's `reveal` prop), and on-screen reveal sounds.
     setReveal(on) { if (on) director.revealStart(); else director.revealEnd(); emit(); },
     revealCue(name, opts) { if (director.reveal) director.revealCue(name, opts); },
