@@ -231,3 +231,25 @@ describe('Donnie catchphrases', () => {
     expect(repeatsCatchphrase([{ host: 'DONNIE', text: 'Cowabunga, Theo!' }], ['Cowabunga, dudes!'])).toBe(true);
   });
 });
+
+describe('booth local color + rivalry', () => {
+  it('every local item has text; none repeats until the bank is used up', async () => {
+    const { LOCAL_BANK, pickLocal } = await import('./woodside.js');
+    expect(LOCAL_BANK.length).toBeGreaterThanOrEqual(15);
+    expect(new Set(LOCAL_BANK.map(x => x.id)).size).toBe(LOCAL_BANK.length);
+    for (const x of LOCAL_BANK) { expect(x.text.length).toBeLessThan(300); expect(unsafe(x.text)).toBe(false); }
+    const used = new Set(), seen = [];
+    for (let i = 0; i < Math.floor(LOCAL_BANK.length / 2); i++) seen.push(...pickLocal(used, 2).map(x => x.id));
+    expect(new Set(seen).size).toBe(seen.length);
+    expect(pickLocal(used, 2)).toHaveLength(2); // starts over when it runs out
+  });
+  it('each bit asks for two local items and sometimes a rivalry, and remembers what it used', async () => {
+    let t = Date.parse('2026-11-15T03:00:00Z'); const sent = []; let saved = null;
+    const r = new BoothRunner({ now: () => t, rand: () => 0.1, settings: () => ({ boothOn: true }), room: () => ({ mode: 'tournament', quiet: true, digest: () => ({}) }),
+      fetchBit: (d, s, avoid, extras) => { sent.push(extras); return null; }, play: () => true, onUsedLocal: u => { saved = [...u]; } });
+    r.playNow(); r.tick(); await new Promise(res => setTimeout(res, 0));
+    expect(sent[0].local).toHaveLength(2);
+    expect(sent[0].rivalry).toBe(true);
+    expect(saved).toHaveLength(2);
+  });
+});

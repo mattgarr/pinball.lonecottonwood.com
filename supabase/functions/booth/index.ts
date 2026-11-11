@@ -37,6 +37,13 @@ const PERSONAS: Record<string, { name: string; prebuilt: string; who: string; st
   rink: { name: 'STARLA', prebuilt: 'Sulafat', who: 'an 80s roller-rink DJ: disco-ball glow, couples-skate cheese, "clear the floor!", warm and smooth', style: 'warm, smooth and glittery, chatting with her co-host' },
 };
 const DUO = ['valley', 'dj']; // Tiffani + Donnie
+// What each host gets teased about by the other (playful, about the character, never the players).
+const TEASE: Record<string, string> = {
+  valley: 'her fashion snobbery, her mall obsession, rating everything like an outfit',
+  dj: 'his cheesy-dad DJ act, his mullet and fanny pack, his corny puns and skee-ball stories',
+  hype: 'his nonstop stats and turning every game into a championship',
+  aerobics: 'her leg warmers and turning everything into a workout',
+};
 function duoOf(hosts: unknown) {
   const h = Array.isArray(hosts) ? hosts.filter(x => PERSONAS[x as string]) as string[] : [];
   const a = h[0] || DUO[0];
@@ -78,8 +85,9 @@ const schema = (names: string[]) => ({
   required: ['lines'],
 });
 
-function prompt(digest: unknown, roast: string, avoid: string[], duo: string[], short: boolean) {
+function prompt(digest: unknown, roast: string, avoid: string[], duo: string[], short: boolean, local: string[] = [], rivalry = false) {
   const [A, B] = duo.map(k => PERSONAS[k]);
+  const tease = (k: string) => TEASE[k] || 'their on-air persona';
   return `You write the next short bit for a two-person announce booth at a home pinball party tonight, played over the
 speakers in the garage. Families are there, including kids.
 
@@ -106,6 +114,10 @@ ${roast === 'spicy'
 Rules, always: PG and kind. Tease only pinball play (scores, drains, luck, streaks), never anyone's looks, body, age,
 gender, family, job, intelligence, or anything else about them. No swearing, no innuendo, no alcohol, no politics.
 Never make up scores, names or events. Don't mention prizes or awards.
+${local.length ? `We're in Woodside, California (Silicon Valley horse country). Local color you may use, at most ONE item, only if it
+fits naturally, best woven into a tease about a score ("that score's lower than Woodside's sidewalk count"); keep the facts as given,
+affectionate, never about private people:\n${local.map(x => `- ${x}`).join('\n')}` : ''}
+${rivalry ? `This time the hosts also tease EACH OTHER once, playfully (${A.name}: ${tease(duo[0])}; ${B.name}: ${tease(duo[1])}), mixed in with the game talk. Friendly rivals, never mean.` : ''}
 ${(digest as { sealed?: boolean })?.sealed ? 'The standings are SECRET right now: never say who is leading, any ranks, ratings or who might win. Talk about the clock, the games being played and the excitement instead.' : ''}
 ${avoid.length ? `Don't repeat these recent bits:\n${avoid.map(a => `- ${a}`).join('\n')}\nAnd don't start any line with these openers: ${[...new Set(avoid.map(openerKey).filter(Boolean))].map(o => `"${o}"`).join(', ')}.${(() => { const c = [...new Set(avoid.flatMap(catchphrasesIn))]; return c.length ? `\nDon't use these catchphrases this time (used recently): ${c.map(x => `"${x}"`).join(', ')}.` : ''; })()}` : ''}
 
@@ -229,7 +241,7 @@ function check(out: unknown, names: string[], sealed = false, short = false): Li
   return clean;
 }
 
-async function write(key: string, digest: unknown, roast: string, avoid: string[], duo: string[], short: boolean) {
+async function write(key: string, digest: unknown, roast: string, avoid: string[], duo: string[], short: boolean, local: string[], rivalry: boolean) {
   const names = duo.map(k => PERSONAS[k].name);
   for (let attempt = 0; attempt < 3; attempt++) {
     const r = await fetch(`${API}/interactions`, {
@@ -237,7 +249,7 @@ async function write(key: string, digest: unknown, roast: string, avoid: string[
       headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json', 'Api-Revision': '2026-05-20' },
       body: JSON.stringify({
         model: TEXT_MODEL, store: false,
-        input: [{ type: 'text', text: prompt(digest, roast, avoid, duo, short) }],
+        input: [{ type: 'text', text: prompt(digest, roast, avoid, duo, short, local, rivalry) }],
         response_format: { type: 'text', mime_type: 'application/json', schema: schema(names) },
         generation_config: { thinking_level: 'low', temperature: 1.0 },
       }),
@@ -319,7 +331,8 @@ Deno.serve(async req => {
     const gate = await db.rpc('tts_count');
     if (gate.error) return json({ error: gate.error.message }, 429);
 
-    const lines = await write(key, digest, roast, avoid, duo, short);
+    const local = (Array.isArray(body.local) ? body.local : []).filter((x: unknown) => typeof x === 'string').slice(0, 3).map((x: string) => x.slice(0, 300));
+    const lines = await write(key, digest, roast, avoid, duo, short, local, body.rivalry === true);
     if (!lines) return json({ error: 'No usable bit this time.' }, 422);
     const t1 = Date.now();
 

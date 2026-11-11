@@ -340,11 +340,14 @@ function createHost() {
         digest: () => buildDigest({ ...src, mode, sealed: !!src?.sealed }),
       };
     },
-    fetchBit: async (digest, s, avoid) => {
+    fetchBit: async (digest, s, avoid, extras = {}) => {
       const a = await auth();
       if (!a) return null;
-      return post({ ...a, digest, roast: s.boothRoast, short: s.boothShort, hosts: s.duo.split('+'), names: settings.sayNames || '', avoid }, 60000, BOOTH_URL);
+      return post({ ...a, digest, roast: s.boothRoast, short: s.boothShort, hosts: s.duo.split('+'), names: settings.sayNames || '', avoid, local: extras.local, rivalry: extras.rivalry }, 60000, BOOTH_URL);
     },
+    // Tonight's used local-color items survive a TV reload (forgotten the next day).
+    usedLocal: (() => { try { const v = JSON.parse(localStorage.getItem('pw.boothLocal') || 'null'); return new Set(v?.day === new Date().toDateString() ? v.ids : []); } catch { return new Set(); } })(),
+    onUsedLocal: set => { try { localStorage.setItem('pw.boothLocal', JSON.stringify({ day: new Date().toDateString(), ids: [...set] })); } catch { /* ignore */ } },
     play: bit => { const ok = director.speak({ url: bit.url, ms: bit.ms }); if (ok) { boothPlaying = bit; setTimeout(() => { if (boothPlaying === bit) { boothPlaying = null; emitBooth(); } }, (bit.ms || 15000) + 1500); emitBooth(); } return ok; },
   });
   try { window.__pwBooth = booth; } catch { /* debugging from the console */ }
