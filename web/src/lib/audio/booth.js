@@ -176,6 +176,31 @@ export function safeLines(lines, { sealed = false, hosts = ['DONNIE', 'DASH'] } 
   return lines;
 }
 
+// ---------- variety: openers and laughs (the booth function does the same before voicing) ----------
+// A line's opener: its first two words, lower-case, no punctuation ("Alllll right!" → "all right").
+export function openerKey(text) {
+  const w = String(text || '').toLowerCase().replace(/a+l+ +r+i+g+h+t+|a+l+r+i+g+h+t+/g, 'all right').replace(/[^a-z' ]+/g, ' ').trim().split(/\s+/);
+  return w.slice(0, 2).join(' ');
+}
+// Does any line open the same way as a line in the recent bits?
+export function repeatsOpener(lines, recent = []) {
+  const seen = new Set(recent.map(openerKey).filter(Boolean));
+  return lines.some(l => seen.has(openerKey(l.text)));
+}
+const LAUGH = /(\*[^*]*laugh[^*]*\*|<laugh>|\b(?:ha[ -]?){2,}h?a?\b|\bheh(?:[ -]?heh)*\b|\bhehe+\b|\bhaha+\b)[,.!]*\s*/gi;
+const ALL_RIGHT = /^\s*a+l+\s*r+i+g+h+t+[,.!]*\s*/i;
+// Tidy a bit before it's voiced: drop written laughs unless this bit is allowed one (about 1 in 4), and an
+// "All right!" opener unless this bit is allowed one (rarely). Returns the tidied lines.
+export function tidyLines(lines, { laughOk = false, allRightOk = false } = {}) {
+  return lines.map(l => {
+    let t = l.text;
+    if (!laughOk) t = t.replace(LAUGH, '');
+    if (!allRightOk) t = t.replace(ALL_RIGHT, '');
+    t = t.replace(/\s+/g, ' ').trim();
+    return { ...l, text: t.charAt(0).toUpperCase() + t.slice(1) };
+  }).filter(l => /[a-z]/i.test(l.text));
+}
+
 // ---------- when ----------
 export const BOOTH_GAP_MIN = { warmup: [7, 9], tournament: [6, 8], lastcall: [5, 6], freeplay: [9, 11] };
 export const BOOTH_FREQ = { less: 2, normal: 1, more: 0.6 }; // less = about half as often

@@ -58,7 +58,7 @@ const PACKS: Record<string, { name: string; gender: string; lang: string; prompt
     name: 'Woodside fun-center DJ', gender: 'male', lang: 'en-US', prebuilt: 'Puck',
     prompt: 'A cheerful, goofy American radio-style DJ in his forties hosting a family fun center: bright, warm, enthusiastic voice '
       + 'with a big smile, playful and a little cheesy, stretching out words for fun.',
-    style: 'cheesy, upbeat and enthusiastic, like a roller-rink DJ on the mic',
+    style: 'warm, upbeat cheesy-dad energy, smiling but not laughing, like a fun-center DJ on the mic',
   },
   // 80s / 90s party voices.
   wedding: {

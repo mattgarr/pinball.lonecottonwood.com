@@ -354,7 +354,7 @@
  },
  "dj": {
   "start5": [
-   "Alllll right, Woodside! Five minutes till we start keeping score!",
+   "Hey there, Woodside! Five minutes till we start keeping score!",
    "Five minutes, party people! Stretch out those flipper fingers!"
   ],
   "start4": [
@@ -410,7 +410,7 @@
    "Time's up, folks! Put those scores in!"
   ],
   "awards": [
-   "Alllll right, everybody, gather round the TV! It's awards time!",
+   "Gather round the TV, everybody! It's awards time!",
    "The results are in! Come on over to the TV!"
   ],
   "freeplay": [
@@ -418,7 +418,7 @@
    "It's free play time! Play anything you like!"
   ],
   "check": [
-   "Testing, one, two! Is this thing on? Alllll right!",
+   "Testing, one, two! Is this thing on? Woodside, you sound great!",
    "Hello, Woodside! Your DJ is in the house!"
   ]
  },

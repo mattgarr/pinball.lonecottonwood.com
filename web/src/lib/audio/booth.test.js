@@ -188,3 +188,25 @@ describe('booth duo and chill', () => {
     expect(r.tick()).toBe('fetching');
   });
 });
+
+describe('booth variety', () => {
+  it('spots a line opening the same way as a recent one', async () => {
+    const { openerKey, repeatsOpener } = await import('./booth.js');
+    expect(openerKey('Alllll right, folks!')).toBe('all right');
+    expect(openerKey('Alright! Big Dave!')).toBe('all right');
+    expect(openerKey('All right, Woodside')).toBe('all right');
+    expect(openerKey("Like, totally major!")).toBe('like totally');
+    const recent = ['Alllll right! Big Dave just went off!', 'Like, totally major!'];
+    expect(repeatsOpener([{ host: 'DONNIE', text: 'Alright pinball people, listen up!' }], recent)).toBe(true);
+    expect(repeatsOpener([{ host: 'TIFFANI', text: 'Like, totally iconic!' }], recent)).toBe(true);
+    expect(repeatsOpener([{ host: 'DONNIE', text: 'Hold the phone, folks!' }, { host: 'TIFFANI', text: 'Oh my gosh!' }], recent)).toBe(false);
+    expect(repeatsOpener([{ host: 'DONNIE', text: 'Anything' }], [])).toBe(false);
+  });
+  it('drops written laughs and the All right opener unless allowed', async () => {
+    const { tidyLines } = await import('./booth.js');
+    const lines = [{ host: 'DONNIE', text: 'Alllll right! Ha ha ha, Omar, what a game! Heh heh.' }, { host: 'TIFFANI', text: '*laughs* Way harsh!' }, { host: 'DONNIE', text: 'Haha!' }];
+    expect(tidyLines(lines)).toEqual([{ host: 'DONNIE', text: 'Omar, what a game!' }, { host: 'TIFFANI', text: 'Way harsh!' }]);
+    expect(tidyLines(lines, { laughOk: true, allRightOk: true })[0].text).toBe('Alllll right! Ha ha ha, Omar, what a game! Heh heh.');
+    expect(tidyLines([{ host: 'DONNIE', text: 'Hats off to Theo.' }])[0].text).toBe('Hats off to Theo.'); // "Hats" isn't a laugh
+  });
+});

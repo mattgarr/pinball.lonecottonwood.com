@@ -23,7 +23,7 @@ const json = (body: unknown, status = 200) =>
 const PERSONAS: Record<string, { name: string; prebuilt: string; who: string; style: string }> = {
   aerobics: { name: 'ROXY', prebuilt: 'Laomedeia', who: 'a peppy 80s aerobics instructor in leg warmers: cheers everyone on, workout puns ("feel the burn", "and reach!", "five more!"), treats every game like a workout', style: 'peppy, bubbly and encouraging, chatting with her co-host' },
   hype: { name: 'DASH', prebuilt: 'Fenrir', who: 'a fast play-by-play sportscaster: stats, drama, calls every game like a championship', style: 'fast, excited play-by-play, chatting with his co-host' },
-  dj: { name: 'DONNIE', prebuilt: 'Puck', who: 'a cheesy fun-center DJ: warm hype-dad energy, puns, "Alllll right!", loves everybody', style: 'cheesy, warm and upbeat, chatting with his co-host' },
+  dj: { name: 'DONNIE', prebuilt: 'Puck', who: 'a cheesy fun-center DJ: warm hype-dad energy, puns, loves everybody. He mixes up how he jumps in ("Whoa, whoa, whoa!", "Folks, are you seeing this?", "Hold the phone!", "Get this:", "Oh, buddy!", "Ladies and gentlemen of the garage", "Somebody check that tilt!", "Well, butter my flippers!", or just straight in with the news); these are examples, not a script, and he never uses the same one twice in a row', style: 'warm, upbeat cheesy-dad energy, smiling but not laughing, chatting with his co-host' },
   british: { name: 'STERLING', prebuilt: 'Algieba', who: 'a suave British secret-agent type: dry wit, understatement, unflappable', style: 'smooth, dry and amused, chatting with his co-host' },
   ship: { name: 'ORBIT', prebuilt: 'Iapetus', who: 'a calm, polite spaceship computer: deadpan, precise, takes everything literally', style: 'calm, even and deadpan, chatting with its co-host' },
   '8bit': { name: 'BYTE', prebuilt: 'Orus', who: 'a retro 8-bit robot: literal, says "beep boop", calls people "humans", loves high scores', style: 'flat robotic voice, chatting with its co-host' },
@@ -87,6 +87,8 @@ The hosts (use exactly these names in "host"):
 - ${A.name}: ${A.who}.
 - ${B.name}: ${B.who}.
 They riff off each other like real broadcast partners: short back-and-forth, natural, contractions, never stiff.
+Vary how every bit starts: never open a line with "All right" or "Alright", and don't open the way your recent bits
+did. No written laughs ("ha ha", "heh", "*laughs*"); let the words be the fun.
 
 ${short
     ? 'Keep it SHORT: 2 or 3 lines, alternating hosts, about 10 seconds out loud (20 to 35 words).'
@@ -105,7 +107,7 @@ Rules, always: PG and kind. Tease only pinball play (scores, drains, luck, strea
 gender, family, job, intelligence, or anything else about them. No swearing, no innuendo, no alcohol, no politics.
 Never make up scores, names or events. Don't mention prizes or awards.
 ${(digest as { sealed?: boolean })?.sealed ? 'The standings are SECRET right now: never say who is leading, any ranks, ratings or who might win. Talk about the clock, the games being played and the excitement instead.' : ''}
-${avoid.length ? `Don't repeat these recent bits:\n${avoid.map(a => `- ${a}`).join('\n')}` : ''}
+${avoid.length ? `Don't repeat these recent bits:\n${avoid.map(a => `- ${a}`).join('\n')}\nAnd don't start any line with these openers: ${[...new Set(avoid.map(openerKey).filter(Boolean))].map(o => `"${o}"`).join(', ')}.` : ''}
 
 Digest (JSON):
 ${JSON.stringify(digest)}`;
@@ -187,6 +189,26 @@ function pronounce(text: string, extra: string) {
 }
 
 type Line = { host: string; text: string };
+// Variety (same as web/src/lib/audio/booth.js, tested there): a line's first two words; laughs; "All right".
+function openerKey(text: string) {
+  const w = String(text || '').toLowerCase().replace(/a+l+ +r+i+g+h+t+|a+l+r+i+g+h+t+/g, 'all right').replace(/[^a-z' ]+/g, ' ').trim().split(/\s+/);
+  return w.slice(0, 2).join(' ');
+}
+function repeatsOpener(lines: Line[], recent: string[]) {
+  const seen = new Set(recent.map(openerKey).filter(Boolean));
+  return lines.some(l => seen.has(openerKey(l.text)));
+}
+const LAUGH = /(\*[^*]*laugh[^*]*\*|<laugh>|\b(?:ha[ -]?){2,}h?a?\b|\bheh(?:[ -]?heh)*\b|\bhehe+\b|\bhaha+\b)[,.!]*\s*/gi;
+const ALL_RIGHT = /^\s*a+l+\s*r+i+g+h+t+[,.!]*\s*/i;
+function tidyLines(lines: Line[], laughOk: boolean, allRightOk: boolean) {
+  return lines.map(l => {
+    let t = l.text;
+    if (!laughOk) t = t.replace(LAUGH, '');
+    if (!allRightOk) t = t.replace(ALL_RIGHT, '');
+    t = t.replace(/\s+/g, ' ').trim();
+    return { ...l, text: t.charAt(0).toUpperCase() + t.slice(1) };
+  }).filter(l => /[a-z]/i.test(l.text));
+}
 function check(out: unknown, names: string[], sealed = false, short = false): Line[] | null {
   const lines = (out as { lines?: Line[] })?.lines;
   if (!Array.isArray(lines) || lines.length < 2 || lines.length > 5) return null;
@@ -199,7 +221,7 @@ function check(out: unknown, names: string[], sealed = false, short = false): Li
 
 async function write(key: string, digest: unknown, roast: string, avoid: string[], duo: string[], short: boolean) {
   const names = duo.map(k => PERSONAS[k].name);
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     const r = await fetch(`${API}/interactions`, {
       method: 'POST', signal: AbortSignal.timeout(30000),
       headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json', 'Api-Revision': '2026-05-20' },
@@ -215,8 +237,12 @@ async function write(key: string, digest: unknown, roast: string, avoid: string[
     const txt = findText(out);
     let parsed: unknown = null;
     try { parsed = txt ? JSON.parse(txt) : null; } catch { /* bad JSON */ }
-    const lines = check(parsed, names, !!(digest as { sealed?: boolean })?.sealed, short);
-    if (lines) return lines;
+    let lines = check(parsed, names, !!(digest as { sealed?: boolean })?.sealed, short);
+    // Opens like a recent bit: one more try (the last try is kept, minus the repeated "All right").
+    if (lines && attempt < 2 && repeatsOpener(lines, avoid)) { console.error('booth repeat opener', lines[0]?.text?.slice(0, 40)); continue; }
+    // A written laugh in about 1 bit in 4, an "All right!" opener rarely; otherwise they're taken out.
+    if (lines) lines = tidyLines(lines, Math.random() < 0.25, Math.random() < 0.1);
+    if (lines && lines.length >= 2) return lines;
     console.error('booth rejected', txt?.slice(0, 600));
   }
   return null;

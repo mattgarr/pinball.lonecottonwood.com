@@ -124,7 +124,7 @@ const MOMENTS = {
     join: ['And joining us tonight, {names}!', 'A warm welcome to {names}!'],
   },
   dj: {
-    record: ['Whoa-ho-ho! New {machine} record! {name} just put up {score}! Let\'s hear it!', 'Give it up for {name}! {score} on {machine}! New record!'],
+    record: ['Whoa, whoa, whoa! New {machine} record! {name} just put up {score}! Let\'s hear it!', 'Give it up for {name}! {score} on {machine}! New record!'],
     leader: ['New number one! Woo! {name}, come on down!', "Look who's on top! It's {name}! Big round of applause!"],
     ranked: ['{name} is on the board in {ordinal} place! Woo!', 'Hey, {name} just cracked the rankings! {Ordinal} place!'],
     milestone: ['{count} games tonight! You people are machines!', "{count} games! That's a lot of quarters, if we were using quarters!"],
@@ -269,7 +269,7 @@ const REVEAL = {
     finale: 'What a night, folks! Winners, up front for the group photo!',
   },
   dj: {
-    intro: "Alllll right, Woodside, it's awards time! Twelve prizes! Let's hear it!",
+    intro: "Ladies and gentlemen of the garage, it's awards time! Twelve prizes! Let's hear it!",
     grand: 'Your Grand Champion! Give it up for {name}! Rated {rating}!',
     second: 'In second place, {name}! Woo!',
     third: 'And in third place, {name}! Come on, make some noise!',
