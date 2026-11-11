@@ -336,4 +336,5 @@ Rehearsed the whole night with every audio piece on, two ways (nothing touched p
 - **Auto:** `AudioContext.outputLatency + baseLatency` when plausible (0.3–4 s), re-checked every 30 s and on `devicechange`; else the 2.0 s number. Host card shows "Auto (1.9 s from the Mac)" / "Manual 2.0 s" / "Mic sync 1.9 s" / "Auto unavailable → using 2.0 s".
 - **Auto sync with mic** (host card → TV): 5 chirps out through the normal output, recorded with the Mac's mic (AudioWorklet, echo cancel / noise suppression / AGC off), FFT cross-correlation, median minus the mic's input latency; confidence from the spread; saved as Manual (`delaySource: 'mic'`). Chrome asks for the microphone once on the TV Mac. Simulated loopback: 1.85 s measured as 1.861 s, 5/5, high.
 - **Sync test:** three beeps; the TV flashes white (`pw:syncflash`) where each should be heard.
+- Production retained audio settings: `audioDelay: 2, delayMode: 'auto'` merged in on Nov 11 (the other 16 settings untouched).
 - Not testable here: what macOS/Chrome report as `outputLatency` for the WiiM over AirPlay, and the real mic round trip in the garage. Matt: Audio card → Auto sync with mic → Sync test.
