@@ -165,6 +165,9 @@ export function unsafe(text) {
   }
   return false;
 }
+// Off-limits topics: the party is a fundraiser (no jokes about auctions, bidding, donating or what people pay),
+// and startup jargon is out (boring).
+export const OFF_TOPIC = /\b(auction\w*|fund ?rais\w*|donat\w*|bid|bids|bidding|bidder\w*|paddle\w*|cap ?tables?|pre-?revenue|runway|series [a-d]|term ?sheets?|pivot\w*|unicorns?)\b/i;
 const SEALED = /\b(lead|leads|leader|leading|first place|second place|third place|number one|rank|ranked|ranking|rankings|rating|rated|podium|winning|frontrunner|top spot|in front|ahead)\b/i;
 // A bit from the booth function, checked again here: 2-5 lines from the two hosts, short, clean, and
 // (while sealed) nothing about the standings. Returns the lines, or null.
@@ -173,7 +176,7 @@ export function safeLines(lines, { sealed = false, hosts = ['DONNIE', 'DASH'] } 
   const ok = hosts.map(h => String(h).toUpperCase());
   for (const l of lines) {
     if (!ok.includes(String(l?.host).toUpperCase()) || typeof l.text !== 'string' || !l.text.trim() || l.text.length > 220) return null;
-    if (unsafe(l.text) || (sealed && SEALED.test(l.text))) return null;
+    if (unsafe(l.text) || OFF_TOPIC.test(l.text) || (sealed && SEALED.test(l.text))) return null;
   }
   return lines;
 }

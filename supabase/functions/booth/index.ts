@@ -61,6 +61,8 @@ const WORDS = ['ass', 'asses', 'cock', 'dick', 'dicks', 'cum', 'rape', 'fag', 't
   'anal', 'anus', 'piss', 'arse', 'wtf', 'stfu', 'damn', 'hell', 'crap', 'sucks', 'stupid', 'dumb', 'idiot', 'moron', 'loser', 'losers',
   'fat', 'ugly', 'old', 'bald', 'drunk', 'beer', 'beers', 'booze', 'wasted', 'hate', 'kill', 'die', 'dead', 'pathetic', 'worthless',
   'lame', 'weird', 'gay', 'girly', 'wife', 'husband', 'girlfriend', 'boyfriend', 'divorce'];
+// Off-limits: the party is a fundraiser (no jokes about auctions, bidding, donating or what people pay), and no startup jargon.
+const OFF_TOPIC = /\b(auction\w*|fund ?rais\w*|donat\w*|bid|bids|bidding|bidder\w*|paddle\w*|cap ?tables?|pre-?revenue|runway|series [a-d]|term ?sheets?|pivot\w*|unicorns?)\b/i;
 // While results are sealed (last 15 minutes until the reveal), nothing that hints at the standings.
 const SEALED = /\b(lead|leads|leader|leading|first place|second place|third place|number one|no\. ?1|rank|ranked|ranking|rankings|rating|rated|podium|winning|frontrunner|front-runner|top spot|in front|ahead)\b/i;
 export function unsafe(text: string) {
@@ -129,6 +131,8 @@ tech types in general, never a private person.
 If you use one, set "woodside" to true.
 ${local.map(x => `- ${x}`).join('\n')}` : 'No local Woodside jokes this time.'}
 
+Never joke about school auctions, fundraising, donating, bidding or what people pay for things at events (tonight is a
+fundraiser), and no startup or venture-capital jargon.
 Rules, always: PG and kind. Tease only pinball play (scores, drains, luck, streaks) and the hosts' own personas, never a
 player's looks, body, age, gender, family, job or intelligence. No swearing, no innuendo, no alcohol, no politics. Never make
 up scores, names or events. Don't mention prizes or awards.
@@ -265,7 +269,7 @@ function check(out: unknown, names: string[], sealed = false, short = false): Li
   const lines = (out as { lines?: Line[] })?.lines;
   if (!Array.isArray(lines) || lines.length < 2 || lines.length > 5) return null;
   const clean = lines.map(l => ({ host: String(l?.host || '').toUpperCase(), text: String(l?.text || '').replace(/\s+/g, ' ').trim() }));
-  if (clean.some(l => !names.includes(l.host) || !l.text || l.text.length > 220 || /[<>{}[\]*_#]/.test(l.text) || unsafe(l.text) || (sealed && SEALED.test(l.text)))) return null;
+  if (clean.some(l => !names.includes(l.host) || !l.text || l.text.length > 220 || /[<>{}[\]*_#]/.test(l.text) || unsafe(l.text) || OFF_TOPIC.test(l.text) || (sealed && SEALED.test(l.text)))) return null;
   const words = clean.reduce((n, l) => n + l.text.split(' ').length, 0);
   if (words < 10 || words > (short ? 45 : 70)) return null;
   return clean;

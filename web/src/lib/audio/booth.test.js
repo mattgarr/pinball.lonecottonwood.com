@@ -287,3 +287,17 @@ describe('booth repeats: repertoire + distinctive phrases', () => {
     expect(Object.keys(sent[0].repertoire)).toEqual(['TIFFANI', 'DONNIE']);
   });
 });
+
+describe('booth off-limits topics', () => {
+  it('rejects fundraising and startup-jargon bits', async () => {
+    const { OFF_TOPIC } = await import('./booth.js');
+    const { LOCAL_BANK } = await import('./woodside.js');
+    const ok = { host: 'TIFFANI', text: 'Nice game, Theo!' };
+    for (const t of ['People pay sixty grand at the school auction.', 'That bid was wild.', 'Thanks for donating!', 'The fundraiser is on!',
+      "Omar's pre-revenue.", 'He just raised a Series B.', 'Burning runway, Dave!', 'That score is a unicorn.', 'Check your cap table.', 'Raise your paddle!']) {
+      expect(safeLines([ok, { host: 'DONNIE', text: t }], { hosts: ['TIFFANI', 'DONNIE'] })).toBeNull();
+    }
+    expect(safeLines([ok, { host: 'DONNIE', text: 'The town wanted mountain lions instead of duplexes!' }], { hosts: ['TIFFANI', 'DONNIE'] })).not.toBeNull();
+    for (const x of LOCAL_BANK) expect(OFF_TOPIC.test(`${x.text} ${x.bit}`)).toBe(false);
+  });
+});
