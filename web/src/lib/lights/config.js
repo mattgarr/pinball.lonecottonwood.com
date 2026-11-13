@@ -58,20 +58,20 @@ export const LIGHTS = {
   machineSpanPx: 84,
 
   // The state the ambient layers (walls, beam band, curb) return to after an effect (and on party open).
-  partyBase: { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, bri: 255, col: [VIOLET, [255, 40, 170, 0], [0, 230, 210, 0]] },
+  partyBase: { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, bri: 255, col: [VIOLET, [30, 70, 255, 0], [0, 170, 150, 0]] }, // purple, blue, teal (no pink: it washes white)
   // ...and it rotates through these so the room doesn't get repetitive (all layers switch together).
   // A cool palette only (purple, blue, pink, teal, turquoise), no rainbows: pal 4 is WLED's
   // "Color Gradient", which blends the segment's three colors, so each effect gets its own mix.
   ambientCycle: [
-    // Brightness (Nov 10): the strips are the garage's main light, so every look must light the room.
-    // Each one's intensity (ix) is set where WLED draws it brightest, and the colors lead with the
-    // brighter cool shades (turquoise, teal, pink) (measured numbers in HANDOFF.md).
-    { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, col: ['teal', 'pink', 'turquoise'] },
-    { fx: 'Plasma', pal: 4, sx: 70, ix: 255, col: ['turquoise', 'pink', 'teal'] }, // ix 255: no dark dips
-    { fx: 'Running', pal: 4, sx: 50, ix: 40, col: ['blue', 'teal', 'turquoise'] }, // ocean swells over turquoise (was Pacifica: deep-ocean dark)
-    { fx: 'Flow', pal: 4, sx: 80, ix: 128, col: ['pink', 'purple', 'turquoise'] },
-    { fx: 'Aurora', pal: 4, sx: 40, ix: 255, col: ['turquoise', 'purple', 'teal'] }, // 20 long-lived waves (ix 255, slower) instead of ~11 sparse ones
-    { fx: 'Twinklefox', pal: 4, sx: 100, ix: 255, col: ['pink', 'turquoise', 'purple'] }, // ix 255: every pixel twinkles
+    // Deep cool colors only (Matt, Nov 12: Attract looked too white). Pink is left out: blended with
+    // teal or turquoise it mixes all three channels and washes toward white. Purple, blue and teal stay
+    // deep when they blend. Each one's intensity (ix) is set where WLED draws it brightest.
+    { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, col: ['purple', 'blue', 'teal'] },
+    { fx: 'Plasma', pal: 4, sx: 70, ix: 255, col: ['blue', 'teal', 'purple'] }, // ix 255: no dark dips
+    { fx: 'Running', pal: 4, sx: 50, ix: 40, col: ['blue', 'purple', 'teal'] }, // ocean swells
+    { fx: 'Flow', pal: 4, sx: 80, ix: 128, col: ['purple', 'blue', 'teal'] },
+    { fx: 'Aurora', pal: 4, sx: 40, ix: 255, col: ['teal', 'purple', 'blue'] }, // 20 long-lived waves
+    { fx: 'Twinklefox', pal: 4, sx: 100, ix: 255, col: ['purple', 'teal', 'blue'] }, // ix 255: every pixel twinkles
   ],
   coolColors: {
     purple: VIOLET, blue: [30, 70, 255, 0], pink: [255, 40, 170, 0],
