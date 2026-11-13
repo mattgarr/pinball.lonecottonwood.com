@@ -105,13 +105,13 @@ export const LIGHTS = {
       { intended: [255, 190, 0], sent: [255, 54, 0] }, // gold (Cactus Canyon sunset, milestone)
     ],
     hueKnots: [
-      [150, 135], // spring green: send nearer green (raw 150° looked sky blue)
-      [180, 158], // cyan: much less blue (raw cyan looked bright blue)
+      [150, 128], // spring green: send nearer green (raw 150° looked sky blue; round 3: 135 still looked cyan)
+      [180, 150], // cyan: much less blue (raw cyan looked bright blue; round 3: 158 looked light blue-turquoise)
       [210, 185], // azure / sky blue: send cyan-ish (raw azure looked darker blue)
       [240, 240], // blue: kept (raw blue looked purplish blue, but "normal")
       [270, 262], // violet: toward blue (raw violet looked pinkish purple)
-      [300, 290], // magenta: more blue than red (raw magenta looked pink)
-      [330, 325], // rose: barely (raw rose looked magenta-pink)
+      [300, 285], // magenta: more blue than red (raw magenta looked pink; round 3: 290 still looked pink)
+      [330, 338], // rose: more red (round 3: 325 looked magenta)
     ],
     // Saturation weight: no change below S 0.1 (white, pastels barely), full from S 0.7.
     satOff: 0.1, satFull: 0.7,
