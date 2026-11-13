@@ -347,3 +347,8 @@ Rehearsed the whole night with every audio piece on, two ways (nothing touched p
 - **Sync test:** three beeps; the TV flashes white (`pw:syncflash`) where each should be heard.
 - Production retained audio settings: `audioDelay: 2, delayMode: 'auto'` merged in on Nov 11 (the other 16 settings untouched).
 - Not testable here: what macOS/Chrome report as `outputLatency` for the WiiM over AirPlay, and the real mic round trip in the garage. Matt: Audio card → Auto sync with mic → Sync test.
+
+### Attract: deep + rainbow (Nov 12, bench test)
+- Matt on the real strip: Attract looked too white (pink blended with teal washes toward white); wanted deeper purple and vibrant colors. `LIGHTS.ambientCycle` now alternates three deep looks (purple/blue/teal, no pink) with three rainbow looks on **pal 255**.
+- pal 255 = the controller's **custom palette 0**, a full rainbow already run through `colorCal` (`web/src/lib/lights/colorPalette.js`). WLED's built-in rainbow can't be corrected. Upload/refresh it with `node scripts/lights-palette.mjs` (also needed after a controller reset; it's a file on the controller, not in presets.json). The simulator draws pal 255 as the intended rainbow.
+- Brightness floors in `presets.test.js` lowered (0.12): darker is fine on the real strip; the earlier "too dim" was in the simulator.

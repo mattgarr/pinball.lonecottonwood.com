@@ -52,6 +52,7 @@ const PALETTES = {
   50: [[1, 5, 45], [0, 200, 23], [0, 255, 0], [0, 243, 45], [0, 135, 7], [1, 5, 45]], // Aurora
   56: [[227, 1, 1], [227, 1, 1], [71, 1, 193], [32, 1, 255], [2, 15, 255]], // Retro Clown
   57: [[229, 227, 1], [227, 101, 3], [40, 2, 80], [80, 2, 220], [255, 0, 170]], // Candy
+  255: Array.from({ length: 16 }, (_, k) => { const h = k / 16 * 6, f = n => { const x = (n + h) % 6; return Math.round(255 * (1 - Math.max(0, Math.min(x, 4 - x, 1)))); }; return [f(5), f(3), f(1)]; }), // custom palette 0: rainbow (intended colors)
 };
 const palColor = (seg, x) => { // x in 0..1, wraps. pal 4 = "Color Gradient": the segment's own colors
   const p = seg.pal === 4 && seg.col?.length ? seg.col.slice(0, 3).map(toRgb) : PALETTES[seg.pal] || PALETTES[6];

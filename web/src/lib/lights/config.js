@@ -63,16 +63,20 @@ export const LIGHTS = {
   // A cool palette only (purple, blue, pink, teal, turquoise), no rainbows: pal 4 is WLED's
   // "Color Gradient", which blends the segment's three colors, so each effect gets its own mix.
   ambientCycle: [
-    // Deep cool colors only (Matt, Nov 12: Attract looked too white). Pink is left out: blended with
-    // teal or turquoise it mixes all three channels and washes toward white. Purple, blue and teal stay
-    // deep when they blend. Each one's intensity (ix) is set where WLED draws it brightest.
-    { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, col: ['purple', 'blue', 'teal'] },
-    { fx: 'Plasma', pal: 4, sx: 70, ix: 255, col: ['blue', 'teal', 'purple'] }, // ix 255: no dark dips
-    { fx: 'Running', pal: 4, sx: 50, ix: 40, col: ['blue', 'purple', 'teal'] }, // ocean swells
+    // Deep purple looks alternate with vibrant rainbow looks (Matt, Nov 12, on the real strip: "even
+    // more deep purple" and "real vibrant colors in the mix"). Pink is left out of the deep looks: blended
+    // with teal it mixes all three channels and washes toward white.
+    // pal 255 = the controller's custom palette 0: a full rainbow already run through colorCal
+    // (scripts/lights-palette.mjs builds and uploads palette0.json). WLED's built-in rainbow can't be
+    // corrected, so it would drift yellow-green and pink.
+    { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, col: ['purple', 'blue', 'purple'] },
+    { fx: 'Plasma', pal: 255, sx: 70, ix: 255 }, // rainbow; ix 255: no dark dips
+    { fx: 'Aurora', pal: 4, sx: 40, ix: 255, col: ['purple', 'teal', 'purple'] }, // 20 long-lived waves
+    { fx: 'Colorwaves', pal: 255, sx: 90, ix: 128 }, // rainbow
     { fx: 'Flow', pal: 4, sx: 80, ix: 128, col: ['purple', 'blue', 'teal'] },
-    { fx: 'Aurora', pal: 4, sx: 40, ix: 255, col: ['teal', 'purple', 'blue'] }, // 20 long-lived waves
-    { fx: 'Twinklefox', pal: 4, sx: 100, ix: 255, col: ['purple', 'teal', 'blue'] }, // ix 255: every pixel twinkles
+    { fx: 'Twinklefox', pal: 255, sx: 100, ix: 255 }, // rainbow; ix 255: every pixel twinkles
   ],
+  rainbowPal: 255, // custom palette 0 on the controller (corrected rainbow)
   coolColors: {
     purple: VIOLET, blue: [30, 70, 255, 0], pink: [255, 40, 170, 0],
     teal: [0, 170, 150, 0], turquoise: [0, 230, 210, 0],
