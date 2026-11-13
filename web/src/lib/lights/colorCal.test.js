@@ -81,3 +81,14 @@ describe('warm color correction (Matt\'s bench test, 2026-11-12)', () => {
     e.destroy();
   });
 });
+
+describe('deep violet (Matt\'s bench test, 2026-11-12)', () => {
+  it('is the app\'s purple everywhere, and the warm curve leaves it alone', () => {
+    expect(LIGHTS.colorCal.violet).toEqual([139, 0, 200, 0]);
+    expect(LIGHTS.coolColors.purple).toEqual([139, 0, 200, 0]);
+    expect(LIGHTS.machineThemes[6].colors[0]).toEqual([139, 0, 200, 0]);
+    expect(LIGHTS.partyBase.col[0]).toEqual([139, 0, 200, 0]);
+    expect(calColor([139, 0, 200, 0])).toEqual([139, 0, 200, 0]);
+    expect(LIGHTS.machineThemes[6].colors.slice(1)).toEqual([[230, 0, 170, 0], [200, 150, 255, 0]]); // magenta, lavender kept
+  });
+});

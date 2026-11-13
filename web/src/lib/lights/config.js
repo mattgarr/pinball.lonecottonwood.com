@@ -7,6 +7,13 @@
 // Device topic = the secret channel name (stored in the database, shown on the host lights card).
 // Commands go to `<channel>/api` as JSON state (same body as POST /json/state).
 
+// Purple on this strip drifts pink and looks too bright / electric. Measured 2026-11-12, Matt's bench
+// test (same strip and settings as colorCal below; seen at master bri 45, gamma 2.8 on): after many
+// tries he settled on this "deep violet". At bri 160 even (160,0,255) looked too pink and (140,0,255)
+// light purple. Not a perfect match (an RGB strip can't make spectral violet). Used as the app's main
+// purple everywhere (cool palette, D&D's main color, party base); magenta / pink / lavender unchanged.
+const VIOLET = [139, 0, 200, 0];
+
 export const LIGHTS = {
   broker: 'wss://broker.hivemq.com:8884/mqtt',
   competitorMode: 'individual', // 'team' would color by team (no teams at this party)
@@ -22,7 +29,7 @@ export const LIGHTS = {
     3: { name: 'Whirlwind', colors: [[10, 90, 255, 0], [0, 30, 180, 0], [255, 220, 60, 0]] }, // electric blue, storm navy, lightning yellow
     4: { name: 'White Water', colors: [[0, 120, 255, 0], [20, 60, 70, 210], [255, 110, 0, 0]] }, // river blue, foam white (W chip), life-jacket orange
     5: { name: 'Cactus Canyon', colors: [[255, 190, 0, 0], [255, 80, 0, 0], [230, 20, 60, 0]] }, // sunset gold, deep orange, rose red
-    6: { name: 'Dungeons & Dragons', colors: [[120, 0, 255, 0], [230, 0, 170, 0], [200, 150, 255, 0]] }, // purple, magenta, lavender
+    6: { name: 'Dungeons & Dragons', colors: [VIOLET, [230, 0, 170, 0], [200, 150, 255, 0]] }, // purple (deep violet), magenta, lavender
   },
 
   // Pixel numbering runs across both outputs: the top run first, then the curb run.
@@ -51,7 +58,7 @@ export const LIGHTS = {
   machineSpanPx: 84,
 
   // The state the ambient layers (walls, beam band, curb) return to after an effect (and on party open).
-  partyBase: { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, bri: 255, col: [[140, 40, 255, 0], [255, 40, 170, 0], [0, 230, 210, 0]] },
+  partyBase: { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, bri: 255, col: [VIOLET, [255, 40, 170, 0], [0, 230, 210, 0]] },
   // ...and it rotates through these so the room doesn't get repetitive (all layers switch together).
   // A cool palette only (purple, blue, pink, teal, turquoise), no rainbows: pal 4 is WLED's
   // "Color Gradient", which blends the segment's three colors, so each effect gets its own mix.
@@ -67,7 +74,7 @@ export const LIGHTS = {
     { fx: 'Twinklefox', pal: 4, sx: 100, ix: 255, col: ['pink', 'turquoise', 'purple'] }, // ix 255: every pixel twinkles
   ],
   coolColors: {
-    purple: [140, 40, 255, 0], blue: [30, 70, 255, 0], pink: [255, 40, 170, 0],
+    purple: VIOLET, blue: [30, 70, 255, 0], pink: [255, 40, 170, 0],
     teal: [0, 170, 150, 0], turquoise: [0, 230, 210, 0],
   },
   ambientMinutes: 3, // how long each ambient effect runs
@@ -92,6 +99,7 @@ export const LIGHTS = {
       { intended: [255, 190, 0], sent: [255, 54, 0] }, // gold (Cactus Canyon sunset, milestone)
     ],
     blueFull: 0.25, blueOff: 0.6, // blue / max(r, g): full correction below 0.25, none from 0.6
+    violet: VIOLET, // the measured deep violet (see VIOLET above); applied as the intended purple, no curve
   },
   // WLED draws a segment's effect pixel i at physical pixel i + offset (FX_fcn setPixelColor:
   // indexSet += offset). If the bench test shows the curb shifted the wrong way, flip this to false.

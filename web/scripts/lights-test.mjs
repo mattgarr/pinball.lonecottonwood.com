@@ -13,7 +13,7 @@ const args = Object.fromEntries(process.argv.slice(2).join(' ').split('--').filt
   const [k, ...v] = s.trim().split(/\s+/); return [k, v.join(' ') || true];
 }));
 const MACHINES = { centaur: 1, fathom: 2, whirlwind: 3, whitewater: 4, 'white water': 4, cactus: 5, 'cactus canyon': 5, dnd: 6, 'd&d': 6, dungeons: 6 };
-const COLORS = { magenta: [255, 0, 170, 0], cyan: [0, 229, 255, 0], lime: [124, 255, 0, 0], orange: [255, 122, 0, 0], yellow: [255, 230, 0, 0], red: [255, 26, 26, 0], blue: [41, 98, 255, 0], pink: [255, 102, 196, 0], teal: [0, 255, 179, 0], violet: [157, 77, 255, 0], gold: [255, 179, 0, 0], sky: [102, 204, 255, 0] };
+const COLORS = { magenta: [255, 0, 170, 0], cyan: [0, 229, 255, 0], lime: [124, 255, 0, 0], orange: [255, 122, 0, 0], yellow: [255, 230, 0, 0], red: [255, 26, 26, 0], blue: [41, 98, 255, 0], pink: [255, 102, 196, 0], teal: [0, 255, 179, 0], violet: LIGHTS.coolColors.purple, gold: [255, 179, 0, 0], sky: [102, 204, 255, 0] };
 const machineId = MACHINES[String(args.machine || 'whirlwind').toLowerCase()] ?? Number(args.machine);
 const color = COLORS[String(args.color || 'magenta').toLowerCase()] || COLORS.magenta;
 const dry = !!process.env.LIGHTS_DRY_RUN;

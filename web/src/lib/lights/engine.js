@@ -281,7 +281,7 @@ export class LightsEngine {
 
   partyOpen() {
     this.start();
-    const sweep = { fx: this.fx('Wipe'), sx: 200, ix: 128, bri: 255, col: [[0, 229, 255, 0], [157, 77, 255, 0]] };
+    const sweep = { fx: this.fx('Wipe'), sx: 200, ix: 128, bri: 255, col: [[0, 229, 255, 0], this.cfg.coolColors?.purple || [139, 0, 200, 0]] }; // cyan → violet
     for (const id of this.baseSegs()) this.effect(id, sweep, 2, DUR.open);
   }
 
