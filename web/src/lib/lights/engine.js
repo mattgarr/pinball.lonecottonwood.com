@@ -75,7 +75,7 @@ export class LightsEngine {
     if (!this.isBase(id)) return this.offState(id);
     if (this.music) {
       const m = this.cfg.music[this.music];
-      return { id, on: true, fx: this.fx(this.music), sx: m.sx, ix: m.ix, pal: 4, bri: 255, col: this.cfg.partyBase.col };
+      return { id, on: true, fx: this.fx(this.music), sx: m.sx, ix: m.ix, pal: this.cfg.rainbowPal ?? 4, bri: 255, col: this.cfg.partyBase.col }; // music mode on the corrected rainbow
     }
     const list = this.cfg.ambientCycle;
     if (list?.length) {

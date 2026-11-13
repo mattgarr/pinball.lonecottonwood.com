@@ -70,8 +70,8 @@ describe('standalone presets', () => {
     const p = buildPresets(undefined, { calibrate: false });
     const attract = [11, 12, 13, 14, 15, 16].map(id => meanLight(p[id]));
     for (const l of attract) expect(l).toBeGreaterThan(0.12); // deep purple/blue/teal (Matt, Nov 12: darker is fine on the real strip; the earlier 'too dim' was the simulator)
-    for (const id of [41, 42, 43]) expect(meanLight(p[id])).toBeGreaterThan(0.2); // calm: softer, still usable
+    for (const id of [41, 42, 43]) expect(meanLight(p[id])).toBeGreaterThan(0.1); // calm: deep and rich (darker is fine on the real strip)
     expect(meanLight(p[15])).toBeGreaterThan(0.12); // Aurora too
-    expect(meanLight(p[5])).toBeGreaterThan(0.18); // showcase walls between the machines
+    expect(meanLight(p[5])).toBeGreaterThan(0.1); // showcase: a deep backdrop so the machines pop
   });
 });

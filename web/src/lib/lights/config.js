@@ -77,6 +77,12 @@ export const LIGHTS = {
     { fx: 'Twinklefox', pal: 255, sx: 100, ix: 255 }, // rainbow; ix 255: every pixel twinkles
   ],
   rainbowPal: 255, // custom palette 0 on the controller (corrected rainbow)
+  // Rich, high-contrast colors for the standalone shows (Matt, Nov 12: "more excitement and more contrast"
+  // across every mode). Gradients only blend neighbors on the color wheel, so nothing washes to white/gray.
+  richColors: {
+    violet: VIOLET, magenta: [255, 0, 160, 0], red: [255, 0, 30, 0], gold: [255, 190, 0, 0],
+    green: [0, 220, 60, 0], teal: [0, 170, 150, 0], blue: [20, 40, 255, 0], electric: [10, 90, 255, 0],
+  },
   coolColors: {
     purple: VIOLET, blue: [30, 70, 255, 0], pink: [255, 40, 170, 0],
     teal: [0, 170, 150, 0], turquoise: [0, 230, 210, 0],

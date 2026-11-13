@@ -21,6 +21,8 @@ import { calPayload } from './colorCal.js';
 
 const fx = name => LIGHTS.effects[name] ?? 0;
 const cool = names => names.map(n => LIGHTS.coolColors[n]);
+const rich = names => names.map(n => LIGHTS.richColors[n]);
+const RAINBOW = LIGHTS.rainbowPal ?? 255; // the corrected rainbow (custom palette 0 on the controller)
 
 // The full segment layout (ids 0–14, ascending), with one state on the three base layers. `machine`
 // (optional) gives a state per machine zone: (machineId) => state; otherwise machine zones are off.
@@ -55,31 +57,31 @@ export function buildPresets(zones = defaultZones(), { calibrate = true } = {}) 
   });
   p[1] = playlist('Attract', LIGHTS.ambientCycle.map((_, i) => 11 + i), (LIGHTS.ambientMinutes || 3) * 60);
 
-  // Calm: slow and softer (about two thirds of Attract's light), 5 min each.
-  p[41] = show(zones, 'Calm: ocean', 170, { fx: fx('Running'), sx: 20, ix: 32, pal: 4, col: cool(['blue', 'teal', 'turquoise']) });
-  p[42] = show(zones, 'Calm: breathe', 200, { fx: fx('Breathe'), sx: 20, col: cool(['teal', 'purple']) });
-  p[43] = show(zones, 'Calm: aurora', 200, { fx: fx('Aurora'), sx: 25, ix: 255, pal: 4, col: cool(['turquoise', 'purple', 'teal']) });
+  // Calm: slow and softer (about two thirds of Attract's light), 5 min each. Deep and rich, not pastel.
+  p[41] = show(zones, 'Calm: ocean', 170, { fx: fx('Running'), sx: 20, ix: 32, pal: 4, col: rich(['blue', 'violet', 'teal']) });
+  p[42] = show(zones, 'Calm: breathe', 200, { fx: fx('Breathe'), sx: 20, col: rich(['violet', 'blue']) });
+  p[43] = show(zones, 'Calm: aurora', 200, { fx: fx('Aurora'), sx: 25, ix: 255, pal: 4, col: rich(['green', 'teal', 'violet']) }); // northern lights
   p[2] = playlist('Calm', [41, 42, 43], 300);
 
-  // Exciting: fast and bright, 1 min each.
-  p[21] = show(zones, 'Exciting: waves', 255, { fx: fx('Colorwaves'), sx: 220, pal: 4, col: cool(['purple', 'pink', 'turquoise']) });
-  p[22] = show(zones, 'Exciting: plasma', 255, { fx: fx('Plasma'), sx: 230, ix: 255, pal: 4, col: cool(['turquoise', 'pink', 'teal']) });
-  p[23] = show(zones, 'Exciting: flow', 255, { fx: fx('Flow'), sx: 230, pal: 4, col: cool(['pink', 'purple', 'turquoise']) });
-  p[24] = show(zones, 'Exciting: twinkle', 255, { fx: fx('Twinklefox'), sx: 200, ix: 255, pal: 4, col: cool(['pink', 'turquoise', 'purple']) });
-  p[25] = show(zones, 'Exciting: chase', 255, { fx: fx('Chase'), sx: 220, col: cool(['purple', 'turquoise', 'pink']) });
+  // Exciting: fast and bright, 1 min each. Rainbow looks alternate with hot, high-contrast sets.
+  p[21] = show(zones, 'Exciting: waves', 255, { fx: fx('Colorwaves'), sx: 220, pal: RAINBOW });
+  p[22] = show(zones, 'Exciting: plasma', 255, { fx: fx('Plasma'), sx: 230, ix: 255, pal: 4, col: rich(['magenta', 'red', 'gold']) });
+  p[23] = show(zones, 'Exciting: flow', 255, { fx: fx('Flow'), sx: 230, pal: RAINBOW });
+  p[24] = show(zones, 'Exciting: twinkle', 255, { fx: fx('Twinklefox'), sx: 200, ix: 255, pal: RAINBOW });
+  p[25] = show(zones, 'Exciting: chase', 255, { fx: fx('Chase'), sx: 220, col: rich(['magenta', 'gold', 'electric']) });
   p[3] = playlist('Exciting', [21, 22, 23, 24, 25], 60);
 
-  // Music: the sound-reactive effects, 45 s each.
+  // Music: the sound-reactive effects on the corrected rainbow, 45 s each.
   Object.entries(LIGHTS.music).forEach(([name, m], i) => {
-    p[31 + i] = show(zones, `Music: ${m.label}`, 255, { fx: fx(name), sx: m.sx, ix: m.ix, pal: 4, col: LIGHTS.partyBase.col });
+    p[31 + i] = show(zones, `Music: ${m.label}`, 255, { fx: fx(name), sx: m.sx, ix: m.ix, pal: RAINBOW, col: LIGHTS.partyBase.col });
   });
   p[4] = playlist('Music', Object.keys(LIGHTS.music).map((_, i) => 31 + i), 45);
 
   // Showcase: every machine in its own colors (slow, mirrored from its center), top and curb together,
-  // over a softer (but still lit) cool plasma on the walls and beam.
+  // over a deep violet/blue plasma on the walls and beam (contrast: the machines pop).
   p[5] = {
     n: 'Machine showcase', on: true, transition: 15,
-    seg: layout(zones, { fx: fx('Plasma'), sx: 40, ix: 255, pal: 4, bri: 230, col: cool(['turquoise', 'purple', 'teal']) },
+    seg: layout(zones, { fx: fx('Plasma'), sx: 40, ix: 255, pal: 4, bri: 190, col: rich(['violet', 'blue', 'violet']) }, // deep backdrop so the machines pop
       id => ({ fx: fx('Colorwaves'), sx: 60, ix: 128, pal: 4, bri: 255, col: LIGHTS.machineThemes[id]?.colors || LIGHTS.partyBase.col })),
   };
   p[6] = show(zones, 'Cozy', 230, { fx: fx('Twinklefox'), sx: 40, ix: 255, pal: 4, col: [[255, 110, 10, 40], [255, 60, 0, 0], [200, 120, 40, 60]] });
