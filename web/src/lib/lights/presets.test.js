@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildPresets } from './presets.js';
 import { LIGHTS } from './config.js';
+import { calColor } from './colorCal.js';
 import { newModel, applyMessage, renderRange } from './render.js';
 
 // Mean perceived light of a preset over the top run (simulator's WLED renderer), 0–1.
@@ -23,11 +24,11 @@ describe('standalone presets', () => {
     expect(p[8].on).toBe(false);
     expect(p[9].ps).toBe('1~5~');
   });
-  it('the showcase lights every machine zone in its own colors', () => {
+  it('the showcase lights every machine zone in its own colors (warm-corrected for the strip)', () => {
     const segs = p[5].seg;
     LIGHTS.machineOrder.forEach((id, i) => {
       for (const sid of [LIGHTS.runs.top.firstMachineSeg + i, LIGHTS.runs.curb.firstMachineSeg + i]) {
-        expect(segs.find(s => s.id === sid)).toMatchObject({ on: true, col: LIGHTS.machineThemes[id].colors });
+        expect(segs.find(s => s.id === sid)).toMatchObject({ on: true, col: LIGHTS.machineThemes[id].colors.map(c => calColor(c)) });
         expect(segs.find(s => s.id === sid).start).toBeLessThan(320); // on its real pixels
       }
     });
@@ -46,6 +47,15 @@ describe('standalone presets', () => {
       }
     }
   });
+  it('every color in the controller file is warm-corrected; the simulator preview keeps the intended ones', () => {
+    const raw = buildPresets(undefined, { calibrate: false });
+    expect(raw[5].seg.find(s => s.id === LIGHTS.runs.top.firstMachineSeg + LIGHTS.machineOrder.indexOf(5)).col[0]).toEqual([255, 190, 0, 0]);
+    for (const k of Object.keys(p)) for (const [j, s] of (p[k].seg || []).entries()) {
+      for (const [c, col] of (s.col || []).entries()) expect(col).toEqual(calColor(raw[k].seg[j].col[c]));
+    }
+    expect(p[6].seg[0].col[1]).toEqual(calColor([255, 60, 0, 0])); // Cozy amber
+    expect(p[6].seg[0].col[1][1]).toBeLessThan(60);
+  });
   it('is small enough for the controller', () => {
     expect(JSON.stringify(p).length).toBeLessThan(60000);
   });
@@ -57,6 +67,7 @@ describe('standalone presets', () => {
     for (const v of Object.values(p)) expect(v.bri).toBeUndefined();
   });
   it('every ambient, attract and calm look gives real room light (brightness floors)', () => {
+    const p = buildPresets(undefined, { calibrate: false });
     const attract = [11, 12, 13, 14, 15, 16].map(id => meanLight(p[id]));
     for (const l of attract) expect(l).toBeGreaterThan(0.22); // was 0.08 for Aurora
     for (const id of [41, 42, 43]) expect(meanLight(p[id])).toBeGreaterThan(0.2); // calm: softer, still usable

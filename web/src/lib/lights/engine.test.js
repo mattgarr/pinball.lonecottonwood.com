@@ -304,7 +304,7 @@ describe('lights engine', () => {
   it('TV moments: ranked breathes the room, milestone bounces gold, shame sags to dim red; all recover', () => {
     for (const [fn, check] of [
       [() => e.ranked(CYAN), s => s.fx === LIGHTS.effects.Breathe && JSON.stringify(s.col[0]) === JSON.stringify(CYAN)],
-      [() => e.milestone(), s => s.col?.[0]?.[0] === 255 && s.col[0][1] === 170],
+      [() => e.milestone(), s => JSON.stringify(s.col?.[0]) === JSON.stringify(LIGHTS.milestoneGold)],
       [() => e.shame(), s => s.fx === LIGHTS.effects.Breathe && s.bri === 110],
     ]) {
       e.start(); sent = [];

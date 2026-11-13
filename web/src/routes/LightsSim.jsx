@@ -10,6 +10,7 @@ import { runControl } from '../lib/lights/useLightsDirector.js';
 import { publish, subscribe, onConnection } from '../lib/lights/mqtt.js';
 import { applyMessage, newModel, renderRange } from '../lib/lights/render.js';
 import { buildPresets } from '../lib/lights/presets.js';
+import { uncalPayload } from '../lib/lights/colorCal.js';
 import LightsWall from '../components/LightsWall.jsx';
 
 // The 12 player colors (same palette players get when they sign up).
@@ -46,7 +47,7 @@ export default function LightsSim() {
 
   // The controller's own presets (standalone shows). A message with `ps` plays that preset here the
   // way WLED would: playlists step through their items (every 8 s here, so you can see them all).
-  const presets = useMemo(() => buildPresets(zones), [JSON.stringify(zones)]); // eslint-disable-line react-hooks/exhaustive-deps
+  const presets = useMemo(() => buildPresets(zones, { calibrate: false }), [JSON.stringify(zones)]); // eslint-disable-line react-hooks/exhaustive-deps
   const playTimer = useRef(null);
   const curPreset = useRef(1);
   const [standalone, setStandalone] = useState('');
@@ -84,8 +85,9 @@ export default function LightsSim() {
 
   // Live traffic from the TV (real or dry-run).
   useEffect(() => {
+    // The strip's own topic carries warm-corrected colors (colorCal.js): undo that to draw them here.
     const show = (src) => msg => {
-      feedRef.current(msg);
+      feedRef.current(src === 'hardware' ? uncalPayload(msg) : msg);
       setLog(l => [{ at: new Date().toLocaleTimeString(), src, msg: JSON.stringify(msg).slice(0, 160) }, ...l].slice(0, 12));
     };
     const a = subscribe('api', show('hardware')), b = subscribe('sim', show('simulator'));

@@ -7,6 +7,7 @@
 import mqtt from 'mqtt';
 import { LIGHTS } from '../src/lib/lights/config.js';
 import { LightsEngine } from '../src/lib/lights/engine.js';
+import { calPayload } from '../src/lib/lights/colorCal.js';
 
 const args = Object.fromEntries(process.argv.slice(2).join(' ').split('--').filter(Boolean).map(s => {
   const [k, ...v] = s.trim().split(/\s+/); return [k, v.join(' ') || true];
@@ -21,7 +22,7 @@ if (!base) { console.error('Set LIGHTS_TOPIC to the Device Topic from the host l
 const topic = `${base}/${args.hardware ? 'api' : 'sim'}`;
 
 const client = dry ? null : mqtt.connect(LIGHTS.broker.replace('wss://', 'wss://'), { clientId: `wp-cli-${Date.now()}` });
-const send = msg => { console.log(`→ ${topic}`, JSON.stringify(msg)); client?.publish(topic, JSON.stringify(msg)); };
+const send = raw => { const msg = args.hardware ? calPayload(raw) : raw; console.log(`→ ${topic}`, JSON.stringify(msg)); client?.publish(topic, JSON.stringify(msg)); };
 const go = () => {
   const e = new LightsEngine({ send });
   const ev = String(args.event || 'score');

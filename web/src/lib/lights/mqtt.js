@@ -15,6 +15,7 @@
 // A topic starting with "~/" is used as written (the simulator's private throwaway channels).
 import mqtt from 'mqtt';
 import { LIGHTS } from './config.js';
+import { calPayload } from './colorCal.js';
 
 const TOPIC_KEY = 'pw.lightsTopic';
 let base = (() => { try { return localStorage.getItem(TOPIC_KEY) || null; } catch { return null; } })();
@@ -65,7 +66,9 @@ export function publish(sub, payload, { retain = false } = {}) {
     const topic = full(sub);
     if (!topic) return; // channel not known on this browser yet
     const c = connect();
-    const body = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    // Only the real controller gets warm-corrected colors (the simulator topics keep the intended ones).
+    const out = sub === 'api' && typeof payload === 'object' ? calPayload(payload) : payload;
+    const body = typeof out === 'string' ? out : JSON.stringify(out);
     c.publish(topic, body, { qos: 0, retain });
   } catch { /* fire and forget */ }
 }

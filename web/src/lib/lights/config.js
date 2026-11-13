@@ -76,7 +76,23 @@ export const LIGHTS = {
   ambientBri: 255,
   // Full flashes on the strips' dedicated white chip for exciting moments (never faster than 3/s).
   whiteFlash: { champion: true, leader: true },
-  milestoneGold: [255, 170, 0, 0],
+  milestoneGold: [255, 190, 0, 0], // same gold as Cactus Canyon's (sent as school-bus gold, see colorCal)
+  // Warm-color correction for the real strip (lib/lights/colorCal.js): every color sent to WLED or
+  // written into the controller presets goes through it; the simulator shows the intended colors.
+  // Measured 2026-11-12, Matt's bench test: WLED 0.15.4, WS2814 24 V RGBW, BRG + swap W/G, gamma
+  // correction on (2.8), bri 160, looking at graded swatches. Green was far too strong in red+green
+  // mixes ((255,50,0) yellowish-orange, (255,110,0) yellow, (255,200,0) light green). He picked
+  // (255,18,0) as a true traffic-cone orange and (255,54,0) as a true school-bus gold. Cool colors
+  // (cyan, blue, purple, pink, green) looked right and are untouched.
+  // Recalibrate: change a `sent` value (or set enabled: false to send colors as they are).
+  colorCal: {
+    enabled: true,
+    points: [
+      { intended: [255, 110, 0], sent: [255, 18, 0] }, // orange (White Water life jacket)
+      { intended: [255, 190, 0], sent: [255, 54, 0] }, // gold (Cactus Canyon sunset, milestone)
+    ],
+    blueFull: 0.25, blueOff: 0.6, // blue / max(r, g): full correction below 0.25, none from 0.6
+  },
   // WLED draws a segment's effect pixel i at physical pixel i + offset (FX_fcn setPixelColor:
   // indexSet += offset). If the bench test shows the curb shifted the wrong way, flip this to false.
   wledOffsetAdds: true,

@@ -432,7 +432,7 @@ export class LightsEngine {
     this.house = false;
     this.clearAll();
     for (const id of this.allMachineSegs()) this.queue(this.offState(id));
-    const c = color || [255, 179, 0, 0];
+    const c = color || this.cfg.milestoneGold || [255, 190, 0, 0];
     const bri = { 3: 70, 2: 150, 1: 255 }[n] ?? 120;
     for (const id of this.baseSegs()) this.effect(id, { fx: this.fx('Solid'), bri, col: [c] }, 4, 0, { force: true });
     this.flush();
@@ -448,7 +448,7 @@ export class LightsEngine {
     this.clearAll();
     const [top, band, curb] = this.baseSegs();
     for (const id of this.allMachineSegs()) this.queue(this.offState(id));
-    const c = cue.color || [255, 179, 0, 0];
+    const c = cue.color || this.cfg.milestoneGold || [255, 190, 0, 0];
     if (cue.final) {
       // Right after the countdown: burst in the winner's color, three white house-light flashes
       // (600 ms apart, under 3 a second), then a celebration chase that holds until the next prize.

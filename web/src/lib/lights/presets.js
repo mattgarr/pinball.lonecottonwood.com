@@ -17,6 +17,7 @@
 // Each look's own level is its segment brightness (seg bri, 255 = full).
 import { LIGHTS, defaultZones } from './config.js';
 import { LightsEngine } from './engine.js';
+import { calPayload } from './colorCal.js';
 
 const fx = name => LIGHTS.effects[name] ?? 0;
 const cool = names => names.map(n => LIGHTS.coolColors[n]);
@@ -43,7 +44,9 @@ function layout(zones, state, machine = null) {
 const show = (zones, n, bri, state) => ({ n, on: true, transition: 15, seg: layout(zones, { sx: 128, ix: 128, pal: 0, ...state, bri }) });
 const playlist = (n, ps, seconds) => ({ n, on: true, playlist: { ps, dur: ps.map(() => seconds * 10), transition: ps.map(() => 20), repeat: 0 } });
 
-export function buildPresets(zones = defaultZones()) {
+// `calibrate` (default on: the file goes to the controller) warm-corrects every segment color (see
+// colorCal.js); the simulator previews with it off, in the intended colors.
+export function buildPresets(zones = defaultZones(), { calibrate = true } = {}) {
   const p = { 0: {} };
   // Attract: the app's own ambient rotation.
   LIGHTS.ambientCycle.forEach((a, i) => {
@@ -83,5 +86,6 @@ export function buildPresets(zones = defaultZones()) {
   p[7] = show(zones, 'House lights', 255, { fx: fx('Solid'), col: [LIGHTS.houseWhite] });
   p[8] = { n: 'Off', on: false };
   p[9] = { n: 'Next mode', ps: '1~5~' }; // each press: Attract → Calm → Exciting → Music → Showcase → Attract
+  if (calibrate) for (const k of Object.keys(p)) p[k] = calPayload(p[k]);
   return p;
 }
