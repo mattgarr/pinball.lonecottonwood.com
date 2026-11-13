@@ -3,7 +3,7 @@
 Plain steps for whoever runs the night (Matt or Stacia). Everything happens on the **Host page**
 (`pinball.lonecottonwood.com/host`, unlock with the host passcode) and on the **TV Mac** in the garage.
 
-The example times below assume **tournament 6:30 PM to 9:30 PM**. If you pick other times, shift everything.
+The example times below assume **tournament 6:30 PM to 9:00 PM (what the Nov 12 emails told guests)**. If you pick other times, shift everything.
 
 ---
 
@@ -12,7 +12,7 @@ The example times below assume **tournament 6:30 PM to 9:30 PM**. If you pick ot
 ### On your phone or laptop (Host page)
 1. **Clear test scores.** Scroll to *Setup (before the party)* → *Clear test scores* → type `CLEAR` → *Clear scores*.
    This also clears the old test awards and the test Match number. Players who already signed up are kept.
-2. **Set the tournament times.** *Tournament times* card → Starts `Nov 14, 6:30 PM`, Ends `Nov 14, 9:30 PM` → **Save times**.
+2. **Set the tournament times.** *Tournament times* card → Starts `Nov 14, 6:30 PM`, Ends `Nov 14, 9:00 PM` → **Save times**.
    The card should say "Now: Free play: the tournament hasn't started yet".
 3. **Party access card:**
    - Read the **party password** so you know it (guests without a QR code type it on the welcome page).
@@ -61,22 +61,22 @@ The example times below assume **tournament 6:30 PM to 9:30 PM**. If you pick ot
 |---|---|---|---|
 | **6:00** doors | Nothing. Greet people. | TV: FREE PLAY board, six high score tables, countdown "tournament starts in 30:00", music playing. | Guests scan a machine QR (or type the party password) → join: nickname, selfie → 8-bit portrait, 4-digit PIN. Phone note: "Free play until 6:30: just for fun." |
 | **6:25 – 6:29** | Nothing. | A full-screen card each minute: "TOURNAMENT STARTS IN 5 … 1", a chime, the announcer, music dips, lights bounce gold. | Same note. Scores logged now are warm-ups (don't count). |
-| **6:30** | Nothing (it starts by itself). | **TOURNAMENT IS ON**: fanfare, announcer, green lights. The board switches to the tournament: machine leaderboards, Top Players, Wall of Shame, Prizes, news crawl. | "Tournament on: ends at 9:30." Every score counts now. |
-| **6:30 – 9:15** | Watch the Host page now and then: **Double-check these** (OK or Remove), **Help requests**. Phone died? *Add or fix a score*. Kid without a phone? *Add a player without a phone*. | Takeovers for new machine records, new #1, rankings unlocked; Wall of Shame; spotlights when it's quiet. | Snap the score (camera) or type it in. Ranks and Me show live standings. |
-| **9:15** | Nothing. | **LAST CALL · 15 minutes**. Results are now **sealed**: the podium rows, the Wall of Shame and the prizes show "? ? ?". | "Last call! Results are sealed until the awards." Ranks shows "Results sealed". |
-| **9:20, 9:25 – 9:29** | Nothing. | "10 minutes", then "START YOUR LAST GAME NOW" (5), then 4 … 1. | — |
-| **9:29:50** | Nothing. | Full-screen **10 … 1** with a boop each second, lights pulse red. | — |
-| **9:30** | Nothing. | **GAME OVER / END OF TOURNAMENT**, long beep, "time's up", white strobes, then a warm glow in the garage. | "Play's over! Log your last game now: it still counts for 2:59." |
-| **9:30 – 9:33** | Let people log the game they just finished (3 minutes). | Under the logo: "PLAY OVER · log your last scores". | Countdown on the phone. |
-| **9:33** | Get everyone to the TV. Grab the prizes. | **THE RESULTS ARE IN · awards ceremony starting soon · gather round the TV** (no winners shown), the announcer says the awards are coming. Music keeps playing. | Full-screen "Awards starting soon · look at the TV" (guests can close it and keep playing free play). |
-| **~9:40** | Host page → *End of the night* → **🎉 Start the reveal**. A bar appears at the bottom of your phone: **◀ Back / Next ▶**, what's on the TV, and who wins next (only you see it). | Music fades out. **AWARDS CEREMONY · 12 prizes · gather round**. Waits for you. | "Awards on now! Look at the TV." Ranks stays sealed. |
+| **6:30** | Nothing (it starts by itself). | **TOURNAMENT IS ON**: fanfare, announcer, green lights. The board switches to the tournament: machine leaderboards, Top Players, Wall of Shame, Prizes, news crawl. | "Tournament on: ends at 9:00." Every score counts now. |
+| **6:30 – 8:45** | Watch the Host page now and then: **Double-check these** (OK or Remove), **Help requests**. Phone died? *Add or fix a score*. Kid without a phone? *Add a player without a phone*. | Takeovers for new machine records, new #1, rankings unlocked; Wall of Shame; spotlights when it's quiet. | Snap the score (camera) or type it in. Ranks and Me show live standings. |
+| **8:45** | Nothing. | **LAST CALL · 15 minutes**. Results are now **sealed**: the podium rows, the Wall of Shame and the prizes show "? ? ?". | "Last call! Results are sealed until the awards." Ranks shows "Results sealed". |
+| **8:50, 8:55 – 8:59** | Nothing. | "10 minutes", then "START YOUR LAST GAME NOW" (5), then 4 … 1. | — |
+| **8:59:50** | Nothing. | Full-screen **10 … 1** with a boop each second, lights pulse red. | — |
+| **9:00** | Nothing. | **GAME OVER / END OF TOURNAMENT**, long beep, "time's up", white strobes, then a warm glow in the garage. | "Play's over! Log your last game now: it still counts for 2:59." |
+| **9:00 – 9:03** | Let people log the game they just finished (3 minutes). | Under the logo: "PLAY OVER · log your last scores". | Countdown on the phone. |
+| **9:03** | Get everyone to the TV. Grab the prizes. | **THE RESULTS ARE IN · awards ceremony starting soon · gather round the TV** (no winners shown), the announcer says the awards are coming. Music keeps playing. | Full-screen "Awards starting soon · look at the TV" (guests can close it and keep playing free play). |
+| **~9:10** | Host page → *End of the night* → **🎉 Start the reveal**. A bar appears at the bottom of your phone: **◀ Back / Next ▶**, what's on the TV, and who wins next (only you see it). | Music fades out. **AWARDS CEREMONY · 12 prizes · gather round**. Waits for you. | "Awards on now! Look at the TV." Ranks stays sealed. |
 | | Press **Next**. | **Grand Champion**: 3-2-1, the winner, confetti, lights burst. | |
 | | **Next**, **Next** | **2nd** and **3rd Place**: the TV walks down the ratings (anyone with fewer than 3 machines is skipped) and stops on the winner. | |
 | | **Next** × 6 | Each **machine champion**: 3-2-1, then a walk down that machine's scores (anyone who already won is stamped "WON …"). | |
 | | **Next**, **Next** | **The Grinder** (most games), **The Big Whiff** (lowest rating, sad trombone, roast with love). | |
 | | **Next** | **The Match**: a number rolls 00 … 90 (like a real pinball Match), then a slot-machine reel spins through everyone whose total points end in it. | |
 | | **Next** | **THANKS FOR PLAYING**: all 12 winners on one screen, "Winners up front · GROUP PHOTO!", the big lights finale. **Take the group photo.** | |
-| **~10:00** | On the bottom bar press **Start free play ▶**. | The high score board comes back, music fades back up, the announcer says free play is open. The crawl lists tonight's winners. | Ranks shows **Tonight's winners**; Me shows "Your prize". Free play is open (just for fun). |
+| **~9:30** | On the bottom bar press **Start free play ▶**. | The high score board comes back, music fades back up, the announcer says free play is open. The crawl lists tonight's winners. | Ranks shows **Tonight's winners**; Me shows "Your prize". Free play is open (just for fun). |
 | **End of night** | *End of the night* → **Close the party**. | TV: FINAL RESULTS board ("Thanks for playing!"). The lights go back to the controller's own show. | "Scoring's closed for tonight. Thanks for playing!" |
 | **Next morning** | *End of the night* → **Send me a sample** (to your own email), check it, then **Email results**. Only players who asked for results get one. Send it **once** (100 emails a day limit). | — | — |
 
