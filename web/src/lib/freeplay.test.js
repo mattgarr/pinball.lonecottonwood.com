@@ -32,12 +32,17 @@ describe('free play never counts for the tournament', () => {
     expect(n.machines[0].champion.score).toBe(9999);
   });
 
-  it('high score tables: one row per player (their best), all games, free-play bests marked, voided skipped', () => {
+  it('high score tables: every game (a player can appear more than once), best first, free-play games marked, voided skipped', () => {
     const scores = [...tourney, ...fp, { ...sc(1, 1, 99999), voided: true }];
-    const [m1, m2] = computeHighScores({ machines: M, players: P, scores, n: 10 });
-    expect(m1.top.map(r => [r.player.id, r.score, r.freePlay])).toEqual([[2, 9999, true], [1, 500, false], [4, 20, false], [3, 10, false], [5, 3, false]]);
-    expect(m2.top.map(r => r.player.id)).toEqual([2, 3, 1, 4]);
-    expect(m2.top.find(r => r.player.id === 3).score).toBe(9999);
+    const [m1, m2] = computeHighScores({ machines: M, players: P, scores, n: 20 });
+    const games1 = scores.filter(s => s.machine_id === M[0].id && !s.voided);
+    expect(m1.top).toHaveLength(games1.length);
+    expect(m1.top.map(r => r.score)).toEqual([...games1.map(s => s.value)].sort((a, b) => b - a));
+    expect(m1.top[0]).toMatchObject({ score: 9999, freePlay: true, rank: 1 });
+    expect(m1.top.some(r => r.score === 99999)).toBe(false); // voided
+    const ids = m1.top.map(r => r.player.id);
+    expect(new Set(ids).size).toBeLessThan(ids.length); // someone appears twice
+    expect(m2.top[0].player.id).toBe(2);
     expect(computeHighScores({ machines: M, players: P, scores, n: 2 })[0].top).toHaveLength(2);
   });
 });

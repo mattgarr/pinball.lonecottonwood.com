@@ -33,7 +33,7 @@ export default function Cabinet({ entry, i, hot, hit, rows = 10 }) {
       </div>
       <ol className="cab2-scores">
         {top.length ? top.map(s => (
-          <li key={s.player.id} className={`r${Math.min(s.rank, 4)}${s.freePlay ? ' fp' : ''}`}>
+          <li key={s.scoreId ?? s.player.id} className={`r${Math.min(s.rank, 4)}${s.freePlay ? ' fp' : ''}`}>
             <span className="cab2-rank">{s.rank === 1 ? <Icon name="crown" size={15} stroke={2.2} /> : s.rank}</span>
             <Avatar avatar={s.player.avatar} emoji={s.player.emoji} name={s.player.display_name} color={s.player.color} size={20} />
             <span className="cab2-pname">{s.player.display_name}</span>

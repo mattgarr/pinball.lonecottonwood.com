@@ -387,7 +387,7 @@ export default function TV() {
 
           <section className={`tv2-cabs${attract ? ' attract' : ''}`}>
             {bStandings.machines.map((entry, i) => (
-              <Cabinet key={entry.machine.id} entry={entry} i={i} hot={!!hot[entry.machine.id]} hit={live.hits[entry.machine.id]} />
+              <Cabinet key={entry.machine.id} entry={{ ...entry, top: entry.games }} i={i} hot={!!hot[entry.machine.id]} hit={live.hits[entry.machine.id]} />
             ))}
           </section>
 

@@ -59,6 +59,16 @@ export function tieBreakNote(a, b) {
   return `${head} · joined first`;
 }
 
+// Every game on a machine, best first (ties: the earlier game first), with shared ranks for equal scores.
+function rankGames(list, playerById, n) {
+  const sorted = [...list].sort((a, b) => b.value - a.value || a.id - b.id);
+  let rank = 0, prev = null;
+  return sorted.slice(0, n).map((s, i) => {
+    if (s.value !== prev) { rank = i + 1; prev = s.value; }
+    return { rank, player: playerById.get(s.player_id), score: s.value, freePlay: !!s.free_play, scoreId: s.id };
+  });
+}
+
 export function computeStandings({ machines = [], players = [], scores = [], includeFreePlay = false }) {
   const live = liveScores(scores, includeFreePlay);
   const playerById = new Map(players.map(p => [p.id, p]));
@@ -92,7 +102,10 @@ export function computeStandings({ machines = [], players = [], scores = [], inc
       if (!st.best || r.standing > st.best.standing) st.best = { machineId: m.id, machineName: m.name, rank: r.rank, N: r.N, standing: r.standing };
     }
     const top = rows.slice(0, 10).map(r => ({ player: playerById.get(r.playerId), score: r.best, rank: r.rank }));
-    return { machine: m, N: rows.length, top, rows, champion: top[0] ?? null };
+    // games: the machine's high-score table as shown (every game, so a player can appear more than
+    // once; Matt, Nov 14). Standings, prizes and `top` still use each player's best.
+    const games = rankGames(live.filter(s => s.machine_id === m.id && playerById.has(s.player_id)), playerById, 10);
+    return { machine: m, N: rows.length, top, games, rows, champion: top[0] ?? null };
   });
 
   for (const st of stats.values()) {
@@ -217,18 +230,10 @@ export function computeAwards({ machines = [], players = [], scores = [], standi
 // play), one row per player (their best), best first. freePlay marks a best set in free play.
 export function computeHighScores({ machines = [], players = [], scores = [], n = 10 }) {
   const playerById = new Map(players.map(p => [p.id, p]));
-  const best = new Map(); // mid -> Map(pid -> score row)
-  for (const s of scores) {
-    if (s.voided || !playerById.has(s.player_id)) continue;
-    if (!best.has(s.machine_id)) best.set(s.machine_id, new Map());
-    const m = best.get(s.machine_id), cur = m.get(s.player_id);
-    if (!cur || s.value > cur.value || (s.value === cur.value && s.id < cur.id)) m.set(s.player_id, s);
-  }
+  const ok = scores.filter(s => !s.voided && playerById.has(s.player_id));
   return machines.map(machine => {
-    const rows = [...(best.get(machine.id)?.values() ?? [])]
-      .sort((a, b) => b.value - a.value || a.id - b.id)
-      .map((s, i) => ({ rank: i + 1, player: playerById.get(s.player_id), score: s.value, freePlay: !!s.free_play, scoreId: s.id }));
-    return { machine, N: rows.length, top: rows.slice(0, n) };
+    const list = ok.filter(s => s.machine_id === machine.id);
+    return { machine, N: new Set(list.map(s => s.player_id)).size, top: rankGames(list, playerById, n) };
   });
 }
 

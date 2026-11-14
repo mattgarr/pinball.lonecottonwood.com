@@ -1073,10 +1073,10 @@ function TopScores({ board, me, mineHere, mid, multiEvent }) {
         </div>
       )}
       {mine && <div className="muted small ts-you">You: {ordinal(mine.rank)} of {mine.N} · {fmt(mine.best)}</div>}
-      {(!b || b.top.length === 0) && <div className="muted small">No scores yet. Be first!</div>}
+      {(!b || !(b.games || b.top).length) && <div className="muted small">No scores yet. Be first!</div>}
       <ol className="ts-list">
-        {b?.top.map(s => (
-          <li key={s.player.id} className={s.player.id === me?.id ? 'mine' : ''}>
+        {(b?.games || b?.top || []).map(s => (
+          <li key={s.scoreId ?? s.player.id} className={s.player.id === me?.id ? 'mine' : ''}>
             <span className="ts-rank">{s.rank === 1 ? <PixelEmoji e="👑" size={16} grid={12} /> : s.rank}</span>
             <Avatar avatar={s.player.avatar} emoji={s.player.emoji} name={s.player.display_name} color={s.player.color} size={28} />
             <span className="ts-name">{s.player.display_name}</span>
