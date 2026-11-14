@@ -12,6 +12,7 @@ The example times below assume **tournament 6:30 PM to 9:00 PM (what the Nov 12 
 ### On your phone or laptop (Host page)
 1. **Clear test scores.** Scroll to *Setup (before the party)* → *Clear test scores* → type `CLEAR` → *Clear scores*.
    This also clears the old test awards and the test Match number. Players who already signed up are kept.
+   Then reload the TV page (Cmd+R, then click it once): the TV doesn't drop already-shown scores on its own after a clear.
 2. **Set the tournament times.** *Tournament times* card → Starts `Nov 14, 6:30 PM`, Ends `Nov 14, 9:00 PM` → **Save times**.
    The card should say "Now: Free play: the tournament hasn't started yet".
 3. **Party access card:**
