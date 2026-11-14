@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" preserveAspectRatio="xMidYMid slice" font-family="'Arial Black','Helvetica Neue',Helvetica,sans-serif">
+  <defs>
+    <linearGradient id="wBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10212e"/>
+      <stop offset="0.6" stop-color="#1d3b4d"/>
+      <stop offset="1" stop-color="#2f6f86"/>
+    </linearGradient>
+    <radialGradient id="wGlow" cx="0.8" cy="0.5" r="0.6">
+      <stop offset="0" stop-color="#8fe8ff" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#8fe8ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="640" height="300" fill="url(#wBg)"/>
+  <rect width="640" height="300" fill="url(#wGlow)"/>
+  <!-- tornado spiral -->
+  <g transform="translate(500,150)" fill="none" stroke="#bfeeff" stroke-linecap="round">
+    <path d="M-78 -78 Q70 -64 56 -20 Q44 12 -8 8 Q-40 4 -34 -22 Q-30 -40 -8 -36" stroke="#cdeeff" stroke-opacity="0.5" stroke-width="9"/>
+    <path d="M-86 -50 Q80 -40 66 6 Q54 44 -16 40" stroke="#a9dcf2" stroke-opacity="0.35" stroke-width="7"/>
+    <path d="M-70 -10 Q60 0 40 44" stroke="#8fc9e6" stroke-opacity="0.3" stroke-width="6"/>
+  </g>
+  <text x="40" y="146" fill="#eaffff" font-size="60" font-weight="900" letter-spacing="1">WHIRLWIND</text>
+  <text x="44" y="186" fill="#9fe0f2" font-size="22" letter-spacing="7">WILLIAMS · 1990</text>
+  <text x="44" y="240" fill="#ffffff" fill-opacity="0.5" font-size="16" letter-spacing="3" font-family="'Courier New',monospace">ALPHANUMERIC · STORM</text>
+</svg>

@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Woodside Pinball — Garage Concept Album &amp; Slideshow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070510;
+      --panel: #100c1f;
+      --panel-hi: #181230;
+      --border: #2a214a;
+      --gold: #ffcc33;
+      --cyan: #33f0ff;
+      --magenta: #ff2ea6;
+      --green: #38f88f;
+      --ink: #f6f2ff;
+      --muted: #a59bc2;
+      --t10: 10px;
+      --t12: 12px;
+      --t16: 16px;
+      --t24: 24px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at 50% 0%, #1a0f38 0%, var(--bg) 60%);
+      color: var(--ink);
+      font-family: 'Press Start 2P', monospace;
+      font-size: var(--t10);
+      line-height: 1.75;
+      min-height: 100vh;
+      padding: 20px 16px 72px;
+    }
+    .wrap {
+      max-width: 1360px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 18px;
+      padding: 20px 16px;
+      background: rgba(16, 12, 31, 0.92);
+      border: 2px solid var(--gold);
+      box-shadow: 0 0 28px rgba(255, 204, 51, 0.22);
+    }
+    h1 {
+      font-size: var(--t16);
+      color: var(--gold);
+      text-shadow: 0 0 12px rgba(255, 204, 51, 0.5);
+      margin-bottom: 10px;
+    }
+    .sub {
+      font-size: var(--t10);
+      color: var(--cyan);
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    /* Top Control Bar: View Mode Toggle + Category Filters */
+    .toolbar {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 22px;
+      background: rgba(16, 12, 31, 0.85);
+      border: 2px solid var(--border);
+      padding: 14px;
+    }
+    .toolbar-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      align-items: center;
+    }
+    .btn {
+      height: 40px;
+      padding: 0 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Press Start 2P', monospace;
+      font-size: var(--t10);
+      color: var(--ink);
+      background: var(--panel);
+      border: 2px solid var(--border);
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s, box-shadow 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .btn:hover, .btn.active {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: var(--panel-hi);
+      box-shadow: 0 0 12px rgba(51, 240, 255, 0.3);
+    }
+    .btn.mode-btn.active {
+      border-color: var(--gold);
+      color: var(--gold);
+      box-shadow: 0 0 14px rgba(255, 204, 51, 0.35);
+    }
+    .btn.play-btn.active {
+      border-color: var(--green);
+      color: var(--green);
+      box-shadow: 0 0 14px rgba(56, 248, 143, 0.35);
+    }
+
+    /* Comparison Callout Box: 180ft Govee Individual Lights vs Smooth Strips */
+    .callout {
+      background: linear-gradient(180deg, rgba(24, 18, 48, 0.95), rgba(16, 12, 31, 0.95));
+      border: 2px solid var(--cyan);
+      padding: 18px;
+      margin-bottom: 24px;
+      box-shadow: 0 0 22px rgba(51, 240, 255, 0.14);
+    }
+    .callout h2 {
+      font-size: var(--t12);
+      color: var(--cyan);
+      margin-bottom: 10px;
+    }
+    .callout-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 14px;
+      margin-top: 10px;
+    }
+    .callout-card {
+      background: rgba(7, 5, 16, 0.7);
+      border: 1px solid var(--border);
+      padding: 12px;
+    }
+    .callout-card h3 {
+      font-size: var(--t10);
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+    .callout-card p {
+      font-size: var(--t10);
+      color: var(--muted);
+    }
+
+    /* SLIDESHOW STAGE MODE */
+    .slideshow-stage {
+      display: none;
+      background: var(--panel);
+      border: 2px solid var(--gold);
+      padding: 18px;
+      margin-bottom: 28px;
+      box-shadow: 0 0 28px rgba(255, 204, 51, 0.18);
+    }
+    .slideshow-stage.open {
+      display: block;
+    }
+    .stage-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .stage-counter {
+      font-size: var(--t12);
+      color: var(--gold);
+    }
+    .stage-Controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .stage-main {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      max-height: 72vh;
+      background: #030208;
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      cursor: zoom-in;
+    }
+    .stage-main img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .stage-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(7, 5, 16, 0.9);
+      border: 2px solid var(--gold);
+      color: var(--gold);
+      font-size: var(--t12);
+      padding: 6px 10px;
+    }
+    .stage-info {
+      margin-top: 14px;
+      padding: 14px;
+      background: rgba(7, 5, 16, 0.75);
+      border: 1px solid var(--border);
+    }
+    .stage-title {
+      font-size: var(--t12);
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+    .stage-desc {
+      font-size: var(--t10);
+      color: var(--ink);
+    }
+    .filmstrip {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 12px 2px 4px;
+      margin-top: 10px;
+    }
+    .film-thumb {
+      flex: 0 0 130px;
+      height: 82px;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      opacity: 0.6;
+      transition: opacity 0.15s, border-color 0.15s;
+    }
+    .film-thumb:hover, .film-thumb.active {
+      opacity: 1;
+      border-color: var(--cyan);
+    }
+    .film-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .film-thumb span {
+      position: absolute;
+      bottom: 2px;
+      left: 2px;
+      background: rgba(7, 5, 16, 0.88);
+      color: var(--gold);
+      font-size: var(--t10);
+      padding: 2px 4px;
+    }
+
+    /* THUMBNAIL GRID SECTIONS */
+    .section-block {
+      margin-bottom: 36px;
+    }
+    .section-head {
+      margin: 28px 0 14px;
+      padding: 12px 14px;
+      background: rgba(24, 18, 48, 0.9);
+      border-left: 4px solid var(--magenta);
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .section-head-left h2 {
+      font-size: var(--t12);
+      color: var(--magenta);
+      margin-bottom: 4px;
+    }
+    .section-head-left p {
+      font-size: var(--t10);
+      color: var(--muted);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+      gap: 18px;
+    }
+    .card {
+      background: var(--panel);
+      border: 2px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .card:hover {
+      border-color: var(--gold);
+      transform: translateY(-2px);
+    }
+    .card.hero-card {
+      border-color: var(--cyan);
+      box-shadow: 0 0 18px rgba(51, 240, 255, 0.18);
+    }
+    .thumb-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      background: #000;
+      cursor: zoom-in;
+      overflow: hidden;
+    }
+    .thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(7, 5, 16, 0.9);
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      font-size: var(--t10);
+      padding: 4px 8px;
+    }
+    .level-tag {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(255, 46, 166, 0.9);
+      color: #fff;
+      font-size: var(--t10);
+      padding: 3px 7px;
+    }
+    .card-body {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+    .card-title {
+      font-size: var(--t12);
+      color: var(--gold);
+    }
+    .card-desc {
+      font-size: var(--t10);
+      color: var(--muted);
+      flex: 1;
+    }
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    /* SHOPPING TABLE */
+    .shop-box {
+      margin-top: 40px;
+      background: var(--panel);
+      border: 2px solid var(--green);
+      padding: 20px;
+    }
+    .shop-box h2 {
+      font-size: var(--t12);
+      color: var(--green);
+      margin-bottom: 14px;
+    }
+    .shop-table-wrap {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--t10);
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: var(--cyan);
+      background: rgba(51, 240, 255, 0.08);
+    }
+
+    /* FULL-SCREEN LIGHTBOX MODAL */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 2, 10, 0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .lightbox.open {
+      display: flex;
+    }
+    .lightbox img {
+      max-width: 96vw;
+      max-height: 80vh;
+      border: 2px solid var(--gold);
+      object-fit: contain;
+    }
+    .lightbox-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 96vw;
+      text-align: center;
+    }
+    .lightbox-caption {
+      font-size: var(--t10);
+      color: var(--ink);
+      max-width: 820px;
+    }
+    @media (max-width: 600px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>WOODSIDE PINBALL GARAGE — MASTER CONCEPT ALBUM</h1>
+      <p class="sub" id="header-sub">Interactive Thumbnail Grid + Concept Slideshow • Minimalist to Maximalist Billy Strings Loft Gallery, Govee 180ft Puck Lights vs. Strips, Ground Fog &amp; Rolling TV Cart</p>
+    </header>
+
+    <!-- View Mode + Filter Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-row" id="mode-bar">
+        <button class="btn mode-btn active" id="mode-both" data-mode="both">⚏ SLIDESHOW + THUMBNAILS</button>
+        <button class="btn mode-btn" id="mode-slideshow" data-mode="slideshow">▶ SLIDESHOW STAGE ONLY</button>
+        <button class="btn mode-btn" id="mode-grid" data-mode="grid">▦ THUMBNAIL GRID ONLY</button>
+        <button class="btn play-btn" id="autoplay-btn">▶ AUTO-PLAY SLIDESHOW (4s)</button>
+        <a class="btn" href="#shopping-bom" style="border-color: var(--green); color: var(--green);">🛒 JUMP TO SHOPPING BOM</a>
+      </div>
+      <div class="toolbar-row" id="filters">
+        <button class="btn active" data-filter="all" id="filter-all">ALL VIEWS</button>
+        <button class="btn" data-filter="hero">★ FINAL MASTER HERO</button>
+        <button class="btn" data-filter="spectrum">MINIMALIST → MAXIMALIST POSTERS</button>
+        <button class="btn" data-filter="pucks">180FT GOVEE PUCK LIGHTS vs. STRIPS</button>
+        <button class="btn" data-filter="core">CORE ARCHITECTURE &amp; ELEVATIONS</button>
+        <button class="btn" data-filter="wild">10 THEMED CONCEPTS</button>
+        <button class="btn" data-filter="before">ORIGINAL "BEFORE" PHOTOS</button>
+      </div>
+    </div>
+
+    <!-- Latest Master Summary Callout -->
+    <section class="callout">
+      <h2>★ LATEST UPDATE: 100% FAITHFUL GARAGE LAYOUT • RAFTER-BACK POSTER STRIP • 100% COVERED STRIPS • CAR-SAFE FLOORS</h2>
+      <p style="color: var(--ink); margin-bottom: 8px;">
+        <strong>FINAL-1 through FINAL-5</strong> below lock in your exact real garage equipment (Rogue squat rack, spin bike, weight bench, tall lockers &amp; 16ft workbench kept; red Milwaukee tool chest, ladder &amp; swamp cooler removed) with <strong>100% covered/diffused Govee strips (H61B6 &amp; H61E6)</strong>:
+      </p>
+      <div class="callout-grid">
+        <div class="callout-card">
+          <h3>1. RAFTER-BACK POSTER WASH (NO PUCKS!)</h3>
+          <p>Instead of fixed-spacing downlight pods on the wall, <strong>2 kits of Govee Covered Strip (H61B6)</strong> stick flat to the <strong>back face of the horizontal wood rafter</strong> in front of the loft wall—100% hidden from the floor while casting a seamless neon &amp; gallery wash across all 10 Billy Strings posters.</p>
+        </div>
+        <div class="callout-card">
+          <h3>2. BRIGHT ALCOVE STRIPS + ZERO GLARE</h3>
+          <p>The 5 front-to-back shop tubes on the long under-loft joists stay <strong>100% OFF</strong> (zero playfield glare), while the <strong>covered horizontal strip on the back wall above the 6 pinball machines</strong>, the <strong>3-sided under-loft perimeter strip (H61B6)</strong>, and <strong>Govee 3D Hexagon Pro panels (H6066)</strong> glow at full intensity.</p>
+        </div>
+        <div class="callout-card">
+          <h3>3. THREE CAR-SAFE FLOOR OPTIONS</h3>
+          <p>Compare <strong>FINAL-1 (Costco MotoFloor / RaceDeck 12"×12" Matte Black + Gunmetal car-rated snap tiles)</strong> vs. <strong>FINAL-2 &amp; FINAL-3 (Your Real Smooth Concrete Floor — $0)</strong> vs. <strong>FINAL-4 (G-Floor Roll-Out Polyvinyl — ~$350)</strong>.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Slideshow Stage -->
+    <section class="slideshow-stage open" id="slideshow-stage">
+      <div class="stage-top">
+        <div class="stage-counter" id="stage-counter">SLIDE 1 OF 59</div>
+        <div class="stage-Controls">
+          <button class="btn" id="stage-prev">◀ PREV SLIDE</button>
+          <button class="btn" id="stage-next">NEXT SLIDE ▶</button>
+          <button class="btn" id="stage-zoom">⛶ FULLSCREEN ZOOM</button>
+        </div>
+      </div>
+      <div class="stage-main" id="stage-main">
+        <img id="stage-img" src="" alt="" />
+        <span class="stage-badge" id="stage-badge">FINAL-1</span>
+      </div>
+      <div class="stage-info">
+        <div class="stage-title" id="stage-title"></div>
+        <p class="stage-desc" id="stage-desc"></p>
+      </div>
+      <div class="filmstrip" id="filmstrip"></div>
+    </section>
+
+    <!-- Ready-to-Order Master Shopping Table (Bill of Materials) Right at Top -->
+    <section class="shop-box" id="shopping-bom" style="margin-top: 0; margin-bottom: 28px;">
+      <h2>🛒 MASTER SHOPPING BILL OF MATERIALS — 100% COVERED GOVEE STRIPS, 3D WALL LIGHTS &amp; CAR-SAFE FLOORS</h2>
+      <div class="shop-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>MANUFACTURER &amp; EXACT MODEL NUMBER</th>
+              <th>WHERE IT GOES IN YOUR GARAGE</th>
+              <th>QTY</th>
+              <th>EST. TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td><strong>Govee RGBIC LED Strip Lights with Covers (H61B6, 16.4ft/kit)</strong><br><em>Includes rigid snap-on milky white diffuser tracks &amp; corners in box</em></td>
+              <td>• <strong>2 kits (32.8ft)</strong>: Back face of horizontal wood rafter in front of loft wall (washing the 10 Billy Strings posters)<br>• <strong>2 kits (32.8ft)</strong>: Back wall header <strong>above</strong> the 6 pinball machines + loft beam underline below the 10 posters<br>• <strong>3 kits (49.2ft)</strong>: 3-sided top perimeter under the loft lip (left, front, right)<br>• <strong>2 kits (32.8ft)</strong>: Left 16ft counter under-cabinet wash + bottom toe-kick<br><em>(Costco Tip: 2 boxes of Costco Item #1806296 49.2ft strip can replace the hidden runs!)</em></td>
+              <td>9 kits (147ft covered)</td>
+              <td>$450</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td><strong>Govee COB Strip Light Pro (H61E6, 16.4ft/roll)</strong><br><em>1,260 LEDs/m sealed in solid milky-white silicone diffuser sleeve</em></td>
+              <td>• <strong>1 roll (16.4ft)</strong>: Front bullnose overhang of the 16ft wood butcher-block workbench<br>• <strong>2 rolls (32.8ft)</strong>: Hidden behind the 6 pinball backboxes &amp; underneath the 6 pinball cabinets</td>
+              <td>3 rolls (49.2ft)</td>
+              <td>$300</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td><strong>Govee Glide Hexagon Light Panels Pro (H6066, 10-Pack)</strong></td>
+              <td>3D frosted geometric wall clusters on the left wall (by utility sink / <em>Fathom</em>) and right wall (by <em>D&amp;D</em> / Rogue squat rack)</td>
+              <td>2 packs (20 hexes)</td>
+              <td>$360</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td><strong>Govee Glide RGBIC Wall Light Bars (H6062, 6+1 Pack)</strong></td>
+              <td>Frosted 3D neon wall bars above the 16ft left butcher-block counter</td>
+              <td>1 pack</td>
+              <td>$80</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td><strong>Govee RGBICWW Smart Flood Lights 4-Pack (H7060)</strong></td>
+              <td>Sits hidden on top of the loft beam pointing UP into the exposed wood roof trusses</td>
+              <td>1 pack (4 floods)</td>
+              <td>$100</td>
+            </tr>
+            <tr>
+              <td>6</td>
+              <td><strong>Govee Star Light Projector — Aurora + Green Laser Stars (H6093)</strong></td>
+              <td>Sits hidden on top of the loft beam projecting moving cyan/magenta aurora waves + green stars onto the roof rafters</td>
+              <td>2 units</td>
+              <td>$150</td>
+            </tr>
+            <tr>
+              <td>7</td>
+              <td><strong>Govee RGBIC Outdoor Spotlights 2-Pack (H7065)</strong></td>
+              <td>Clamped to collar tie aimed dead-center at the 16" mirror disco ball</td>
+              <td>1 pack (2 spots)</td>
+              <td>$70</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td><strong>Govee Curtain Lights 2 — 4.9ft × 6.6ft (H70B3, 520 LEDs)</strong></td>
+              <td>Hung inside the left frosted 6ft × 4ft window for animated arcade pixel art</td>
+              <td>1 set</td>
+              <td>$130</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td><strong>Govee TV Backlight 3 Lite (H6099, 55"–65")</strong></td>
+              <td>Hidden on the back of the vertical 65" Leaderboard TV on the rolling cart</td>
+              <td>1 kit</td>
+              <td>$70</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td><strong>Govee RGBICWW Table Lamp 2 (H6022)</strong></td>
+              <td>Placed inside the base of the 2 white stretch-spandex high-top cocktail tables (Left = Cyan, Right = Magenta)</td>
+              <td>2 lamps</td>
+              <td>$120</td>
+            </tr>
+            <tr>
+              <td>11</td>
+              <td><strong>Govee 6-Button Scene Switch (H5125) + Music Sync Box (H1162) + Smart Plugs (H5086)</strong></td>
+              <td>1-click wall keypad by sink/door + audio beat sync + smart plugs for disco ball motor &amp; fogger</td>
+              <td>1 bundle</td>
+              <td>$95</td>
+            </tr>
+            <tr>
+              <td>12</td>
+              <td><strong>Non-Govee Lounge &amp; Gallery Hardware</strong>:<br>• <strong>16" Mirror Disco Ball + 3 RPM Motor</strong> ($75)<br>• <strong>2× 32"×43" Folding Cocktail Tables + White Spandex Covers</strong> ($130)<br>• <strong>Low-Lying Ground Fogger / Hazer</strong> ($110–$300)<br>• <strong>10× 18"×24" Black Poster Frames + Command Strips</strong> ($190)<br>• <strong>48 sq ft Matte-Black Acoustic Foam</strong> ($80, covers ceiling hole above Cactus Canyon)<br>• <strong>Rolling Vertical TV Stand (55"–75")</strong> ($130)</td>
+              <td>Center ridge beam, center lounge floor, upper loft wall, under-loft ceiling bay, and right floor in front of lockers</td>
+              <td>Complete Kit</td>
+              <td>$905</td>
+            </tr>
+            <tr>
+              <td>13</td>
+              <td><strong>Car-Safe Center Flooring Choice (Pick 1 — Zero Puzzle Mats!)</strong>:<br>• <strong>Option A (FINAL-2 &amp; FINAL-3)</strong>: Keep Your Real Smooth Concrete in Center (<strong>$0</strong>)<br>• <strong>Option B (FINAL-4)</strong>: 2× <strong>G-Floor 10'×20' Midnight Black Polyvinyl Rolls</strong> (<strong>~$350</strong>)<br>• <strong>Option C (FINAL-1)</strong>: 7 Boxes of <strong>Costco MotoFloor / RaceDeck 12"×12" Snap Tiles</strong> (336 sq ft in Matte Black + Gunmetal border, <strong>~$800 on sale / $1,050 reg</strong>)</td>
+              <td>Center car-parking / lounge bay (between your existing black rubber pinball runner and Rogue gym mat)</td>
+              <td>Pick 1</td>
+              <td>$0 / $350 / $1,050</td>
+            </tr>
+            <tr>
+              <td colspan="4" style="text-align: right; color: var(--gold); font-weight: bold;">COMPLETE TURNKEY BUILD TOTAL:</td>
+              <td style="color: var(--green); font-weight: bold;">$2,830 (Concrete)<br>$3,180 (G-Floor)<br>$3,880 (MotoFloor)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Thumbnail Grid Organized by Concept Series -->
+    <div id="album"></div>
+  </div>
+
+  <!-- Fullscreen Zoom Lightbox -->
+  <div class="lightbox" id="lightbox">
+    <img id="lightbox-img" src="" alt="" />
+    <div class="lightbox-bar">
+      <button class="btn" id="prev-btn">◀ PREV</button>
+      <div class="lightbox-caption" id="lightbox-caption"></div>
+      <button class="btn" id="next-btn">NEXT ▶</button>
+      <button class="btn" id="close-btn">✕ CLOSE</button>
+    </div>
+  </div>
+
+  <script src="/concepts-data.js?v=59"></script>
+  <script>
+    let visibleItems = [... window.CONCEPT_ITEMS];
+    let currentIndex = 0;
+    let currentFilter = 'all';
+    let currentMode = 'both';
+    let autoPlayTimer = null;
+
+    function updateFilterButtons() {
+      const counts = { all: window.CONCEPT_ITEMS.length };
+      window.CONCEPT_ITEMS.forEach(i => {
+        counts[i.cat] = (counts[i.cat] || 0) + 1;
+      });
+      document.querySelectorAll('#filters .btn').forEach(btn => {
+        const f = btn.dataset.filter;
+        const base = btn.textContent.replace(/\s*\(\d+\)$/, '');
+        btn.textContent = `${base} (${counts[f] || 0})`;
+      });
+      document.getElementById('header-sub').textContent =
+        `${window.CONCEPT_ITEMS.length} Real-Photo Renderings & Views on Your 29'4" × 29'4" Garage • Interactive Slideshow + Thumbnail Grid Organized by Concept`;
+    }
+
+    function renderSlideshow(idx) {
+      if (!visibleItems.length) return;
+      currentIndex = ((idx % visibleItems.length) + visibleItems.length) % visibleItems.length;
+      const item = visibleItems[currentIndex];
+      document.getElementById('stage-counter').textContent =
+        `SLIDE ${currentIndex + 1} OF ${visibleItems.length} — ${item.sectionShort || item.cat.toUpperCase()}`;
+      document.getElementById('stage-img').src = item.img;
+      document.getElementById('stage-img').alt = item.title;
+      document.getElementById('stage-badge').textContent = `${item.code}${item.level ? ' • ' + item.level : ''}`;
+      document.getElementById('stage-title').textContent = `${item.code}: ${item.title}`;
+      document.getElementById('stage-desc').textContent = item.desc;
+
+      const strip = document.getElementById('filmstrip');
+      strip.innerHTML = '';
+      visibleItems.forEach((it, i) => {
+        const th = document.createElement('div');
+        th.className = 'film-thumb' + (i === currentIndex ? ' active' : '');
+        th.innerHTML = `<img src="${it.img}" alt="${it.code}" loading="lazy" /><span>${it.code}</span>`;
+        th.addEventListener('click', () => renderSlideshow(i));
+        strip.appendChild(th);
+      });
+      const activeThumb = strip.querySelector('.film-thumb.active');
+      if (activeThumb) {
+        const targetLeft = activeThumb.offsetLeft - (strip.clientWidth / 2) + (activeThumb.clientWidth / 2);
+        strip.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+      }
+    }
+
+    function renderAlbum(filter, resetSlide = true) {
+      currentFilter = filter;
+      const container = document.getElementById('album');
+      container.innerHTML = '';
+      visibleItems = filter === 'all'
+        ? [...window.CONCEPT_ITEMS]
+        : window.CONCEPT_ITEMS.filter(i => i.cat === filter);
+
+      if (resetSlide) renderSlideshow(0);
+
+      const sections = [];
+      visibleItems.forEach((item, idx) => {
+        let sec = sections.find(s => s.name === item.section);
+        if (!sec) {
+          sec = { name: item.section, sub: item.sectionSub || '', cat: item.cat, items: [] };
+          sections.push(sec);
+        }
+        sec.items.push({ ...item, globalIdx: idx });
+      });
+
+      sections.forEach(sec => {
+        const block = document.createElement('section');
+        block.className = 'section-block';
+
+        const head = document.createElement('div');
+        head.className = 'section-head';
+        head.innerHTML = `
+          <div class="section-head-left">
+            <h2>${sec.name}</h2>
+            ${sec.sub ? `<p>${sec.sub}</p>` : ''}
+          </div>
+          <button class="btn play-sec-btn" data-idx="${sec.items[0].globalIdx}">▶ SLIDESHOW THIS SERIES (${sec.items.length})</button>
+        `;
+        head.querySelector('.play-sec-btn').addEventListener('click', () => {
+          renderSlideshow(sec.items[0].globalIdx);
+          document.getElementById('slideshow-stage').scrollIntoView({ behavior: 'smooth' });
+        });
+        block.appendChild(head);
+
+        const grid = document.createElement('div');
+        grid.className = 'grid';
+
+        sec.items.forEach(item => {
+          const card = document.createElement('article');
+          card.className = 'card' + (item.cat === 'hero' ? ' hero-card' : '');
+          card.innerHTML = `
+            <div class="thumb-wrap" data-idx="${item.globalIdx}">
+              <img src="${item.img}" alt="${item.title}" loading="lazy" />
+              <span class="badge">${item.code}</span>
+              ${item.level ? `<span class="level-tag">${item.level}</span>` : ''}
+            </div>
+            <div class="card-body">
+              <div class="card-title">${item.code}: ${item.title}</div>
+              <p class="card-desc">${item.desc}</p>
+              <div class="card-actions">
+                <button class="btn view-stage-btn">▶ IN SLIDESHOW</button>
+                <button class="btn view-zoom-btn">⛶ FULLSCREEN</button>
+              </div>
+            </div>
+          `;
+          card.querySelector('.thumb-wrap').addEventListener('click', () => openLightbox(item.globalIdx));
+          card.querySelector('.view-zoom-btn').addEventListener('click', () => openLightbox(item.globalIdx));
+          card.querySelector('.view-stage-btn').addEventListener('click', () => {
+            if (currentMode === 'grid') setViewMode('both');
+            renderSlideshow(item.globalIdx);
+            document.getElementById('slideshow-stage').scrollIntoView({ behavior: 'smooth' });
+          });
+          grid.appendChild(card);
+        });
+
+        block.appendChild(grid);
+        container.appendChild(block);
+      });
+    }
+
+    function setViewMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+      document.getElementById('slideshow-stage').classList.toggle('open', mode === 'both' || mode === 'slideshow');
+      document.getElementById('album').style.display = (mode === 'both' || mode === 'grid') ? 'block' : 'none';
+    }
+
+    function openLightbox(idx) {
+      currentIndex = idx;
+      const item = visibleItems[currentIndex];
+      document.getElementById('lightbox-img').src = item.img;
+      document.getElementById('lightbox-caption').textContent = `${item.code}: ${item.title} — ${item.desc}`;
+      document.getElementById('lightbox').classList.add('open');
+    }
+
+    function stepLightbox(delta) {
+      currentIndex = (currentIndex + delta + visibleItems.length) % visibleItems.length;
+      openLightbox(currentIndex);
+      renderSlideshow(currentIndex);
+    }
+
+    document.getElementById('stage-prev').addEventListener('click', () => renderSlideshow(currentIndex - 1));
+    document.getElementById('stage-next').addEventListener('click', () => renderSlideshow(currentIndex + 1));
+    document.getElementById('stage-zoom').addEventListener('click', () => openLightbox(currentIndex));
+    document.getElementById('stage-main').addEventListener('click', () => openLightbox(currentIndex));
+
+    document.getElementById('prev-btn').addEventListener('click', () => stepLightbox(-1));
+    document.getElementById('next-btn').addEventListener('click', () => stepLightbox(1));
+    document.getElementById('close-btn').addEventListener('click', () => {
+      document.getElementById('lightbox').classList.remove('open');
+    });
+    document.getElementById('lightbox').addEventListener('click', (e) => {
+      if (e.target.id === 'lightbox') document.getElementById('lightbox').classList.remove('open');
+    });
+
+    window.addEventListener('keydown', (e) => {
+      const lb = document.getElementById('lightbox');
+      if (lb.classList.contains('open')) {
+        if (e.key === 'Escape') lb.classList.remove('open');
+        if (e.key === 'ArrowLeft') stepLightbox(-1);
+        if (e.key === 'ArrowRight') stepLightbox(1);
+      } else {
+        if (e.key === 'ArrowLeft') renderSlideshow(currentIndex - 1);
+        if (e.key === 'ArrowRight') renderSlideshow(currentIndex + 1);
+      }
+    });
+
+    document.querySelectorAll('#filters .btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#filters .btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderAlbum(btn.dataset.filter, true);
+      });
+    });
+
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => setViewMode(btn.dataset.mode));
+    });
+
+    document.getElementById('autoplay-btn').addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      if (autoPlayTimer) {
+        clearInterval(autoPlayTimer);
+        autoPlayTimer = null;
+        btn.classList.remove('active');
+        btn.textContent = '▶ AUTO-PLAY SLIDESHOW (4s)';
+      } else {
+        if (currentMode === 'grid') setViewMode('both');
+        btn.classList.add('active');
+        btn.textContent = '⏸ PAUSE AUTO-PLAY';
+        autoPlayTimer = setInterval(() => renderSlideshow(currentIndex + 1), 4000);
+      }
+    });
+
+    updateFilterButtons();
+    renderAlbum('all', true);
+  </script>
+</body>
+</html>
