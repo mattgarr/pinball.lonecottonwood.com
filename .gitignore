@@ -6,3 +6,4 @@ server/data.db*
 .env.local
 files.zip
 .vite/
+print/
