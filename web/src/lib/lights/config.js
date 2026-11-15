@@ -19,8 +19,8 @@ export const LIGHTS = {
   competitorMode: 'individual', // 'team' would color by team (no teams at this party)
 
   // Physical order, left to right, as machine ids from the machines table.
-  // Fathom, Centaur, Whirlwind, Whitewater, Cactus Canyon, Dungeons & Dragons.
-  machineOrder: [2, 1, 3, 4, 5, 6],
+  // Fathom, Centaur, Cactus Canyon, Whirlwind, Whitewater, Dungeons & Dragons (Matt, Nov 14 install).
+  machineOrder: [2, 1, 5, 3, 4, 6],
   // Each machine's own colors (main color first). Machine effects pick from these: a score breathes
   // between the player's color and the main color; a champion chase alternates all three.
   machineThemes: {

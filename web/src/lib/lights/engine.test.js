@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { LightsEngine } from './engine.js';
-import { LIGHTS } from './config.js';
+import { LIGHTS as BASE } from './config.js';
+// These tests were written for the original machine order; pin it so the install order can change.
+const LIGHTS = { ...BASE, machineOrder: [2, 1, 3, 4, 5, 6] };
 
 const MAG = [255, 0, 170, 0];
 const DND_ID = 6;
@@ -15,7 +17,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-11-14T20:00:00Z'));
   sent = [];
-  e = new LightsEngine({ send: p => sent.push(JSON.parse(JSON.stringify(p))) });
+  e = new LightsEngine({ cfg: LIGHTS, send: p => sent.push(JSON.parse(JSON.stringify(p))) });
 });
 afterEach(() => { e.destroy(); vi.useRealTimers(); });
 
@@ -113,7 +115,7 @@ describe('lights engine', () => {
     let t = 0;
     // re-run with timestamps
     e.destroy(); sent = [];
-    e = new LightsEngine({ send: p => sent.push({ t: Date.now(), p }) });
+    e = new LightsEngine({ cfg: LIGHTS, send: p => sent.push({ t: Date.now(), p }) });
     const start = Date.now();
     e.revealCue({ color: MAG, final: true });
     vi.advanceTimersByTime(8000);
@@ -210,7 +212,7 @@ describe('lights engine', () => {
   it('white flashes for a champion and a new leader stay at 3 per second or slower', () => {
     const times = [];
     e.destroy(); sent = [];
-    e = new LightsEngine({ send: p => sent.push({ t: Date.now(), p }) });
+    e = new LightsEngine({ cfg: LIGHTS, send: p => sent.push({ t: Date.now(), p }) });
     const t0 = Date.now();
     e.champion(WHIRLWIND, MAG);
     vi.advanceTimersByTime(2000);
@@ -228,7 +230,7 @@ describe('lights engine', () => {
     globalThis.performance ??= { now: () => Date.now() };
     for (const fx of ['Plasma', 'Colorwaves', 'Flow']) {
       const m = newModel();
-      const eng = new LightsEngine({ send: msg => applyMessage(m, msg) });
+      const eng = new LightsEngine({ cfg: LIGHTS, send: msg => applyMessage(m, msg) });
       eng.start(); eng.setAmbient(LIGHTS.ambientCycle.findIndex(a => a.fx === fx));
       const now = performance.now() + 1234;
       const band = bandOf(defaultZones());
@@ -256,7 +258,7 @@ describe('lights engine', () => {
     const { newModel, applyMessage, renderRange } = await import('./render.js');
     globalThis.performance ??= { now: () => Date.now() };
     const m = newModel();
-    const eng = new LightsEngine({ send: msg => applyMessage(m, msg) });
+    const eng = new LightsEngine({ cfg: LIGHTS, send: msg => applyMessage(m, msg) });
     eng.start(); eng.setAmbient(LIGHTS.ambientCycle.findIndex(a => a.fx === 'Plasma'));
     vi.advanceTimersByTime(100);
     const s0 = m.segs[0], s1 = m.segs[1];
