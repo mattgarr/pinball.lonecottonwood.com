@@ -312,12 +312,66 @@ export default function TV() {
     </>
   );
 
-  // Free play: live scores on top, a full-height high score table per machine, the news crawl below.
+  // The bottom row (Top Players, Wall of Shame, Prizes, join QR): the same in free play and the tournament,
+  // so the prizes and the QR are always on screen (Matt, Nov 14).
+  const bottomPanels = (
+          <div className="tv2-bottom">
+            <div className="pnl pnl-top">
+              <PanelHead icon="crown" title={final ? 'Final Standings' : 'Top Players'} sub={`${bStandings.meta.rankedPlayers} ranked${pageLabel}`} />
+              <div className="pb">
+                {boardRows.map((st, i) => {
+                  const hide = isSealed && !st.isOneAway && st.rank <= sealDepth; // the podium is a secret until the awards
+                  return (
+                  <div key={i < PINNED ? st.player.id : `${pg}-${st.player.id}`} className={`pr${!st.isOneAway && st.rank <= 3 ? ` p${st.rank}` : ''}${st.isOneAway ? ' one-away' : ''}${i >= PINNED && pages > 1 ? ' paged' : ''}${flash[st.player.id] && !hide ? ' flash' : ''}${hide ? ' sealed' : ''}`}>
+                    <span className="pr-rank">{st.isOneAway ? '·' : st.rank}</span>
+                    {hide ? <span /> : <Avatar avatar={st.player.avatar} emoji={st.player.emoji} name={st.player.display_name} color={st.player.color} size={24} />}
+                    <span className="pr-name">{hide ? '? ? ?' : st.player.display_name}{!hide && st.player.first_timer && <span className="pr-ft">NEW</span>}</span>
+                    <span className="pr-crowns">{!hide && st.crowns > 0 && <><Icon name="crown" size={15} stroke={2.2} />{st.crowns > 1 ? <span>×{st.crowns}</span> : null}</>}</span>
+                    <span className={`pr-tables${!hide && !st.isOneAway && st.machinesPlayed < PODIUM_MIN ? ' short' : ''}`}>{hide ? '' : `${st.machinesPlayed}/${machines.length}`}</span>
+                    {st.isOneAway
+                      ? <span className="pr-nudge">1 MORE</span>
+                      : hide ? <Dmd className="pr-val">??</Dmd>
+                      : <Dmd className="pr-val" tone={st.rank === 1 ? 'hot' : undefined}><CountUp value={st.rating} /></Dmd>}
+                  </div>
+                  );
+                })}
+                {boardRows.length === 0 && <div className="pnl-empty">Play 2 machines to rank</div>}
+              </div>
+              <div className="pnl-legend">Avg finish · 2+ machines to rank · <b className="pr-short-key">{PODIUM_MIN}+</b> for the podium</div>
+            </div>
+
+            <div className="pnl pnl-shame">
+              <PanelHead icon="skull" title="Wall of Shame" sub="lowest" />
+              <div className="pb">
+                {bStandings.bottomPlayers.length ? bStandings.bottomPlayers.map((st, i) => (
+                  // Sealed: the bottom of the board would give away The Big Whiff.
+                  <div key={st.player.id} className={`pr shame${isSealed ? ' sealed' : ''}`}>
+                    <span className="pr-rank">{i + 1}</span>
+                    {isSealed ? <span /> : <Avatar avatar={st.player.avatar} emoji={st.player.emoji} name={st.player.display_name} color={st.player.color} size={24} />}
+                    <span className="pr-name">{isSealed ? '? ? ?' : st.player.display_name}</span>
+                    <span className="pr-worst">{!isSealed && st.worst ? `${st.worst.rank}/${st.worst.N}` : ''}</span>
+                    <Dmd className="pr-val" tone="red">{isSealed ? '??' : st.rating}</Dmd>
+                  </div>
+                )) : <div className="pnl-empty">Nobody… yet</div>}
+              </div>
+              <div className="pnl-legend">Ranked with love. 💀</div>
+            </div>
+
+            <PrizePanel awards={bAwards} sealed={isSealed} final={final} />
+
+            <section className="pnl pnl-qr">
+              <div className="qr-label">SCAN TO PLAY</div>
+              <div className="qr-box"><QR value={joinURL} size={150} light="#e9e9e9" /></div>
+            </section>
+          </div>
+  );
+
+  // Free play: live scores on top, every game tonight per machine, the prizes and QR below, the news crawl.
   if (fpBoard) {
     return (
       <div className={`tv-frame tv2-frame${cursor ? ' show-cursor' : ''}${controls && !lightsSim ? ' show-controls' : ''}`} onClick={() => { if (!sound.isOn()) toggleSound(); }}>
         <div className="tv tv2">
-          <div className="tv2-drift tv2-fp">
+          <div className="tv2-drift">
             <header className="tv2-head">
               <div className="tv2-brand">
                 <span className="tv2-logo">WOODSIDE <b>PINBALL</b></span>
@@ -331,11 +385,13 @@ export default function TV() {
               <Ticker scores={scores} players={players} machines={machines} n={8} />
             </header>
 
-            <section className={`tv2-cabs fp-cabs${attract ? ' attract' : ''}`}>
+            <section className={`tv2-cabs${attract ? ' attract' : ''}`}>
               {highScores.map((entry, i) => (
-                <Cabinet key={entry.machine.id} entry={entry} i={i} rows={FP_ROWS} hot={!!hot[entry.machine.id]} hit={live.hits[entry.machine.id]} />
+                <Cabinet key={entry.machine.id} entry={entry} i={i} hot={!!hot[entry.machine.id]} hit={live.hits[entry.machine.id]} />
               ))}
             </section>
+
+            {bottomPanels}
 
             <Crawl standings={night} awards={bAwards} news={live.news} machines={machines} freePlay={phase} highScores={highScores} final={final}
               startsAt={party?.tourney_starts_at ? fmtClock(party.tourney_starts_at) : null} />
@@ -391,56 +447,7 @@ export default function TV() {
             ))}
           </section>
 
-          <div className="tv2-bottom">
-            <div className="pnl pnl-top">
-              <PanelHead icon="crown" title={final ? 'Final Standings' : 'Top Players'} sub={`${bStandings.meta.rankedPlayers} ranked${pageLabel}`} />
-              <div className="pb">
-                {boardRows.map((st, i) => {
-                  const hide = isSealed && !st.isOneAway && st.rank <= sealDepth; // the podium is a secret until the awards
-                  return (
-                  <div key={i < PINNED ? st.player.id : `${pg}-${st.player.id}`} className={`pr${!st.isOneAway && st.rank <= 3 ? ` p${st.rank}` : ''}${st.isOneAway ? ' one-away' : ''}${i >= PINNED && pages > 1 ? ' paged' : ''}${flash[st.player.id] && !hide ? ' flash' : ''}${hide ? ' sealed' : ''}`}>
-                    <span className="pr-rank">{st.isOneAway ? '·' : st.rank}</span>
-                    {hide ? <span /> : <Avatar avatar={st.player.avatar} emoji={st.player.emoji} name={st.player.display_name} color={st.player.color} size={24} />}
-                    <span className="pr-name">{hide ? '? ? ?' : st.player.display_name}{!hide && st.player.first_timer && <span className="pr-ft">NEW</span>}</span>
-                    <span className="pr-crowns">{!hide && st.crowns > 0 && <><Icon name="crown" size={15} stroke={2.2} />{st.crowns > 1 ? <span>×{st.crowns}</span> : null}</>}</span>
-                    <span className={`pr-tables${!hide && !st.isOneAway && st.machinesPlayed < PODIUM_MIN ? ' short' : ''}`}>{hide ? '' : `${st.machinesPlayed}/${machines.length}`}</span>
-                    {st.isOneAway
-                      ? <span className="pr-nudge">1 MORE</span>
-                      : hide ? <Dmd className="pr-val">??</Dmd>
-                      : <Dmd className="pr-val" tone={st.rank === 1 ? 'hot' : undefined}><CountUp value={st.rating} /></Dmd>}
-                  </div>
-                  );
-                })}
-                {boardRows.length === 0 && <div className="pnl-empty">Play 2 machines to rank</div>}
-              </div>
-              <div className="pnl-legend">Avg finish · 2+ machines to rank · <b className="pr-short-key">{PODIUM_MIN}+</b> for the podium</div>
-            </div>
-
-            <div className="pnl pnl-shame">
-              <PanelHead icon="skull" title="Wall of Shame" sub="lowest" />
-              <div className="pb">
-                {bStandings.bottomPlayers.length ? bStandings.bottomPlayers.map((st, i) => (
-                  // Sealed: the bottom of the board would give away The Big Whiff.
-                  <div key={st.player.id} className={`pr shame${isSealed ? ' sealed' : ''}`}>
-                    <span className="pr-rank">{i + 1}</span>
-                    {isSealed ? <span /> : <Avatar avatar={st.player.avatar} emoji={st.player.emoji} name={st.player.display_name} color={st.player.color} size={24} />}
-                    <span className="pr-name">{isSealed ? '? ? ?' : st.player.display_name}</span>
-                    <span className="pr-worst">{!isSealed && st.worst ? `${st.worst.rank}/${st.worst.N}` : ''}</span>
-                    <Dmd className="pr-val" tone="red">{isSealed ? '??' : st.rating}</Dmd>
-                  </div>
-                )) : <div className="pnl-empty">Nobody… yet</div>}
-              </div>
-              <div className="pnl-legend">Ranked with love. 💀</div>
-            </div>
-
-            <PrizePanel awards={bAwards} sealed={isSealed} final={final} />
-
-            <section className="pnl pnl-qr">
-              <div className="qr-label">SCAN TO PLAY</div>
-              <div className="qr-box"><QR value={joinURL} size={150} light="#e9e9e9" /></div>
-              <div className="qr-url">{location.host}</div>
-            </section>
-          </div>
+          {bottomPanels}
 
           <Crawl standings={bStandings} awards={bAwards} news={live.news} machines={machines} sealed={isSealed} final={final || phase === 'over'} />
 
@@ -462,7 +469,7 @@ export default function TV() {
 const emitMoment = detail => { try { window.dispatchEvent(new CustomEvent('pw:moment', { detail })); } catch { /* ignore */ } };
 const emitClock = detail => { try { window.dispatchEvent(new CustomEvent('pw:clock', { detail })); } catch { /* ignore */ } };
 
-const FP_ROWS = 19; // rows per machine on the free-play board
+const FP_ROWS = 10; // rows per machine on the free-play board (same layout as the tournament: prizes + QR below)
 
 // Tournament clock takeovers: 5…1 minutes before the start, 15/10/5…1 before the end, then the start
 // and end cards. Each fires once (remembered in this browser) and only near its time, so a TV that
