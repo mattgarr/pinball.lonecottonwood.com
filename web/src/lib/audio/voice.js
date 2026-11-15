@@ -112,7 +112,7 @@ function out() {
   return gain;
 }
 export function setVoiceVolume(v) {
-  vol = Math.max(0, Math.min(1.5, Number(v) || 0));
+  vol = Math.max(0, Math.min(2.2, Number(v) || 0)); // up to 1.5 on the card × the 1.4 boost
   const ctx = audioCtx();
   if (gain && ctx) gain.gain.setTargetAtTime(vol, ctx.currentTime, 0.05);
 }

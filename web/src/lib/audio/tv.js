@@ -192,11 +192,15 @@ function createHost() {
     },
   };
 
+  // Everything 40% louder than the host card's percentages (Matt, party night: 100% wasn't loud enough).
+  // Music is capped at Spotify's maximum.
+  const BOOST = 1.4;
+
   // ---------- the director ----------
   const director = new AudioDirector({
     settings,
     out: {
-      music: (v, ms) => { note('music', { v, ms }); music.setLevel(v, ms); emit(); },
+      music: (v, ms) => { note('music', { v, ms }); music.setLevel(Math.min(1, v * BOOST), ms); emit(); },
       pauseMusic: () => { if (music.isPlaying()) { const was = wantPlaying; music.pause(); wantPlaying = was; } },
       resumeMusic: () => { if (wantPlaying || settings.autoplay) music.resume(); },
       isPlaying: () => music.isPlaying() || wantPlaying,
@@ -215,8 +219,8 @@ function createHost() {
       stopSounds: () => { stopSounds(); stopVoice(); },
       levels: ({ fx, voice }) => {
         const c = audioCtx(), b = fxBus();
-        if (c && b) b.gain.setTargetAtTime(fx, c.currentTime, 0.05);
-        setVoiceVolume(voice);
+        if (c && b) b.gain.setTargetAtTime(fx * BOOST, c.currentTime, 0.05);
+        setVoiceVolume(voice * BOOST);
       },
     },
   });
