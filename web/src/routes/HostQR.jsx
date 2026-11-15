@@ -17,6 +17,40 @@ export default function HostQR() {
     return <div className="qr-sheet"><p className="qr-sheet-note">{err ? `Couldn't load the party key: ${err}` : 'Loading…'}</p></div>;
   }
   const key = access.key;
+  // ?each: one printed page per machine (big QR + how-to), plus a welcome page with the join QR.
+  if (new URLSearchParams(location.search).has('each')) {
+    const steps = [
+      ['Scan', 'Point your phone camera at the code and tap the link.'],
+      ['Join', 'First time? Pick a nickname and a 4-digit PIN, and snap a selfie for your 8-bit portrait.'],
+      ['Play', 'Play this machine as often as you like.'],
+      ['Log it', 'When your game ends, tap Log score and snap a photo of the score (or type it in).'],
+      ['Watch', 'Your score goes up on the big screen. Prizes at the end of the night!'],
+    ];
+    return (
+      <div className="qr-sheet qr-each">
+        <section className="qr-page">
+          <div className="qr-page-title">The Ultimate Woodside Pinball Tournament</div>
+          <div className="qr-page-when">Free play from 6:00 · Tournament 6:30–9:00 PM · Awards after</div>
+          <QR value={partyUrl('/', key)} size={340} />
+          <div className="qr-page-url">{host}</div>
+          {showPass && <div className="qr-page-sub">No camera? Go to {host} and type the party password: <b>{access.password}</b></div>}
+          <ol className="qr-steps">{steps.map(([t, d]) => <li key={t}><b>{t}.</b> {d}</li>)}</ol>
+          <div className="qr-page-sub">Already joined on another phone? Tap "I already joined" and use your nickname + PIN.</div>
+        </section>
+        {machines.map(m => (
+          <section key={m.id} className="qr-page">
+            <div className="qr-page-title">{m.name}</div>
+            <div className="qr-page-sub">{m.manufacturer} · {m.year}</div>
+            <div className="qr-page-when">Scan to log your {m.name} score</div>
+            <QR value={partyUrl(`/machine/${m.id}`, key)} size={340} />
+            <div className="qr-page-url">{host}/machine/{m.id}</div>
+            <ol className="qr-steps">{steps.map(([t, d]) => <li key={t}><b>{t}.</b> {d}</li>)}</ol>
+            <div className="qr-page-sub">Tournament 6:30–9:00 PM · one score per game · have fun!</div>
+          </section>
+        ))}
+      </div>
+    );
+  }
   return (
     <div className="qr-sheet">
       <div className="qr-sheet-join">
