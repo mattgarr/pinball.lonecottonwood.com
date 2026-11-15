@@ -17,6 +17,31 @@ export default function HostQR() {
     return <div className="qr-sheet"><p className="qr-sheet-note">{err ? `Couldn't load the party key: ${err}` : 'Loading…'}</p></div>;
   }
   const key = access.key;
+  // ?cards: six apron cards on one letter sheet (2 x 3, cut lines), one per machine.
+  if (new URLSearchParams(location.search).has('cards')) {
+    return (
+      <div className="qr-sheet apron-sheet">
+        {machines.slice(0, 6).map(m => (
+          <div key={m.id} className="apron-card">
+            <div className="apron-head">
+              <div className="apron-title">{m.name}</div>
+              <div className="apron-sub">Woodside Pinball · Tournament 6:30–9:00 PM</div>
+            </div>
+            <div className="apron-body">
+              <QR value={partyUrl(`/machine/${m.id}`, key)} size={150} />
+              <ol className="apron-steps">
+                <li><b>Scan</b> with your phone camera</li>
+                <li><b>Join</b> (first time): nickname, PIN, selfie</li>
+                <li><b>Play</b> {m.name}</li>
+                <li><b>Log it</b>: tap Log score, snap the score</li>
+              </ol>
+            </div>
+            <div className="apron-foot">Watch the big screen · Prizes at the end of the night!</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
   // ?each: one printed page per machine (big QR + how-to), plus a welcome page with the join QR.
   if (new URLSearchParams(location.search).has('each')) {
     const steps = [
