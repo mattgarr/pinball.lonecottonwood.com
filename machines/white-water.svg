@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" preserveAspectRatio="xMidYMid slice" font-family="'Arial Black','Helvetica Neue',Helvetica,sans-serif">
+  <defs>
+    <linearGradient id="wwBg" x1="0" y1="0" x2="0.5" y2="1">
+      <stop offset="0" stop-color="#0c3b66"/>
+      <stop offset="0.6" stop-color="#1769a8"/>
+      <stop offset="1" stop-color="#3aa0d6"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="300" fill="url(#wwBg)"/>
+  <!-- foamy rapids chevrons -->
+  <g fill="#eafaff" fill-opacity="0.85">
+    <path d="M360 250 l28 -26 l28 26 l28 -26 l28 26 l28 -26 l28 26 l28 -26 l28 26 l28 -26 l28 26 l0 36 l-340 0 Z" fill-opacity="0.9"/>
+  </g>
+  <g fill="#bfe9ff" fill-opacity="0.5">
+    <path d="M360 224 l28 -24 l28 24 l28 -24 l28 24 l28 -24 l28 24 l28 -24 l28 24 l28 -24 l28 24 l0 30 l-340 0 Z"/>
+  </g>
+  <!-- spray dots -->
+  <g fill="#ffffff">
+    <circle cx="470" cy="150" r="5" fill-opacity="0.6"/>
+    <circle cx="520" cy="130" r="7" fill-opacity="0.5"/>
+    <circle cx="560" cy="160" r="4" fill-opacity="0.5"/>
+    <circle cx="500" cy="172" r="3" fill-opacity="0.5"/>
+  </g>
+  <text x="38" y="138" fill="#ffffff" font-size="58" font-weight="900" letter-spacing="1">WHITE</text>
+  <text x="38" y="196" fill="#d7f3ff" font-size="58" font-weight="900" letter-spacing="1">WATER</text>
+  <text x="42" y="234" fill="#bfe4ff" font-size="19" letter-spacing="6">WILLIAMS · 1993 · DOT-MATRIX</text>
+</svg>
