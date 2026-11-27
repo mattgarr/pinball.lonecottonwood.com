@@ -11,6 +11,26 @@
 #include <stdio.h>
 #include <unistd.h>
 
+// "OUTPUT <transport> <name>" on stderr: where the sound goes now (AirPlay plays ~2 s late; the
+// listener keeps a speaker delay for each output). Printed at start and whenever the output changes.
+static void report_output(void) {
+  AudioObjectID out = kAudioObjectUnknown; UInt32 sz = sizeof(out);
+  AudioObjectPropertyAddress a = { kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain };
+  if (AudioObjectGetPropertyData(kAudioObjectSystemObject, &a, 0, NULL, &sz, &out) || out == kAudioObjectUnknown) return;
+  UInt32 tt = 0; sz = sizeof(tt);
+  AudioObjectPropertyAddress t = { kAudioDevicePropertyTransportType, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain };
+  AudioObjectGetPropertyData(out, &t, 0, NULL, &sz, &tt);
+  CFStringRef name = NULL; sz = sizeof(name);
+  AudioObjectPropertyAddress n = { kAudioObjectPropertyName, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain };
+  AudioObjectGetPropertyData(out, &n, 0, NULL, &sz, &name);
+  const char *kind = tt == kAudioDeviceTransportTypeAirPlay ? "airplay" : tt == kAudioDeviceTransportTypeBuiltIn ? "builtin"
+    : (tt == kAudioDeviceTransportTypeBluetooth || tt == kAudioDeviceTransportTypeBluetoothLE) ? "bluetooth"
+    : tt == kAudioDeviceTransportTypeHDMI || tt == kAudioDeviceTransportTypeDisplayPort ? "display" : "other";
+  fprintf(stderr, "OUTPUT %s %s\n", kind, name ? [(__bridge NSString *)name UTF8String] : "?");
+  fflush(stderr);
+  if (name) CFRelease(name);
+}
+
 static void die(const char *what, OSStatus e) { fprintf(stderr, "systap: %s failed (%d)\n", what, (int)e); exit(1); }
 
 int main(void) {
@@ -78,6 +98,10 @@ int main(void) {
     if (e) die("create io proc", e);
     e = AudioDeviceStart(dev, proc);
     if (e) die("start", e);
+
+    report_output();
+    AudioObjectPropertyAddress da = { kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain };
+    AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &da, dispatch_get_main_queue(), ^(UInt32 c, const AudioObjectPropertyAddress *x) { report_output(); });
 
     // Clean up on Ctrl-C / when the reader goes away.
     signal(SIGPIPE, SIG_IGN);

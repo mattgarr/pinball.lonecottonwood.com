@@ -2782,6 +2782,7 @@ button.link { background: none; border: 0; border-bottom: 2px dotted currentColo
 .lights-row { margin-top: 10px; }
 .lights-src { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 10px; }
 .lights-src button { width: 100%; padding-left: 6px; padding-right: 6px; white-space: nowrap; }
+.lights-calib { align-self: center; }
 .lights-bri { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
 .lights-bri input { flex: 1; }
 .lights-test { margin-top: 12px; }

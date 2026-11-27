@@ -16,12 +16,16 @@
 //   2. Beat pulse (when switched on from the host lights card): on each kick drum the room's ambient
 //      layers jump to full brightness and ease back. Only on the attract looks: house lights, the
 //      reveal, flashes and the sound-reactive looks are left alone.
-// The speakers are AirPlay, which plays ~2 s behind; `lag` (ms, set on the host lights card) delays
-// everything to match what you hear.
+// AirPlay speakers play ~2 s behind, the MacBook's own speakers hardly at all: a speaker delay (ms) is
+// kept for each output (by name) and the one for the output in use now applies automatically.
 //
-// Settings come from the retained MQTT message <channel>/beat: { on, lag }. This script reports on
-// <channel>/beat/status (retained): { running, at, level, beats }.
-import { readFileSync, existsSync, statSync } from 'node:fs';
+// Settings come from the retained MQTT message <channel>/beat: { on, lags: { <output name>: ms } }.
+// This script reports on <channel>/beat/status (retained): { running, at, level, beats, output, lag }.
+// "Measure speaker delay" on the host card (<channel>/beat/cmd { cmd: 'calibrate' }): the controller
+// streams what its own microphone hears (in the garage, at the lights) for 15 s, and the delay is where
+// that best lines up with what this laptop played. The result goes to <channel>/beat/calib and, when
+// the match is clear, becomes the speaker delay.
+import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { spawn, execFileSync } from 'node:child_process';
 import dgram from 'node:dgram';
 import mqtt from '../web/node_modules/mqtt/build/index.js';
@@ -52,7 +56,13 @@ for (let wait = 2000; !topic; wait = Math.min(wait * 2, 60000)) {
   catch (e) { console.log(new Date().toLocaleTimeString(), `waiting for the lights channel: ${e.message}`); await new Promise(r => setTimeout(r, wait)); }
 }
 
-let settings = { on: false, lag: 2000 }, gotSettings = false;
+let settings = { on: false, lags: {} }, gotSettings = false;
+// Where the sound goes now ({ kind, name }, from scripts/systap) and the delay that suits it.
+let out = null;
+const DEFAULT_LAG = { airplay: 2000, bluetooth: 250, display: 100, builtin: 0, other: 0 };
+const lagFor = o => (o ? settings.lags[o.name] ?? DEFAULT_LAG[o.kind] ?? 0 : settings.lags.AirPlay ?? DEFAULT_LAG.airplay);
+const lag = () => lagFor(out);
+const lagText = () => `${out ? out.name : 'the speakers'}: speaker delay ${(lag() / 1000).toFixed(2)} s`;
 let beats = 0, level = 0;
 const log = (...a) => console.log(new Date().toLocaleTimeString(), ...a);
 
@@ -66,8 +76,9 @@ setInterval(poll, 1500); await poll();
 // The controller's AudioReactive sync mode: 2 = receive this laptop's feed, 0 = its own microphone.
 // Re-applied until it sticks (the controller may be off, or rebooted since).
 let wantMode = 0, hasMode = null;
+let calibrating = false;
 async function applyMode() {
-  if (hasMode === wantMode) return;
+  if (calibrating || hasMode === wantMode) return;
   const mode = wantMode;
   try {
     const r = await fetch(`${WLED}/json/cfg`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ um: { AudioReactive: { sync: { port: 11988, mode } } } }), signal: AbortSignal.timeout(3000) });
@@ -90,20 +101,28 @@ function unrest() { if (resting && pulseOk()) post({ seg: BASE_SEGS.map(id => ({
 
 // --- MQTT: settings + status ---------------------------------------------------------------------
 const mq = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', { clientId: `beat-${Math.random().toString(16).slice(2, 8)}`, reconnectPeriod: 4000 });
-mq.on('connect', () => { mq.subscribe(`${topic}/beat`); log('connected to the lights channel'); });
+mq.on('connect', () => { mq.subscribe([`${topic}/beat`, `${topic}/beat/cmd`]); log('connected to the lights channel'); });
 mq.on('message', (t, m) => {
+  if (t.endsWith('/beat/cmd')) {
+    try { const c = JSON.parse(m.toString()); if (c?.cmd === 'calibrate' && Date.now() - (c.at || 0) < 15000) calibrate(); } catch { /* ignore */ }
+    return;
+  }
   try {
     const s = JSON.parse(m.toString());
     const was = settings.on;
-    settings = { on: !!s.on, lag: Math.max(0, Math.min(5000, Number(s.lag) || 0)) };
-    if (was !== settings.on || !gotSettings) log(settings.on ? `sound for the lights: this laptop (speaker delay ${settings.lag} ms)` : 'sound for the lights: the controller mic (idle)');
+    const lags = {};
+    const clamp = v => Math.max(0, Math.min(5000, Math.round(Number(v) || 0)));
+    if (s.lags && typeof s.lags === 'object') for (const [k, v] of Object.entries(s.lags)) if (Number.isFinite(Number(v))) lags[k] = clamp(v);
+    else if (Number.isFinite(Number(s.lag))) lags.AirPlay = clamp(s.lag); // older host page: one delay, for AirPlay
+    settings = { on: !!s.on, lags };
+    if (was !== settings.on || !gotSettings) log(settings.on ? `sound for the lights: this laptop (${lagText()})` : 'sound for the lights: the controller mic (idle)');
     gotSettings = true;
     if (was && !settings.on) unrest();
     wantMode = settings.on ? 2 : 0; applyMode();
     if (settings.on) startCapture(); else stopCapture();
   } catch { /* ignore */ }
 });
-const status = () => mq.connected && mq.publish(`${topic}/beat/status`, JSON.stringify({ running: true, at: Date.now(), level: Math.round(level), beats, on: settings.on, lag: settings.lag, capturing: !!cap }), { retain: true });
+const status = () => mq.connected && mq.publish(`${topic}/beat/status`, JSON.stringify({ running: true, at: Date.now(), level: Math.round(level), beats, on: settings.on, lag: lag(), output: out, capturing: !!cap }), { retain: true });
 setInterval(status, 5000);
 
 // --- audio analysis ------------------------------------------------------------------------------
@@ -140,10 +159,88 @@ function sendSync(raw, smth, peak, bands, mag, peakHz) {
   sock.send(b, 11988, '239.0.0.1');
 }
 
+// --- speaker delay calibration --------------------------------------------------------------------
+const CAL_MS = 15000, BIN = 10, MAX_LAG = 3500;
+// The controller's mic reading and its packet reach us ~25 ms after the sound; a light change lands
+// ~35 ms after we send it. Both are taken off the measured delay.
+const PATH_MS = 60;
+let cal = null; // { lap: [[t, rms]], mic: [[t, v]] } while measuring
+const calMsg = msg => mq.publish(`${topic}/beat/calib`, JSON.stringify({ at: Date.now(), ...msg }), { retain: true });
+async function calibrate() {
+  if (cal || calibrating) return;
+  if (!cap) { calMsg({ ok: false, msg: 'Pick Laptop sound and play some music first.' }); return; }
+  calibrating = true;
+  log('measuring the speaker delay…');
+  calMsg({ running: true, msg: 'Listening… keep the music playing (15 s).' });
+  const ctl = new URL(WLED).hostname;
+  const rx = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+  const mic = [];
+  rx.on('message', (b, r) => { if (r.address === ctl && b.length >= 44 && b.toString('ascii', 0, 5) === '00002') mic.push([Date.now(), b.readFloatLE(8)]); });
+  rx.on('error', () => {});
+  await new Promise(res => rx.bind(11988, () => { try { rx.addMembership('239.0.0.1'); } catch { /* ignore */ } res(); }));
+  const setMode = mode => fetch(`${WLED}/json/cfg`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ um: { AudioReactive: { sync: { port: 11988, mode } } } }), signal: AbortSignal.timeout(3000) }).catch(() => null);
+  hasMode = null; await setMode(1); // the controller sends its mic for a moment
+  await new Promise(r => setTimeout(r, 1000));
+  mic.length = 0; cal = { lap: [] };
+  await new Promise(r => setTimeout(r, CAL_MS));
+  const lap = cal.lap; cal = null;
+  try { rx.close(); } catch { /* ignore */ }
+  calibrating = false; applyMode(); // back to receiving this laptop
+  try { writeFileSync(`${process.env.HOME}/Library/Logs/Garage Lights Listener calibration.json`, JSON.stringify({ lap, mic })); } catch { /* ignore */ }
+  const res = alignDelay(lap, mic);
+  log(`speaker delay: ${res.msg}`);
+  if (res.ok && out) {
+    settings = { ...settings, lags: { ...settings.lags, [out.name]: res.lag } };
+    mq.publish(`${topic}/beat`, JSON.stringify({ ...settings, at: Date.now() }), { retain: true, qos: 1 });
+    res.msg = `${out.name}: the garage hears the music ${(res.heard / 1000).toFixed(2)} s after the laptop plays it, so the speaker delay for ${out.name} is now ${(res.lag / 1000).toFixed(2)} s.`;
+  }
+  calMsg({ ...res, output: out });
+}
+// Loudness over time (10 ms bins, smoothed over 50 ms) on both sides; the delay is the shift (0–3.5 s)
+// where they correlate best. (Onsets were tried: the controller's ~30 readings a second are too coarse.)
+function envelope(samples, t0, n) {
+  const e = new Float64Array(n), c = new Uint16Array(n);
+  for (const [t, v] of samples) { const i = Math.floor((t - t0) / BIN); if (i >= 0 && i < n) { e[i] += v; c[i]++; } }
+  let last = 0;
+  for (let i = 0; i < n; i++) { if (c[i]) last = e[i] / c[i]; e[i] = last; }
+  const o = new Float64Array(n);
+  for (let i = 0; i < n; i++) { let s = 0, k = 0; for (let j = Math.max(0, i - 2); j <= Math.min(n - 1, i + 2); j++) { s += e[j]; k++; } o[i] = s / k; }
+  return o;
+}
+function pearson(a, b, k) {
+  const m = a.length - k; let sa = 0, sb = 0;
+  for (let i = 0; i < m; i++) { sa += a[i]; sb += b[i + k]; }
+  sa /= m; sb /= m;
+  let num = 0, da = 0, db = 0;
+  for (let i = 0; i < m; i++) { const x = a[i] - sa, y = b[i + k] - sb; num += x * y; da += x * x; db += y * y; }
+  return num / (Math.sqrt(da * db) || 1);
+}
+function alignDelay(lap, mic) {
+  if (mic.length < 200) return { ok: false, msg: 'The controller\'s mic wasn\'t heard (is the controller on?).' };
+  const loud = lap.filter(([, v]) => v > 0.01).length;
+  if (loud < lap.length * 0.3) return { ok: false, msg: 'Too quiet: play some music on the laptop, then measure again.' };
+  const t0 = Math.min(lap[0][0], mic[0][0]), n = Math.ceil((Math.max(lap.at(-1)[0], mic.at(-1)[0]) - t0) / BIN) + 1;
+  const a = envelope(lap, t0, n), b = envelope(mic, t0, n);
+  const L = Math.min(Math.floor(MAX_LAG / BIN), n - 500), score = new Float64Array(L + 1);
+  for (let k = 0; k <= L; k++) score[k] = pearson(a, b, k);
+  let best = 0; for (let k = 1; k <= L; k++) if (score[k] > score[best]) best = k;
+  // How clearly the best shift beats every shift more than 300 ms away from it.
+  let other = -1; for (let k = 0; k <= L; k++) if (Math.abs(k - best) > 30) other = Math.max(other, score[k]);
+  const clear = score[best] / Math.max(other, 0.05);
+  const heard = best * BIN;
+  const lag = Math.max(0, Math.min(3000, Math.round((heard - PATH_MS) / 10) * 10));
+  const r = Math.round(score[best] * 100) / 100, c = Math.round(clear * 100) / 100;
+  // Songs repeat on the beat, so other shifts score well too: a strong match needs less of a lead.
+  return (score[best] > 0.45 && clear > 1.1) || (score[best] > 0.35 && clear > 1.3)
+    ? { ok: true, lag, heard, r, clear: c, msg: `the garage hears the music ${(heard / 1000).toFixed(2)} s after the laptop plays it: speaker delay ${(lag / 1000).toFixed(2)} s.` }
+    : { ok: false, heard, r, clear: c, msg: 'Couldn\'t line it up clearly: play something with a strong beat, a bit louder, and measure again.' };
+}
+
 function analyze(samples) {
   let rms = 0;
   for (let i = 0; i < N; i++) { const v = samples[i] / 32768; rms += v * v; re[i] = v * hann[i]; im[i] = 0; }
   rms = Math.sqrt(rms / N);
+  if (cal) cal.lap.push([Date.now(), rms]);
   fft();
   const mags = new Float64Array(N / 2);
   let peakBin = 1, peakMag = 0;
@@ -163,8 +260,9 @@ function analyze(samples) {
   const beat = bass > bassAvg * 1.5 && bass > agc * 0.6 && now - lastBeat > 250;
   bassAvg = bassAvg * 0.95 + bass * 0.05;
   if (beat) { lastBeat = now; beats++; }
-  const out = () => { sendSync(vol, smooth, beat, bands, peakMag, peakBin * HZ); if (beat) kick(); };
-  if (settings.lag > 0) setTimeout(out, settings.lag); else out();
+  const send = () => { sendSync(vol, smooth, beat, bands, peakMag, peakBin * HZ); if (beat) kick(); };
+  const ms = lag();
+  if (ms > 0) setTimeout(send, ms); else send();
   if (DEBUG && frameCounter % 20 === 0) log(`vol ${vol.toFixed(0).padStart(3)} bands ${bands.map(v => String(v).padStart(3)).join('')}${beat ? '  BEAT' : ''}`);
 }
 
@@ -196,7 +294,16 @@ function startCapture() {
       analyze(frame);
     }
   });
-  sox.stderr.on('data', d => { const m = /RATE (\d+)/.exec(d.toString()); if (m) setRate(Number(m[1])); else if (DEBUG) process.stderr.write(d); });
+  sox.stderr.on('data', d => {
+    for (const line of d.toString().split('\n')) {
+      let m;
+      if ((m = /^RATE (\d+)/.exec(line))) setRate(Number(m[1]));
+      else if ((m = /^OUTPUT (\S+) (.+)$/.exec(line))) {
+        const next = { kind: m[1], name: m[2].trim() };
+        if (next.name !== out?.name) { out = next; log(`sound goes to ${lagText()}`); status(); }
+      } else if (DEBUG && line) process.stderr.write(line + '\n');
+    }
+  });
   sox.on('exit', code => {
     if (cap !== sox) return; // stopped on purpose
     cap = null; log(`audio capture stopped (${code}); restarting in 3 s`);

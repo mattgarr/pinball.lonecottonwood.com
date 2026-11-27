@@ -29,13 +29,21 @@ export default function LightsPanel({ busy, run }) {
   const dimTimer = useRef(null);
 
   // Beat pulse (scripts/music-sync.mjs on the laptop): settings retained on the broker, its status too.
-  const [beat, setBeat] = useState({ on: false, lag: 2000 });
+  // A speaker delay is kept per output (AirPlay plays ~2 s late, the MacBook's speakers hardly at all);
+  // the listener reports which output is in use and measures the delay with the controller's mic.
+  const [beat, setBeat] = useState({ on: false, lags: {} });
   const [listener, setListener] = useState(null);
+  const [calib, setCalib] = useState(null);
   const lagTimer = useRef(null);
   useEffect(() => {
-    const a = subscribe('beat', m => { if (m && typeof m === 'object') setBeat({ on: !!m.on, lag: Number(m.lag) || 0 }); });
+    const a = subscribe('beat', m => {
+      if (!m || typeof m !== 'object') return;
+      const lags = m.lags && typeof m.lags === 'object' ? m.lags : Number.isFinite(Number(m.lag)) ? { AirPlay: Number(m.lag) } : {};
+      setBeat({ on: !!m.on, lags });
+    });
     const b = subscribe('beat/status', m => setListener(m && typeof m === 'object' ? m : null));
-    return () => { a(); b(); };
+    const c = subscribe('beat/calib', m => setCalib(m && typeof m === 'object' ? m : null));
+    return () => { a(); b(); c(); };
   }, []);
   const saveBeat = (next, later = false) => {
     setBeat(next);
@@ -44,6 +52,14 @@ export default function LightsPanel({ busy, run }) {
     if (later) lagTimer.current = setTimeout(go, 400); else go();
   };
 
+  const listening = !!(listener?.running && now - (listener.at || 0) < 20000);
+  const outName = listening ? listener.output?.name || '' : '';
+  const lagOk = beat.on && listening && !!outName;
+  const lag = lagOk ? Number(beat.lags[outName] ?? listener.lag ?? 0) : 0;
+  const measuring = !!(calib?.running && now - (calib.at || 0) < 25000);
+  const calibText = measuring ? 'Listening… keep the music playing.'
+    : calib && now - (calib.at || 0) < 10 * 60000 ? (calib.ok ? `Measured: ${(calib.heard / 1000).toFixed(2)} s late on ${calib.output?.name || 'the speakers'}.` : calib.msg)
+      : lagOk ? (beat.lags[outName] != null ? 'Saved for this output.' : 'Not measured yet for this output.') : '';
   const [topic, setTopic] = useState(lightsTopic());
   useEffect(() => { ensureLightsTopic().then(t => setTopic(t)); return onLightsTopic(setTopic); }, []);
   useEffect(() => {
@@ -155,13 +171,20 @@ export default function LightsPanel({ busy, run }) {
           <button type="button" className={beat.on ? 'primary' : 'secondary'} aria-pressed={beat.on} onClick={() => !beat.on && saveBeat({ ...beat, on: true })}>Laptop sound</button>
         </div>
         <label className="lights-dimmer-head" htmlFor="beat-lag">
-          <span>Speaker delay</span>
-          <span className="lights-dimmer-val">{beat.on ? `${(beat.lag / 1000).toFixed(1)} s` : 'n/a'}</span>
+          <span>Speaker delay{beat.on && outName ? ` · ${outName}` : ''}</span>
+          <span className="lights-dimmer-val">{lagOk ? `${(lag / 1000).toFixed(2)} s` : 'n/a'}</span>
         </label>
-        <input id="beat-lag" type="range" min={0} max={3000} step={100} value={beat.lag} disabled={!beat.on}
-          aria-valuetext={`${(beat.lag / 1000).toFixed(1)} seconds`} onChange={e => saveBeat({ ...beat, lag: Number(e.target.value) }, true)} />
+        <input id="beat-lag" type="range" min={0} max={3000} step={10} value={lag} disabled={!lagOk}
+          aria-valuetext={`${(lag / 1000).toFixed(2)} seconds`} onChange={e => saveBeat({ ...beat, lags: { ...beat.lags, [outName]: Number(e.target.value) } }, true)} />
+        <div className="lights-src">
+          <button type="button" className="secondary" disabled={!lagOk || measuring}
+            onClick={() => { setCalib({ running: true, at: Date.now(), msg: 'Listening… keep the music playing (15 s).' }); publish('beat/cmd', { cmd: 'calibrate', at: Date.now() }); }}>
+            {measuring ? 'Measuring…' : 'Measure delay'}
+          </button>
+          <span className="muted small lights-calib">{calibText}</span>
+        </div>
         <p className="muted small">{beat.on
-          ? <>The lights follow exactly what the laptop plays, and the attract looks brighten on every kick drum. If the pulses come before the beat you hear, add delay (AirPlay speakers play about 2 s late). {listener?.running && now - (listener.at || 0) < 20000
+          ? <>The lights follow exactly what the laptop plays, and the attract looks brighten on every kick drum. Each output keeps its own delay (AirPlay plays about 2 s late, the MacBook's speakers hardly at all) and the right one applies by itself. Measure delay plays nothing: with music on, the controller's mic in the garage listens for 15 s and sets it. {listening
             ? `Garage Lights Listener running on the laptop (${listener.beats ?? 0} beats heard).`
             : 'The Garage Lights Listener isn\'t running on the laptop, so the controller mic is used for now. Install it once with bash scripts/listener/install.sh (it then starts by itself at login).'}</>
           : 'The controller hears the room through its own microphone: nothing to run on the laptop. It also hears talking and cheering; for tighter beats, pick Laptop sound.'}</p>
