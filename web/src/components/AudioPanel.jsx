@@ -79,6 +79,10 @@ export default function AudioPanel() {
     if (immediate) go(); else sendTimer.current = setTimeout(go, 250);
   };
   const cmd = (c, extra = {}) => publish('audio/cmd', { cmd: c, at: Date.now(), ...extra });
+  // Spotify playlists made after the TV loaded only show up after a refresh: ask for one when this
+  // card finds the TV, and again (at most every 10 s) when someone opens the playlist picker.
+  const lastRefresh = useRef(0);
+  const refreshSoon = () => { if (Date.now() - lastRefresh.current > 10000) { lastRefresh.current = Date.now(); cmd('refresh'); } };
 
   const online = tv && !tv.off && now - (tv.at || 0) < FRESH_MS;
   const booth = online ? tv.booth : null;
@@ -86,6 +90,7 @@ export default function AudioPanel() {
   const dot = (ok, label) => <span className="lights-stat"><span className={`ls-dot ${ok === null ? 'idle' : ok ? 'ok' : 'bad'}`} />{label}</span>;
   const pct = v => Math.round((v ?? 0) * 100);
   const playlistOptions = lists?.playlists || [];
+  useEffect(() => { if (online && sp.login) refreshSoon(); }, [online, sp.login]); // eslint-disable-line react-hooks/exhaustive-deps
   const devices = lists?.devices || [];
   const preview = useRef(null);
   // Preview on this phone: the AI voice saying the sound-check line (the offline clip if it can't).
@@ -117,6 +122,7 @@ export default function AudioPanel() {
           ? <>
             <button type="button" className="primary" onClick={() => cmd(sp.playing ? 'pause' : 'play')}>{sp.playing ? 'Pause music' : 'Play music'}</button>
             <button type="button" className="secondary" onClick={() => cmd('next')}>Skip track</button>
+            <button type="button" className={settings.shuffle ? 'primary' : 'secondary'} aria-pressed={!!settings.shuffle} onClick={() => { change({ shuffle: !settings.shuffle }, { now: true }); say(settings.shuffle ? 'Shuffle off: the playlist plays in order.' : 'Shuffle on.'); }}>{settings.shuffle ? 'Shuffle: on' : 'Shuffle: off'}</button>
             <button type="button" className="secondary" onClick={() => { cmd('refresh'); say('Asked the TV for playlists and devices.'); }}>Refresh lists</button>
           </>
           : <button type="button" className="primary" disabled={!online} onClick={() => { cmd('connect'); say('The TV is opening Spotify: finish the login on the Mac (click Agree).'); }}>Connect Spotify on the TV</button>}
@@ -125,7 +131,7 @@ export default function AudioPanel() {
       <div className="audio-field">
         <label htmlFor="audio-pl">Playlist</label>
         <div className="audio-line">
-          <select id="audio-pl" value={settings.playlist || ''} onChange={e => {
+          <select id="audio-pl" value={settings.playlist || ''} onFocus={refreshSoon} onPointerDown={refreshSoon} onChange={e => {
             const p = playlistOptions.find(x => x.uri === e.target.value);
             change({ playlist: e.target.value, playlistName: p?.name || '' }, { now: true });
             if (e.target.value) cmd('playlist', { uri: e.target.value, name: p?.name || '' });
@@ -327,7 +333,6 @@ export default function AudioPanel() {
         </div>
         <div className="audio-btns">
           <button type="button" className="secondary" onClick={() => change({ autoplay: !settings.autoplay }, { now: true })}>{settings.autoplay ? 'Autoplay: on' : 'Autoplay: off'}</button>
-          <button type="button" className="secondary" onClick={() => change({ shuffle: !settings.shuffle }, { now: true })}>{settings.shuffle ? 'Shuffle: on' : 'Shuffle: off'}</button>
           {sp.login && <button type="button" className="ghost" onClick={() => cmd('connect')}>Reconnect Spotify</button>}
           {sp.login && <button type="button" className="ghost danger" onClick={() => cmd('disconnect')}>Disconnect</button>}
         </div>

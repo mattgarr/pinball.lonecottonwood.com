@@ -166,6 +166,11 @@ function createHost() {
       if (deviceMode()) await sp.api('POST', `/me/player/previous?device_id=${encodeURIComponent(settings.output)}`).catch(() => {});
       else await player?.previousTrack().catch(() => {});
     },
+    // Spotify's shuffle follows the host card's switch (on or off), on whatever is playing now.
+    async setShuffle(dev = deviceMode() ? settings.output : deviceId) {
+      if (!sp.hasLogin() || !dev) return;
+      await sp.api('PUT', `/me/player/shuffle?state=${settings.shuffle ? 'true' : 'false'}&device_id=${encodeURIComponent(dev)}`).catch(() => {});
+    },
     // Play the chosen playlist on the chosen output. Resumes where it left off if that playlist
     // was already the one playing (a TV reload doesn't restart it from the top).
     async start({ restart = false } = {}) {
@@ -175,7 +180,7 @@ function createHost() {
       wantPlaying = true;
       try {
         const now = await sp.api('GET', '/me/player').catch(() => null);
-        if (settings.shuffle) await sp.api('PUT', `/me/player/shuffle?state=true&device_id=${encodeURIComponent(dev)}`).catch(() => {});
+        await this.setShuffle(dev);
         const same = now?.context?.uri && now.context.uri === settings.playlist;
         // A brand-new browser player can take a moment to be known to Spotify: one retry on 404.
         const retry = async f => { try { return await f(); } catch (e) { if (e.status !== 404) throw e; await new Promise(r => setTimeout(r, 1500)); return f(); } };
@@ -252,6 +257,7 @@ function createHost() {
     else if (fromHost && boothPlaying && (settings.boothOn === false || (settings.boothShort && !prev.boothShort))) { stopVoice(); boothPlaying = null; emitBooth(); }
     if (fromHost) {
       if (prev.muteAll && !settings.muteAll && !director.reveal) music.resume();
+      if (!!settings.shuffle !== !!prev.shuffle) music.setShuffle();
       const outChanged = settings.output !== prev.output;
       if (outChanged) {
         if (deviceMode()) player?.pause().catch(() => {});
