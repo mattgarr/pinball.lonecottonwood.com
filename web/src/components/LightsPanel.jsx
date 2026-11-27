@@ -150,7 +150,7 @@ export default function LightsPanel({ busy, run }) {
       <p className="muted small">Music mode listens to the sound source below. Score and champion flashes still play on top.</p>
       <div className="lights-dimmer">
         <div className="muted small">Sound for the lights</div>
-        <div className="row gap lights-row">
+        <div className="lights-src">
           <button type="button" className={beat.on ? 'secondary' : 'primary'} aria-pressed={!beat.on} onClick={() => beat.on && saveBeat({ ...beat, on: false })}>Controller mic</button>
           <button type="button" className={beat.on ? 'primary' : 'secondary'} aria-pressed={beat.on} onClick={() => !beat.on && saveBeat({ ...beat, on: true })}>Laptop sound</button>
         </div>
