@@ -103,7 +103,7 @@ function fft() {
 // 16 bands, log-spaced 43 Hz – 9 kHz like WLED's GEQ (bin = 43 Hz at 22050/512).
 const HZ = RATE / N;
 const edges = Array.from({ length: 17 }, (_, i) => Math.max(1, Math.round((43 * Math.pow(9000 / 43, i / 16)) / HZ)));
-let agc = 1e-3, bassAvg = 0, lastBeat = 0, frameCounter = 0, smooth = 0;
+let agc = 1e-3, rmsAgc = 1e-4, bassAvg = 0, lastBeat = 0, frameCounter = 0, smooth = 0;
 
 const sock = dgram.createSocket('udp4');
 sock.bind(() => { try { sock.setMulticastTTL(2); } catch { /* ignore */ } });
@@ -130,7 +130,9 @@ function analyze(samples) {
   // Automatic gain: the loudest band recently maps to ~255 (slow decay so quiet songs still move).
   agc = Math.max(Math.max(...raw), agc * 0.9985, 1e-3);
   const bands = raw.map(m => Math.min(255, Math.round((255 * m) / agc)));
-  const vol = Math.min(255, rms * 255 * 4 * (0.05 / Math.max(agc / 40, 0.01)));
+  // Volume: the loudest moment recently maps to ~255 (same slow-decay gain as the bands).
+  rmsAgc = Math.max(rms, rmsAgc * 0.9985, 1e-4);
+  const vol = Math.min(255, (255 * rms) / rmsAgc);
   smooth = smooth * 0.8 + vol * 0.2; level = smooth;
   // Kick: bass (≈43–170 Hz) jumps well above its recent average, at most ~4 per second.
   const bass = mags.slice(1, 5).reduce((s, v) => s + v, 0);
