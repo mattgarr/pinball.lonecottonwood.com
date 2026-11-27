@@ -16,7 +16,7 @@ const MERGE_MS = 50;
 const KEEP_OFF_MS = 5000;
 const SEG_GAP_MS = 1000;
 
-export const DUR = { score: 3000, champion: 5000, leader: 4000, open: 4000, ranked: 3500, shame: 4500 };
+export const DUR = { score: 3000, champion: 5000, leader: 4000, open: 4000, ranked: 3500, shame: 4500, spotlight: 7000 };
 
 export class LightsEngine {
   constructor({ send, cfg = LIGHTS, zones = null, timeScale = 1, music = null, dimmer = null, log = () => {} } = {}) {
@@ -348,6 +348,27 @@ export class LightsEngine {
     const chase = this.themeChase(machineId, color); // top and curb together: one tall column of light
     if (this.cfg.whiteFlash?.champion) this.sequence([s.top, s.curb], this.whiteFlashSteps(chase), 3, DUR.champion);
     else for (const id of [s.top, s.curb]) this.effect(id, chase, 3, DUR.champion);
+  }
+
+  // The TV puts one table on screen (an attract spotlight card): that machine's column sweeps out from
+  // its center in its colors and then plays a pattern for the card, while the whole room breathes
+  // slowly in the machine's own colors. kind: 'tip' (table spotlight), 'open' (wide-open table),
+  // 'crown' (crown bounty: gold and white join the chase), 'rivalry' (the two players' colors).
+  // Priority 2: a score on that table doesn't cut it short; a new high score (3) does.
+  spotlight(machineId, kind = 'tip', colors = []) {
+    if (this.blocked(2)) return;
+    const s = this.machineSegs(machineId);
+    if (!s) return;
+    const th = this.theme(machineId, this.cfg.partyBase.col[0]);
+    const sweep = { fx: this.fx('Wipe'), sx: 190, ix: 128, bri: 255, col: [th[0], th[1]] };
+    const gold = this.cfg.milestoneGold || [255, 190, 0, 0];
+    const pattern = kind === 'open' ? { fx: this.fx('Running'), sx: 200, ix: 128, bri: 255, col: [th[0], th[1]] } // "come play me"
+      : kind === 'crown' ? { ...this.themeChase(machineId, th[0], 160), col: [gold, th[0], this.cfg.houseWhite] }
+      : kind === 'rivalry' && colors.length >= 2 ? { ...this.themeChase(machineId, th[0], 170), col: [colors[0], colors[1], th[0]] }
+      : this.themeChase(machineId, th[0], 150);
+    this.sequence([s.top, s.curb], [[0, sweep], [1200, pattern]], 2, DUR.spotlight - 1200);
+    const room = { fx: this.fx('Breathe'), sx: 60, ix: 128, bri: 170, col: [th[0], th[1]] };
+    for (const id of this.baseSegs()) this.effect(id, room, 2, DUR.spotlight);
   }
 
   // A player unlocks their overall ranking: the room breathes once in their color.

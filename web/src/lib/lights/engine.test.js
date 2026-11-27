@@ -54,6 +54,24 @@ describe('lights engine', () => {
     expect(last(11).on).toBe(false);
   });
 
+  it('a table spotlight sweeps then chases that machine in its colors, the room breathes in them, then all restores', () => {
+    e.start();
+    const th = LIGHTS.machineThemes[WHIRLWIND].colors;
+    e.spotlight(WHIRLWIND, 'open');
+    vi.advanceTimersByTime(100);
+    expect(segsFor(11).at(-1)).toMatchObject({ on: true, fx: LIGHTS.effects.Wipe, col: [th[0], th[1]] });
+    expect(segsFor(4).at(-1).fx).toBe(LIGHTS.effects.Wipe);
+    expect(segsFor(0).at(-1)).toMatchObject({ fx: LIGHTS.effects.Breathe, col: [th[0], th[1]] });
+    vi.advanceTimersByTime(1300);
+    expect(segsFor(11).at(-1).fx).toBe(LIGHTS.effects.Running);
+    e.score(WHIRLWIND, MAG); // a score on that table doesn't cut it short
+    vi.advanceTimersByTime(1100);
+    expect(segsFor(11).at(-1).fx).toBe(LIGHTS.effects.Running);
+    vi.advanceTimersByTime(6000);
+    expect(segsFor(11).at(-1).on).toBe(false);
+    expect(segsFor(0).at(-1).fx).toBe(LIGHTS.effects.Colorwaves);
+  });
+
   it('a score pulses that machine\'s curb zone within 1 s and restores it within 3.5 s', () => {
     e.score(WHIRLWIND, MAG);
     vi.advanceTimersByTime(100);

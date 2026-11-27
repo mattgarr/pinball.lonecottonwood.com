@@ -141,7 +141,9 @@ export function useLightsDirector({ settings, party, scores, players, standings,
   //   ranked takeover (a player unlocks their ranking) → the room breathes once in their color
   //   games milestone takeover → gold top ↔ curb bounce
   //   Wall of Shame note → the room sags to a slow dim red
-  //   attract spotlights and small notes (joins, PBs, climbs) → nothing: the cabinet pulse covers them
+  //   attract spotlight cards (table spotlight, open table, crown bounty, closest battle) → that machine
+  //     sweeps and chases in its colors while the room breathes in them
+  //   small notes (joins, PBs, climbs) → nothing: the cabinet pulse covers them
   const onHit = useCallback(hit => {
     const e = engineRef.current;
     if (e && hit?.machine) e.score(hit.machine.id, colorOf.current(hit.player?.id));
@@ -154,6 +156,11 @@ export function useLightsDirector({ settings, party, scores, players, standings,
     else if (tk.kind === 'leader') e.leader(c);
     else if (tk.kind === 'ranked') e.ranked(c);
     else if (tk.kind === 'milestone') e.milestone();
+    else if (tk.kind === 'spotlight' && tk.machine) {
+      const kind = tk.subkind === 'bounty' ? (tk.bountyType === 'open' ? 'open' : 'crown') : tk.subkind;
+      const colors = tk.subkind === 'rivalry' ? [tk.leader?.player?.id, tk.challenger?.player?.id].map(id => colorOf.current(id)) : [];
+      e.spotlight(tk.machine.id, kind, colors);
+    }
   }, []);
   const onToast = useCallback(t => {
     const e = engineRef.current;
@@ -197,6 +204,7 @@ export function runControl(e, msg) {
     case 'pingpong': e.pingPong(color); break;
     case 'ranked': e.ranked(color); break;
     case 'milestone': e.milestone(); break;
+    case 'spotlight': e.spotlight(msg.machineId, msg.kind || 'tip'); break;
     case 'shame': e.shame(); break;
     case 'open': e.partyOpen(); break;
     case 'close': e.stop(); break;
