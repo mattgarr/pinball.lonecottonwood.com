@@ -2,8 +2,10 @@
 //   node scripts/music-sync.mjs                 (runs until stopped; leave it going all night)
 //   node scripts/music-sync.mjs --debug         (prints levels and beats)
 //
-// Setup (once): the laptop's sound output is a Multi-Output Device = the speakers + "BlackHole 2ch",
-// so BlackHole hears exactly what plays. This script records BlackHole with sox (brew install sox), and:
+// It hears exactly what the laptop plays through scripts/systap (a Core Audio process tap, macOS 14.2+;
+// built on first run). Nothing about the sound output changes: the music stays on the AirPlay speakers.
+// The first run asks to let Terminal record system audio (Privacy & Security → Screen & System Audio
+// Recording). (AUDIO_DEVICE="BlackHole 2ch" records that device with sox instead.) Then it:
 //   1. Sends WLED "Audio Sync" packets (v2, UDP multicast 239.0.0.1:11988, ~45/s) so every sound-reactive
 //      effect (Music mode) follows the song instead of the controller's mic. The controller's
 //      AudioReactive sync mode is set to Receive.
@@ -15,7 +17,7 @@
 //
 // Settings come from the retained MQTT message <channel>/beat: { on, lag }. This script reports on
 // <channel>/beat/status (retained): { running, at, level, beats }.
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
 import { spawn, execFileSync } from 'node:child_process';
 import dgram from 'node:dgram';
 import mqtt from '../web/node_modules/mqtt/build/index.js';
@@ -26,8 +28,8 @@ const KEY = 'sb_publishable_7oGSOVFpRFVnJ5SeRcjYsQ_a6EQyojv';
 // Node can't always resolve .local names itself; ask macOS (falls back to the last known address).
 const wledIp = () => { try { return /ip_address: (\S+)/.exec(execFileSync('dscacheutil', ['-q', 'host', '-a', 'name', 'wled-garage.local'], { timeout: 4000 }).toString())?.[1]; } catch { return null; } };
 const WLED = process.env.WLED || `http://${wledIp() || '192.168.1.106'}`;
-const DEVICE = process.env.AUDIO_DEVICE || 'BlackHole 2ch';
-const RATE = 22050, FRAME = 512; // ~23 ms per analysis frame (43/s)
+const DEVICE = process.env.AUDIO_DEVICE || null; // null = the system audio tap
+let RATE = 22050; const FRAME = 512; // ~21–23 ms per analysis frame (43–47/s)
 const BASE_SEGS = [0, 1, 8]; // the ambient layers (walls + beam, beam band, curb)
 const REST_BRI = 150, KICK_BRI = 255; // beat pulse: resting level and the kick
 // Ambient looks the pulse may touch (WLED effect ids): Colorwaves, Plasma, Aurora, Flow, Twinklefox.
@@ -100,9 +102,10 @@ function fft() {
     }
   }
 }
-// 16 bands, log-spaced 43 Hz – 9 kHz like WLED's GEQ (bin = 43 Hz at 22050/512).
-const HZ = RATE / N;
-const edges = Array.from({ length: 17 }, (_, i) => Math.max(1, Math.round((43 * Math.pow(9000 / 43, i / 16)) / HZ)));
+// 16 bands, log-spaced 43 Hz – 9 kHz like WLED's GEQ (bin ≈ 43–47 Hz). Set once the rate is known.
+let HZ = RATE / N, edges = [];
+const setRate = r => { RATE = r; HZ = RATE / N; edges = Array.from({ length: 17 }, (_, i) => Math.max(1, Math.round((43 * Math.pow(9000 / 43, i / 16)) / HZ))); };
+setRate(RATE);
 let agc = 1e-3, rmsAgc = 1e-4, bassAvg = 0, lastBeat = 0, frameCounter = 0, smooth = 0;
 
 const sock = dgram.createSocket('udp4');
@@ -145,21 +148,33 @@ function analyze(samples) {
   if (DEBUG && frameCounter % 20 === 0) log(`vol ${vol.toFixed(0).padStart(3)} bands ${bands.map(v => String(v).padStart(3)).join('')}${beat ? '  BEAT' : ''}`);
 }
 
+const TAP = new URL('./systap', import.meta.url).pathname, TAP_SRC = new URL('./systap.m', import.meta.url).pathname;
+if (!DEVICE && (!existsSync(TAP) || statSync(TAP).mtimeMs < statSync(TAP_SRC).mtimeMs)) {
+  log('building the system audio tap…');
+  execFileSync('clang', ['-fobjc-arc', '-framework', 'CoreAudio', '-framework', 'Foundation', '-o', TAP, TAP_SRC], { stdio: 'inherit' });
+}
+let heard = 0, silentSince = Date.now(), warned = false;
+setInterval(() => { // nothing but silence for a while: most likely the recording permission
+  if (heard > 0) { heard = 0; silentSince = Date.now(); warned = false; return; }
+  if (!warned && Date.now() - silentSince > 20000) { warned = true; log('only silence so far. If music is playing: System Settings → Privacy & Security → Screen & System Audio Recording → allow Terminal (under "System Audio Recording Only"), then restart this.'); }
+}, 5000);
 function startCapture() {
-  const sox = spawn('sox', ['-q', '-t', 'coreaudio', DEVICE, '-t', 'raw', '-r', String(RATE), '-e', 'signed', '-b', '16', '-c', '1', '-'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const sox = DEVICE
+    ? spawn('sox', ['-q', '-t', 'coreaudio', DEVICE, '-t', 'raw', '-r', String(RATE), '-e', 'signed', '-b', '16', '-c', '1', '-'], { stdio: ['ignore', 'pipe', 'pipe'] })
+    : spawn(TAP, [], { stdio: ['ignore', 'pipe', 'pipe'] });
   let buf = Buffer.alloc(0);
   sox.stdout.on('data', d => {
     buf = Buffer.concat([buf, d]);
     while (buf.length >= N * 2) {
       const frame = new Int16Array(N);
-      for (let i = 0; i < N; i++) frame[i] = buf.readInt16LE(i * 2);
+      for (let i = 0; i < N; i++) { frame[i] = buf.readInt16LE(i * 2); if (frame[i] > 300 || frame[i] < -300) heard++; }
       buf = buf.subarray(N * 2);
       analyze(frame);
     }
   });
-  sox.stderr.on('data', d => DEBUG && process.stderr.write(d));
+  sox.stderr.on('data', d => { const m = /RATE (\d+)/.exec(d.toString()); if (m) setRate(Number(m[1])); else if (DEBUG) process.stderr.write(d); });
   sox.on('exit', code => { log(`audio capture stopped (${code}); restarting in 3 s`); setTimeout(startCapture, 3000); });
-  log(`listening to "${DEVICE}"`);
+  log(DEVICE ? `listening to "${DEVICE}"` : 'listening to everything this laptop plays');
 }
 startCapture();
 const bye = () => { unrest(); mq.publish(`${topic}/beat/status`, JSON.stringify({ running: false, at: Date.now() }), { retain: true }, () => process.exit(0)); setTimeout(() => process.exit(0), 1500); };
