@@ -66,7 +66,14 @@ export class LightsEngine {
   }
   // The ambient layers: whole top run, beam band (over the machines), curb. Band and curb always get
   // the same effect in the same message, so they run in lockstep, stacked.
-  baseSegs() { return [this.cfg.runs.top.baseSeg, this.cfg.runs.top.bandSeg, this.cfg.runs.curb.baseSeg]; }
+  // The ambient layers (plus the curb's right half while a split music look is up).
+  baseSegs() {
+    const { top, curb } = this.cfg.runs;
+    return this.splitApplied ? [top.baseSeg, top.bandSeg, curb.baseSeg, curb.splitSeg] : [top.baseSeg, top.bandSeg, curb.baseSeg];
+  }
+  musicLook() { return this.music ? this.cfg.music[this.music] : null; }
+  isSplit() { return !!(this.musicLook()?.split && this.cfg.runs.curb.splitSeg != null); }
+  layoutKey() { return `${this.musicShift()}|${this.isSplit()}`; }
   isBase(id) { return this.baseSegs().includes(id); }
   // An idle machine zone: switched off AND parked on an invisible pixel (WLED paints off segments black).
   offState(id) { return { id, ...parkOf(id, this.cfg), on: false }; }
@@ -86,7 +93,7 @@ export class LightsEngine {
     if (!this.isBase(id)) return this.machineRest(id);
     if (this.music) {
       const m = this.cfg.music[this.music];
-      return { id, on: true, fx: this.fx(this.music), sx: m.sx, ix: m.ix, pal: this.cfg.rainbowPal ?? 4, bri: 255, col: this.cfg.partyBase.col, grp: m.grp ?? 1 }; // music mode on the corrected rainbow
+      return { id, on: true, fx: this.fx(this.music), sx: m.sx, ix: m.ix, pal: m.pal ?? this.cfg.rainbowPal ?? 4, bri: 255, col: this.cfg.partyBase.col, grp: m.grp ?? 1 }; // music mode (default: the corrected rainbow)
     }
     const list = this.cfg.ambientCycle;
     if (list?.length) {
@@ -101,8 +108,8 @@ export class LightsEngine {
   // How far (pixels) the top run's middle sits right of the point center-out music looks start from
   // (between Cactus Canyon and Whirlwind): the base layers are rotated by this much while one is up.
   musicShift(zones = this.zones) {
-    const m = this.music && this.cfg.music[this.music];
-    const z = m?.center && zones?.top?.find(t => t.machineId === this.cfg.musicCenterAfter);
+    const m = this.musicLook();
+    const z = m?.center && !m.split && zones?.top?.find(t => t.machineId === this.cfg.musicCenterAfter);
     if (!z) return 0;
     const { top } = this.cfg.runs;
     return Math.floor((top.stop - top.start) / 2) + top.start - z.stop;
@@ -135,9 +142,9 @@ export class LightsEngine {
   // Music mode on (an effect name from cfg.music) or off (null). Layers at rest switch now; layers
   // busy with an effect switch when it ends.
   setMusic(name) {
-    const was = this.musicShift();
+    const was = this.layoutKey();
     this.music = name && this.cfg.music[name] ? name : null;
-    if (this.musicShift() !== was) this.applyLayout();
+    if (this.layoutKey() !== was) this.applyLayout();
     if (this.house || this.revealing) return;
     for (const id of [...this.baseSegs(), ...this.allMachineSegs()]) if (this.seg(id).prio === 0) this.queue(this.restState(id));
     this.flush();
@@ -231,9 +238,21 @@ export class LightsEngine {
     const d = beamOf(this.cfg).start - top.start + curbOffset(zones, this.cfg); // curb pixel k = top pixel k + d
     const wrap = x => (((this.cfg.wledOffsetAdds === false ? x : -x) % len) + len) % len;
     this.needsLayout = false;
-    this.queue({ id: top.baseSeg, start: top.start, stop: top.stop, of: wrap(s) });
-    this.queue({ id: top.bandSeg, start: top.start, stop: top.stop, of: wrap(s) });
-    this.queue({ id: curb.baseSeg, start: curb.start, stop: curb.start + len, of: wrap(d + s) });
+    const centerZone = zones?.top?.find(t => t.machineId === this.cfg.musicCenterAfter);
+    if (this.isSplit() && centerZone) {
+      // Cut at the machines' middle: left halves run backwards, so motion flies outward to both walls.
+      const c = centerZone.stop, cc = curb.start + (c - top.start) - d; // the curb pixel under it
+      this.queue({ id: top.baseSeg, start: top.start, stop: c, of: 0, rev: true });
+      this.queue({ id: top.bandSeg, start: c, stop: top.stop, of: 0, rev: false });
+      this.queue({ id: curb.baseSeg, start: curb.start, stop: cc, of: 0, rev: true });
+      this.queue({ id: curb.splitSeg, start: cc, stop: curb.start + len, of: 0, rev: false, on: true });
+      this.splitApplied = true;
+    } else {
+      this.queue({ id: top.baseSeg, start: top.start, stop: top.stop, of: wrap(s), rev: false });
+      this.queue({ id: top.bandSeg, start: top.start, stop: top.stop, of: wrap(s), rev: false });
+      this.queue({ id: curb.baseSeg, start: curb.start, stop: curb.start + len, of: wrap(d + s), rev: false });
+      if (this.splitApplied) { this.pending.delete(curb.splitSeg); this.queue({ id: curb.splitSeg, stop: 0 }); this.splitApplied = false; } // remove it
+    }
     this.cfg.machineOrder.forEach((mid, i) => {
       const t = zones.top.find(z => z.machineId === mid) || zones.top[i];
       const c = zones.curb.find(z => z.machineId === mid) || zones.curb[i];

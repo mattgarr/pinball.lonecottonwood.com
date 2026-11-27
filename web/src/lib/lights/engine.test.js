@@ -22,6 +22,24 @@ beforeEach(() => {
 afterEach(() => { e.destroy(); vi.useRealTimers(); });
 
 describe('lights engine', () => {
+  it('split music looks cut the strip at the machines\' middle so motion flies outward, then put it back', () => {
+    const zones = { top: [[2, 70, 82], [1, 82, 94], [5, 94, 105], [3, 105, 116], [4, 116, 127], [6, 127, 138]].map(([machineId, start, stop]) => ({ machineId, start, stop })),
+      curb: [[2, 235, 243], [1, 243, 255], [5, 255, 266], [3, 266, 277], [4, 277, 288], [6, 288, 299]].map(([machineId, start, stop]) => ({ machineId, start, stop })) };
+    e.applyLayout(zones); e.flush(); e.start(); sent = [];
+    e.setMusic('Matripix'); vi.advanceTimersByTime(100);
+    const last = id => segsFor(id).reduce((a, x) => ({ ...a, ...x }), {});
+    expect(last(0)).toMatchObject({ start: 0, stop: 105, rev: true, fx: LIGHTS.effects.Matripix });
+    expect(last(1)).toMatchObject({ start: 105, stop: 235, rev: false, fx: LIGHTS.effects.Matripix });
+    const curbL = last(8), curbR = last(15);
+    expect(curbL).toMatchObject({ start: 235, rev: true, of: 0 });
+    expect(curbR).toMatchObject({ start: curbL.stop, rev: false, on: true, fx: LIGHTS.effects.Matripix });
+    // Back to the ambient looks: one layer over the whole run again, the extra segment removed.
+    sent = []; e.setMusic(null); vi.advanceTimersByTime(100);
+    expect(last(0)).toMatchObject({ start: 0, stop: 235, rev: false });
+    expect(last(1)).toMatchObject({ start: 0, stop: 235, rev: false });
+    expect(last(15)).toMatchObject({ stop: 0 });
+  });
+
   it('center-out music looks start between Cactus Canyon and Whirlwind, in wider steps', () => {
     const zones = { top: [[2, 70, 82], [1, 82, 94], [5, 94, 105], [3, 105, 116], [4, 116, 127], [6, 127, 138]].map(([machineId, start, stop]) => ({ machineId, start, stop })),
       curb: [[2, 235, 243], [1, 243, 255], [5, 255, 266], [3, 266, 277], [4, 277, 288], [6, 288, 299]].map(([machineId, start, stop]) => ({ machineId, start, stop })) };

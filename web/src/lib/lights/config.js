@@ -50,7 +50,8 @@ export const LIGHTS = {
   runs: {
     top: { start: 0, stop: 235, baseSeg: 0, bandSeg: 1, firstMachineSeg: 2,
       sections: [{ name: 'Left wall', len: 43 }, { name: 'Loft beam', len: 149 }, { name: 'Right wall', len: 43 }] },
-    curb: { start: 235, stop: 320, baseSeg: 8, firstMachineSeg: 9 },
+    curb: { start: 235, stop: 320, baseSeg: 8, firstMachineSeg: 9, splitSeg: 15 }, // splitSeg: the curb's right half, only while a split music look is up (removed after;
+    // WLED puts a new segment in the next free slot, so it must be 15; the calibration pointer borrows 15 too)
   },
   pointerSeg: 15, // temporary one-pixel pointer used by the calibration page
   // Default width of the six machines together, in pixels (14/m): about 2.75 ft per machine → ~16.5 ft.
@@ -155,23 +156,28 @@ export const LIGHTS = {
   effects: { Solid: 0, Blink: 1, Breathe: 2, Wipe: 3, Sweep: 6, Running: 15, Colorloop: 8, Rainbow: 9, Fade: 12, Chase: 28, 'Chase Rainbow': 30, Theater: 13, 'Chase Flash': 31, 'Solid Glitter': 103,
     Aurora: 38, 'Pride 2015': 63, Colorwaves: 67, Twinklefox: 80, Plasma: 97, Pacifica: 101, Flow: 110,
     // Sound-reactive (need the AudioReactive usermod and the Gledopto's mic turned on)
-    Gravcentric: 157, Gravimeter: 132, Waterfall: 140, Freqwave: 137, 'DJ Light': 159, Puddlepeak: 144, Pixelwave: 129 },
+    Gravcentric: 157, Gravimeter: 132, Waterfall: 140, Freqwave: 137, 'DJ Light': 159, Puddlepeak: 144, Pixelwave: 129,
+    Matripix: 131, Freqmatrix: 138, Freqmap: 155, Gravfreq: 158, 'Ripple Peak': 148, Juggles: 130 },
 
   // Music mode: the ambient layers (walls, beam band, curb) run one of these instead of the party
-  // base, in sync; score / champion / leader flashes still play on top.
-  // Music mode: the ambient layers (walls, beam band, curb) run one of these instead of the party
-  // base, in sync; score / champion / leader flashes still play on top.
-  // center: the effect grows from the middle, moved to the machines' middle (musicCenterAfter).
-  // grp: LEDs per effect pixel. Freqwave and DJ Light push each pixel outward one step at a time and
-  // lose a little each step, so one LED per step dies out a few feet from the center.
-  // (scripts/lightshow.mjs can draw sharper looks from the laptop, but streaming them swamped this
-  // controller's Wi-Fi on 2026-11-26 even at 10 frames a second, so it's switched off.)
+  // base, in sync; score / champion / leader flashes still play on top. Built from WLED's own
+  // sound-reactive effects (the laptop-drawn versions in scripts/lightshow.mjs swamped the controller's
+  // Wi-Fi, 2026-11-26). Picked and tuned on the real strip with music (lit %, detail, motion).
+  // split: the strip is cut at the machines' middle (musicCenterAfter) and the left halves run
+  //   backwards, so an effect that travels one way flies outward to both walls (top and curb).
+  // center: an effect that grows from its middle is moved to the machines' middle.
+  // grp: LEDs per effect pixel (Freqwave / DJ Light fade out before the walls at 1).
+  // pal: WLED palette (default: the corrected rainbow).
   music: {
-    Gravcentric: { label: 'VU meter from the center', sx: 128, ix: 128, center: true },
-    Waterfall: { label: 'Waterfall of the beat', sx: 200, ix: 128 },
+    Matripix: { label: 'Shockwaves', sx: 220, ix: 200, pal: 11, split: true },
+    Freqmatrix: { label: 'Pitch rivers', sx: 230, ix: 128, pal: 0, split: true },
+    Freqmap: { label: 'Spectrum bloom', sx: 200, ix: 0, pal: 11, split: true },
+    Gravfreq: { label: 'Pitch gravity', sx: 128, ix: 180, pal: 0, split: true },
     Freqwave: { label: 'Color by pitch', sx: 128, ix: 128, center: true, grp: 3 },
-    'DJ Light': { label: 'DJ light', sx: 128, ix: 128, center: true, grp: 5 },
-    Puddlepeak: { label: 'Splashes on the beat', sx: 128, ix: 128 },
+    'Ripple Peak': { label: 'Fireworks', sx: 40, ix: 255, pal: 6 },
+    Juggles: { label: 'Comet chase', sx: 220, ix: 200, pal: 11 },
+    'DJ Light': { label: 'Disco burst', sx: 128, ix: 128, center: true, grp: 5 },
+    Gravcentric: { label: 'VU meter from the center', sx: 128, ix: 128, center: true },
   },
   musicCenterAfter: 5, // the center-out music looks start between Cactus Canyon (5) and Whirlwind (3)
 
