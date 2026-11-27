@@ -166,7 +166,9 @@ export const LIGHTS = {
     Gravcentric: { label: 'VU meter from the center', sx: 128, ix: 128, center: true },
     Waterfall: { label: 'Waterfall of the beat', sx: 200, ix: 128 },
     Freqwave: { label: 'Color by pitch', sx: 128, ix: 128, center: true, grp: 5 },
-    'DJ Light': { label: 'DJ light', sx: 128, ix: 128, center: true, grp: 5 },
+    // DJ light is drawn by the laptop (scripts/lightshow.mjs) while Laptop sound is on; WLED's DJ Light
+    // (centered, 5-LED steps) shows when it isn't.
+    'DJ Light': { label: 'DJ light (pulses fly to the walls)', sx: 128, ix: 128, center: true, grp: 5 },
     Puddlepeak: { label: 'Splashes on the beat', sx: 128, ix: 128 },
   },
   musicCenterAfter: 5, // the center-out music looks start between Cactus Canyon (5) and Whirlwind (3)

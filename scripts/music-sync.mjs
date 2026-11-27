@@ -29,6 +29,8 @@ import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { spawn, execFileSync } from 'node:child_process';
 import dgram from 'node:dgram';
 import mqtt from '../web/node_modules/mqtt/build/index.js';
+import { LightShow } from './lightshow.mjs';
+import { LIGHTS } from '../web/src/lib/lights/config.js';
 
 const DEBUG = process.argv.includes('--debug');
 const SUPA = 'https://llmggdjxiffkwnjuogxf.supabase.co';
@@ -99,10 +101,55 @@ function kick() {
 // Switched off: put the full level back.
 function unrest() { if (resting && pulseOk()) post({ seg: BASE_SEGS.map(id => ({ id, bri: 255 })) }); resting = false; }
 
+// --- the laptop's DJ light (scripts/lightshow.mjs) -------------------------------------------------
+// Streams while the host's music mode is DJ light (the base layers run WLED's DJ Light as the fallback)
+// and nothing else is up. A TV moment (a machine zone lighting up, the base layers changing: flashes,
+// house lights, the reveal) hands the strip straight back to the controller's own effects.
+const DJ_FX = LIGHTS.effects['DJ Light'];
+const MACHINE_SEGS = [2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14];
+let show = null, segState = new Map(), masterOn = true, apiAt = 0;
+async function loadShow() {
+  try {
+    const [row] = await (await fetch(`${SUPA}/rest/v1/lights_settings?select=zones&id=eq.1`, { headers: { apikey: KEY } })).json();
+    if (!row?.zones?.top?.length) return;
+    const host = new URL(WLED).hostname;
+    const was = show?.running;
+    show?.stop();
+    show = new LightShow({ host, zones: row.zones });
+    if (was) show.start();
+  } catch { /* keep the old one */ }
+}
+await loadShow();
+setInterval(loadShow, 5 * 60000);
+const showWanted = () => settings.on && !!cap && masterOn
+  && [0, 1, 8].every(id => { const g = segState.get(id); return g && g.on !== false && g.fx === DJ_FX; })
+  && MACHINE_SEGS.every(id => segState.get(id)?.on !== true);
+function updateShow() {
+  if (!show) return;
+  const want = showWanted();
+  if (want && !show.running) { post({ lor: 0 }); show.start(); log('DJ light: the laptop is drawing it'); }
+  else if (!want && show.running) { show.stop(); post({ lor: 1 }); } // the controller's effects show right away
+}
+// What the TV sends the controller (same channel): seen as it happens, faster than polling.
+function onApi(m) {
+  let j; try { j = JSON.parse(m.toString()); } catch { return; }
+  if (!j || typeof j !== 'object') return;
+  apiAt = Date.now();
+  if (j.on === false) masterOn = false; else if (j.on === true) masterOn = true;
+  if (j.ps !== undefined) segState.clear(); // a preset: unknown until the next poll
+  for (const sg of Array.isArray(j.seg) ? j.seg : []) if (Number.isInteger(sg.id)) segState.set(sg.id, { ...(segState.get(sg.id) || {}), ...sg });
+  updateShow();
+}
+setInterval(() => {
+  if (wled && Date.now() - apiAt > 1500) { masterOn = !!wled.on; segState = new Map(wled.seg.map(g => [g.id, { on: g.on, fx: g.fx }])); }
+  updateShow();
+}, 1500);
+
 // --- MQTT: settings + status ---------------------------------------------------------------------
 const mq = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', { clientId: `beat-${Math.random().toString(16).slice(2, 8)}`, reconnectPeriod: 4000 });
-mq.on('connect', () => { mq.subscribe([`${topic}/beat`, `${topic}/beat/cmd`]); log('connected to the lights channel'); });
+mq.on('connect', () => { mq.subscribe([`${topic}/beat`, `${topic}/beat/cmd`, `${topic}/api`]); log('connected to the lights channel'); });
 mq.on('message', (t, m) => {
+  if (t.endsWith('/api')) { onApi(m); return; }
   if (t.endsWith('/beat/cmd')) {
     try { const c = JSON.parse(m.toString()); if (c?.cmd === 'calibrate' && Date.now() - (c.at || 0) < 15000) calibrate(); } catch { /* ignore */ }
     return;
@@ -146,6 +193,7 @@ let HZ = RATE / N, edges = [];
 const setRate = r => { RATE = r; HZ = RATE / N; edges = Array.from({ length: 17 }, (_, i) => Math.max(1, Math.round((43 * Math.pow(9000 / 43, i / 16)) / HZ))); };
 setRate(RATE);
 let agc = 1e-3, rmsAgc = 1e-4, bassAvg = 0, lastBeat = 0, frameCounter = 0, smooth = 0;
+let prevHi = null, hiAvg = 0, lastHat = 0;
 
 const sock = dgram.createSocket('udp4');
 sock.bind(() => { try { sock.setMulticastTTL(2); } catch { /* ignore */ } });
@@ -260,7 +308,24 @@ function analyze(samples) {
   const beat = bass > bassAvg * 1.5 && bass > agc * 0.6 && now - lastBeat > 250;
   bassAvg = bassAvg * 0.95 + bass * 0.05;
   if (beat) { lastBeat = now; beats++; }
-  const send = () => { sendSync(vol, smooth, beat, bands, peakMag, peakBin * HZ); if (beat) kick(); };
+  // For the laptop's DJ light: the pitch (spectral centroid), how hard the kick hit, and snare/hat hits
+  // (a jump in the 3–11 kHz energy).
+  let wsum = 0, msum = 0;
+  for (let i = 1; i < N / 2; i++) { wsum += mags[i] * i; msum += mags[i]; }
+  const hz = msum > 0 ? (wsum / msum) * HZ : 200;
+  const lo = Math.max(1, Math.round(3000 / HZ)), hi = Math.min(N / 2 - 1, Math.round(11000 / HZ));
+  let flux = 0;
+  if (prevHi) for (let i = lo; i <= hi; i++) flux += Math.max(0, mags[i] - prevHi[i]);
+  prevHi = mags;
+  const hat = !beat && flux > hiAvg * 2 && flux > agc * 0.15 && now - lastHat > 90;
+  hiAvg = hiAvg * 0.95 + flux * 0.05;
+  if (hat) lastHat = now;
+  const strength = Math.min(1, bass / Math.max(bassAvg * 3, 1e-6));
+  const send = () => {
+    sendSync(vol, smooth, beat, bands, peakMag, peakBin * HZ);
+    if (beat) kick();
+    if (show?.running) show.feed({ vol, beat, hat, hz, strength });
+  };
   const ms = lag();
   if (ms > 0) setTimeout(send, ms); else send();
   if (DEBUG && frameCounter % 20 === 0) log(`vol ${vol.toFixed(0).padStart(3)} bands ${bands.map(v => String(v).padStart(3)).join('')}${beat ? '  BEAT' : ''}`);
@@ -313,6 +378,7 @@ function startCapture() {
 }
 // Capture starts when the host card picks "Laptop sound" (the retained setting arrives on connect).
 const bye = async () => {
+  if (show?.running) { show.stop(); await post({ lor: 1 }); }
   stopCapture(); unrest();
   wantMode = 0; hasMode = null; await applyMode(); // hand the lights back to the controller's mic
   mq.publish(`${topic}/beat/status`, JSON.stringify({ running: false, at: Date.now() }), { retain: true }, () => process.exit(0)); setTimeout(() => process.exit(0), 1500); };
