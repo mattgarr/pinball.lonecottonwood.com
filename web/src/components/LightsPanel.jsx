@@ -28,6 +28,22 @@ export default function LightsPanel({ busy, run }) {
   const [now, setNow] = useState(Date.now());
   const dimTimer = useRef(null);
 
+  // Beat pulse (scripts/music-sync.mjs on the laptop): settings retained on the broker, its status too.
+  const [beat, setBeat] = useState({ on: false, lag: 2000 });
+  const [listener, setListener] = useState(null);
+  const lagTimer = useRef(null);
+  useEffect(() => {
+    const a = subscribe('beat', m => { if (m && typeof m === 'object') setBeat({ on: !!m.on, lag: Number(m.lag) || 0 }); });
+    const b = subscribe('beat/status', m => setListener(m && typeof m === 'object' ? m : null));
+    return () => { a(); b(); };
+  }, []);
+  const saveBeat = (next, later = false) => {
+    setBeat(next);
+    clearTimeout(lagTimer.current);
+    const go = () => publish('beat', { ...next, at: Date.now() }, { retain: true });
+    if (later) lagTimer.current = setTimeout(go, 400); else go();
+  };
+
   const [topic, setTopic] = useState(lightsTopic());
   useEffect(() => { ensureLightsTopic().then(t => setTopic(t)); return onLightsTopic(setTopic); }, []);
   useEffect(() => {
@@ -131,7 +147,23 @@ export default function LightsPanel({ busy, run }) {
           {Object.entries(LIGHTS.music).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
         </select>
       </label>
-      <p className="muted small">Music mode uses the controller's microphone. Score and champion flashes still play on top.</p>
+      <p className="muted small">Music mode follows the music playing on the laptop while the music listener runs (otherwise the controller's microphone). Score and champion flashes still play on top.</p>
+      <div className="lights-dimmer">
+        <div className="row gap lights-row">
+          <button type="button" className={beat.on ? 'primary' : 'secondary'} onClick={() => saveBeat({ ...beat, on: !beat.on })}>
+            {beat.on ? 'Beat pulse: ON (tap to stop)' : 'Beat pulse'}
+          </button>
+        </div>
+        <label className="lights-dimmer-head" htmlFor="beat-lag">
+          <span>Speaker delay</span>
+          <span className="lights-dimmer-val">{(beat.lag / 1000).toFixed(1)} s</span>
+        </label>
+        <input id="beat-lag" type="range" min={0} max={3000} step={100} value={beat.lag}
+          aria-valuetext={`${(beat.lag / 1000).toFixed(1)} seconds`} onChange={e => saveBeat({ ...beat, lag: Number(e.target.value) }, true)} />
+        <p className="muted small">The attract looks brighten on every kick drum of the music playing on the laptop. Leave it on all night if you like. If the pulses come before the beat you hear, add delay (AirPlay speakers play about 2 s late). {listener?.running && now - (listener.at || 0) < 20000
+          ? `Music listener running on the laptop (${listener.beats ?? 0} beats heard).`
+          : 'The music listener isn\'t running on the laptop: start it with node scripts/music-sync.mjs.'}</p>
+      </div>
       <div className="lights-test">
         <div className="muted small">Test a machine's flash:</div>
         <div className="ls-colors">
