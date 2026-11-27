@@ -11,10 +11,11 @@ describe('rainbow palette (custom palette 0, pal 255)', () => {
     expect(palette[1]).toBe('ff0000'); expect(palette[33]).toBe('ff0000');
     expect(rainbowPalette({ calibrate: false }).palette[9]).not.toBe(palette[9]); // yellow is reined in
   });
-  it('Attract alternates deep looks and rainbow looks', () => {
+  it('Attract runs deep, rainbow, then machine-color looks', () => {
     const pals = LIGHTS.ambientCycle.map(a => a.pal);
-    expect(pals).toEqual([4, 255, 4, 255, 4, 255]);
+    expect(pals).toEqual([4, 255, 4, 4, 255, 4, 4, 255, 4]);
+    expect(LIGHTS.ambientCycle.map(a => a.machines || null)).toEqual([null, null, 'glow', null, null, 'breathe', null, null, 'chase']);
     const p = buildPresets();
-    expect([12, 14, 16].map(id => p[id].seg[0].pal)).toEqual([255, 255, 255]);
+    expect([12, 15, 18].map(id => p[id].seg[0].pal)).toEqual([255, 255, 255]);
   });
 });

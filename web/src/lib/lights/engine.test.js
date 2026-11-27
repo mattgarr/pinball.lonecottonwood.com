@@ -32,6 +32,28 @@ describe('lights engine', () => {
     expect(segs.find(s => s.id === 11).start).toBeGreaterThanOrEqual(235); // curb zones on the curb run
   });
 
+  it('machine-color looks light every machine zone in its colors, and a score returns to that look', () => {
+    e.start();
+    const glow = LIGHTS.ambientCycle.findIndex(a => a.machines === 'glow');
+    e.setAmbient(glow);
+    vi.advanceTimersByTime(100);
+    const last = id => segsFor(id).at(-1);
+    expect(last(11)).toMatchObject({ on: true, fx: LIGHTS.effects.Colorwaves, col: LIGHTS.machineThemes[WHIRLWIND].colors });
+    expect(last(11).start).toBeGreaterThanOrEqual(235);
+    expect(last(4)).toMatchObject({ on: true, fx: LIGHTS.effects.Colorwaves });
+    e.score(WHIRLWIND, MAG);
+    vi.advanceTimersByTime(100);
+    expect(last(11).fx).toBe(LIGHTS.effects.Breathe);
+    vi.advanceTimersByTime(3500);
+    expect(last(11)).toMatchObject({ on: true, fx: LIGHTS.effects.Colorwaves });
+    e.setAmbient(0); // a plain look: machine zones park again
+    vi.advanceTimersByTime(100);
+    expect(last(11).on).toBe(false);
+    e.setHouse(true);
+    vi.advanceTimersByTime(100);
+    expect(last(11).on).toBe(false);
+  });
+
   it('a score pulses that machine\'s curb zone within 1 s and restores it within 3.5 s', () => {
     e.score(WHIRLWIND, MAG);
     vi.advanceTimersByTime(100);

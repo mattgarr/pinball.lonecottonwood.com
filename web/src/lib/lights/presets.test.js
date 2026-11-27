@@ -36,13 +36,13 @@ describe('standalone presets', () => {
   it('every playlist points at presets that exist', () => {
     for (const v of Object.values(p)) for (const id of v.playlist?.ps || []) expect(p[id]?.seg).toBeTruthy();
   });
-  it('every show lays out segments 0–14 in order, base layers on, machine zones off', () => {
+  it('every show lays out segments 0–14 in order, base layers on, machine zones off (except the machine-color looks)', () => {
     const valid = new Set(Object.values(LIGHTS.effects));
     for (const v of Object.values(p).filter(v => v.seg)) {
       expect(v.seg.map(s => s.id)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
       for (const s of v.seg) {
         expect(s.stop).toBeGreaterThan(s.start);
-        if ([0, 1, 8].includes(s.id) || v.n === 'Machine showcase') { expect(s.on).toBe(true); expect(valid.has(s.fx)).toBe(true); }
+        if ([0, 1, 8].includes(s.id) || v.n === 'Machine showcase' || v.n.startsWith('Attract: machines')) { expect(s.on).toBe(true); expect(valid.has(s.fx)).toBe(true); }
         else { expect(s.on).toBe(false); expect(s.start).toBeGreaterThanOrEqual(320); }
       }
     }

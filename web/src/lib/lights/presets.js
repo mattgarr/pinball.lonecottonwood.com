@@ -3,7 +3,7 @@
 // the zones, the curb stacking and the cool palette match. Download from the host lights card and
 // upload in WLED (Config → Security & Updates → Restore presets).
 //
-//   1 Attract    cycles the cool ambient effects, 3 min each (boot preset)
+//   1 Attract    cycles the cool ambient effects and the machine-color looks, 3 min each (boot preset)
 //   2 Calm       slow and softer (still real room light)
 //   3 Exciting   fast and bright
 //   4 Music      sound-reactive, from the controller's mic
@@ -51,9 +51,14 @@ const playlist = (n, ps, seconds) => ({ n, on: true, playlist: { ps, dur: ps.map
 export function buildPresets(zones = defaultZones(), { calibrate = true } = {}) {
   const p = { 0: {} };
   // Attract: the app's own ambient rotation.
+  // Looks with `machines` also light every machine zone in its own colors (see LIGHTS.machineLooks).
   LIGHTS.ambientCycle.forEach((a, i) => {
-    p[11 + i] = show(zones, `Attract: ${a.fx}`, LIGHTS.ambientBri ?? 170,
-      { fx: fx(a.fx), sx: a.sx ?? 128, ix: a.ix ?? 128, pal: a.pal ?? 0, col: a.col ? cool(a.col) : LIGHTS.partyBase.col });
+    const base = { fx: fx(a.fx), sx: a.sx ?? 128, ix: a.ix ?? 128, pal: a.pal ?? 0, col: a.col ? cool(a.col) : LIGHTS.partyBase.col, bri: LIGHTS.ambientBri ?? 170 };
+    const look = a.machines && LIGHTS.machineLooks[a.machines];
+    p[11 + i] = look
+      ? { n: `Attract: machines ${a.machines}`, on: true, transition: 15,
+        seg: layout(zones, base, id => { const st = look(LIGHTS.machineThemes[id]?.colors || LIGHTS.partyBase.col); return { ...st, fx: fx(st.fx) }; }) }
+      : show(zones, `Attract: ${a.fx}`, base.bri, base);
   });
   p[1] = playlist('Attract', LIGHTS.ambientCycle.map((_, i) => 11 + i), (LIGHTS.ambientMinutes || 3) * 60);
 

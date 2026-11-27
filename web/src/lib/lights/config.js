@@ -69,13 +69,27 @@ export const LIGHTS = {
     // pal 255 = the controller's custom palette 0: a full rainbow already run through colorCal
     // (scripts/lights-palette.mjs builds and uploads palette0.json). WLED's built-in rainbow can't be
     // corrected, so it would drift yellow-green and pink.
+    // Machine-color looks (Matt, Nov 26) come third in each group: each machine's zone (beam + curb)
+    // plays in its own colors, with the same patterns as the scoring moments, over a slow deep backdrop.
     { fx: 'Colorwaves', pal: 4, sx: 90, ix: 128, col: ['purple', 'blue', 'purple'] },
     { fx: 'Plasma', pal: 255, sx: 70, ix: 255 }, // rainbow; ix 255: no dark dips
+    { fx: 'Plasma', pal: 4, sx: 40, ix: 255, col: ['purple', 'blue', 'purple'], machines: 'glow' },
     { fx: 'Aurora', pal: 4, sx: 40, ix: 255, col: ['purple', 'teal', 'purple'] }, // 20 long-lived waves
     { fx: 'Colorwaves', pal: 255, sx: 90, ix: 128 }, // rainbow
+    { fx: 'Aurora', pal: 4, sx: 30, ix: 255, col: ['purple', 'blue', 'purple'], machines: 'breathe' },
     { fx: 'Flow', pal: 4, sx: 80, ix: 128, col: ['purple', 'blue', 'teal'] },
     { fx: 'Twinklefox', pal: 255, sx: 100, ix: 255 }, // rainbow; ix 255: every pixel twinkles
+    { fx: 'Colorwaves', pal: 4, sx: 60, ix: 128, col: ['purple', 'blue', 'purple'], machines: 'chase' },
   ],
+  // The machine looks: per-zone states built from each machine's colors (main color first).
+  //   glow    the machine's three colors flowing (the Machine showcase preset)
+  //   breathe main ↔ second color, the score pattern slowed down
+  //   chase   the high-score chase in the machine's colors, a bit calmer than the real one
+  machineLooks: {
+    glow: c => ({ fx: 'Colorwaves', sx: 60, ix: 128, pal: 4, col: c }),
+    breathe: c => ({ fx: 'Breathe', sx: 90, ix: 128, pal: 0, col: [c[0], c[1]] }),
+    chase: c => ({ fx: 'Chase', sx: 120, ix: 128, pal: 0, col: c }),
+  },
   rainbowPal: 255, // custom palette 0 on the controller (corrected rainbow)
   // Rich, high-contrast colors for the standalone shows (Matt, Nov 12: "more excitement and more contrast"
   // across every mode). Gradients only blend neighbors on the color wheel, so nothing washes to white/gray.

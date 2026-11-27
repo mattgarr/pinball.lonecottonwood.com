@@ -71,8 +71,19 @@ export class LightsEngine {
   // An idle machine zone: switched off AND parked on an invisible pixel (WLED paints off segments black).
   offState(id) { return { id, ...parkOf(id, this.cfg), on: false }; }
 
+  // A machine zone at rest: lit in its own colors while a machine look is up, otherwise off.
+  machineRest(id) {
+    const a = this.cfg.ambientCycle?.[this.cycleIdx % (this.cfg.ambientCycle?.length || 1)];
+    const look = a?.machines && this.cfg.machineLooks?.[a.machines];
+    if (!look || this.closed || this.house || this.revealing || this.music || !this.bounds[id]) return this.offState(id);
+    const { top, curb } = this.cfg.runs;
+    const i = id >= curb.firstMachineSeg ? id - curb.firstMachineSeg : id - top.firstMachineSeg;
+    const st = look(this.theme(this.cfg.machineOrder[i], this.cfg.partyBase.col[0]));
+    return { id, ...this.bounds[id], on: true, mi: true, rev: true, bri: 255, ...st, fx: this.fx(st.fx) };
+  }
+
   restState(id) {
-    if (!this.isBase(id)) return this.offState(id);
+    if (!this.isBase(id)) return this.machineRest(id);
     if (this.music) {
       const m = this.cfg.music[this.music];
       return { id, on: true, fx: this.fx(this.music), sx: m.sx, ix: m.ix, pal: this.cfg.rainbowPal ?? 4, bri: 255, col: this.cfg.partyBase.col }; // music mode on the corrected rainbow
@@ -99,7 +110,7 @@ export class LightsEngine {
     const n = this.cfg.ambientCycle?.length || 1;
     this.cycleIdx = (this.cycleIdx + 1) % n;
     if (this.music || this.house || this.revealing) return;
-    const idle = this.baseSegs().filter(id => this.seg(id).prio === 0);
+    const idle = [...this.baseSegs(), ...this.allMachineSegs()].filter(id => this.seg(id).prio === 0);
     for (const id of idle) this.queue(this.restState(id));
     this.flush();
   }
@@ -116,7 +127,7 @@ export class LightsEngine {
   setMusic(name) {
     this.music = name && this.cfg.music[name] ? name : null;
     if (this.house || this.revealing) return;
-    for (const id of this.baseSegs()) if (this.seg(id).prio === 0) this.queue(this.restState(id));
+    for (const id of [...this.baseSegs(), ...this.allMachineSegs()]) if (this.seg(id).prio === 0) this.queue(this.restState(id));
     this.flush();
   }
 
@@ -216,7 +227,7 @@ export class LightsEngine {
       for (const [id, z] of [[top.firstMachineSeg + i, t], [curb.firstMachineSeg + i, c]]) {
         if (!z) continue;
         this.bounds[id] = { start: z.start, stop: z.stop };
-        if (this.seg(id).prio === 0) this.queue(this.offState(id));
+        if (this.seg(id).prio === 0) this.queue(this.restState(id));
       }
     });
   }
@@ -240,7 +251,8 @@ export class LightsEngine {
       // Once a minute, push the whole layout again (a quick reboot may never announce "offline");
       // zones that are busy are left alone, and unchanged bounds don't restart WLED's effects.
       if (++ticks % 12 === 0) { this.applyLayout(); return; }
-      const idle = this.allMachineSegs().filter(id => this.seg(id).prio === 0 && !this.pending.has(id));
+      // (Zones lit by a machine look are left alone: re-sending them would only add traffic.)
+      const idle = this.allMachineSegs().filter(id => this.seg(id).prio === 0 && !this.pending.has(id) && this.restState(id).on === false);
       if (!idle.length) return;
       for (const id of idle) this.queue(this.offState(id));
     }, KEEP_OFF_MS);
@@ -253,7 +265,7 @@ export class LightsEngine {
     this.startCycle();
     this.startKeepOff();
     this.applyLayout();
-    for (const id of this.allMachineSegs()) this.queue(this.offState(id));
+    for (const id of this.allMachineSegs()) this.queue(this.restState(id));
     for (const id of this.baseSegs()) this.queue(this.restState(id));
     this.queueExtra(this.withDimmer({ on: true }));
     this.flush();
@@ -397,6 +409,7 @@ export class LightsEngine {
       this.flush();
     } else {
       for (const id of this.baseSegs()) this.restore(id);
+      for (const id of this.allMachineSegs()) if (this.seg(id).prio === 0) this.queue(this.restState(id));
       this.flush();
     }
   }
@@ -494,7 +507,7 @@ export class LightsEngine {
   revealEnd() {
     this.revealing = false;
     this.clearAll();
-    for (const id of this.allMachineSegs()) this.queue(this.offState(id));
+    for (const id of this.allMachineSegs()) this.queue(this.restState(id));
     for (const id of this.baseSegs()) this.queue(this.restState(id));
     this.flush();
   }
