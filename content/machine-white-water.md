@@ -1,6 +1,6 @@
 # Whitewater
 
-*Williams, 1993 · dot-matrix*
+*Williams, 1992 · dot-matrix*
 
 ## About the game
 Designed by Dennis Nordman, with art by John Youssi. It came out in the golden age of 90s pinball. The ramps are long and twisty, and a small upper playfield sits at the back. Shots are tough, but making them feels great. It plays fast and a little rough, just like the river.

@@ -1,6 +1,6 @@
 # Whirlwind
 
-*Williams, 1990 · alphanumeric · has a fan!*
+*Williams, 1989 · alphanumeric · has a fan!*
 
 ## About the game
 Designed by Pat Lawlor, who later made *The Addams Family*. Art by John Youssi. It's a follow-up to his earthquake game, *Earthshaker!* It plays fast and wild, with 3 flippers, 6 pop bumpers and spinning discs. Players love it for the chaos.
