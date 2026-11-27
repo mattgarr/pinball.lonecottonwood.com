@@ -72,22 +72,24 @@ describe('lights engine', () => {
     expect(last(11).on).toBe(false);
   });
 
-  it('a table spotlight sweeps then chases that machine in its colors, the room breathes in them, then all restores', () => {
+  it('a table spotlight flashes that machine white, then a fast hard-edged pattern, the room dims, then all restores', () => {
     e.start();
     const th = LIGHTS.machineThemes[WHIRLWIND].colors;
     e.spotlight(WHIRLWIND, 'open');
     vi.advanceTimersByTime(100);
-    expect(segsFor(11).at(-1)).toMatchObject({ on: true, fx: LIGHTS.effects.Wipe, col: [th[0], th[1]] });
-    expect(segsFor(4).at(-1).fx).toBe(LIGHTS.effects.Wipe);
-    expect(segsFor(0).at(-1)).toMatchObject({ fx: LIGHTS.effects.Breathe, col: [th[0], th[1]] });
-    vi.advanceTimersByTime(1300);
-    expect(segsFor(11).at(-1).fx).toBe(LIGHTS.effects.Running);
+    expect(segsFor(11).at(-1)).toMatchObject({ on: true, fx: LIGHTS.effects.Solid, bri: 255 });
+    expect(segsFor(4).at(-1).fx).toBe(LIGHTS.effects.Solid);
+    // The room keeps its look but drops to a dim glow.
+    expect(segsFor(0).at(-1)).toMatchObject({ fx: LIGHTS.effects.Colorwaves, bri: LIGHTS.spotlightDim ?? 18 });
+    vi.advanceTimersByTime(300);
+    expect(segsFor(11).at(-1)).toMatchObject({ fx: LIGHTS.effects.Theater, col: [th[0], [0, 0, 0, 0]] });
     e.score(WHIRLWIND, MAG); // a score on that table doesn't cut it short
     vi.advanceTimersByTime(1100);
-    expect(segsFor(11).at(-1).fx).toBe(LIGHTS.effects.Running);
-    vi.advanceTimersByTime(6000);
+    expect(segsFor(11).at(-1).fx).toBe(LIGHTS.effects.Theater);
+    vi.advanceTimersByTime(7000);
     expect(segsFor(11).at(-1).on).toBe(false);
-    expect(segsFor(0).at(-1).fx).toBe(LIGHTS.effects.Colorwaves);
+    expect(segsFor(0).at(-1)).toMatchObject({ fx: LIGHTS.effects.Colorwaves });
+    expect(segsFor(0).at(-1).bri).toBeGreaterThan(100);
   });
 
   it('a score pulses that machine\'s curb zone within 1 s and restores it within 3.5 s', () => {

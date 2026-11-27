@@ -152,7 +152,7 @@ export const LIGHTS = {
 
   // WLED keeps effect IDs fixed across versions; MQTT can't fetch the list, so they're named here.
   // IDs checked against WLED's FX.h (same in 0.14 and 0.15).
-  effects: { Solid: 0, Blink: 1, Breathe: 2, Wipe: 3, Sweep: 6, Running: 15, Colorloop: 8, Rainbow: 9, Fade: 12, Chase: 28, 'Chase Rainbow': 30,
+  effects: { Solid: 0, Blink: 1, Breathe: 2, Wipe: 3, Sweep: 6, Running: 15, Colorloop: 8, Rainbow: 9, Fade: 12, Chase: 28, 'Chase Rainbow': 30, Theater: 13, 'Chase Flash': 31, 'Solid Glitter': 103,
     Aurora: 38, 'Pride 2015': 63, Colorwaves: 67, Twinklefox: 80, Plasma: 97, Pacifica: 101, Flow: 110,
     // Sound-reactive (need the AudioReactive usermod and the Gledopto's mic turned on)
     Gravcentric: 157, Gravimeter: 132, Waterfall: 140, Freqwave: 137, 'DJ Light': 159, Puddlepeak: 144, Pixelwave: 129 },

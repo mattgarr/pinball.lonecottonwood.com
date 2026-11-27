@@ -374,15 +374,22 @@ export class LightsEngine {
     const s = this.machineSegs(machineId);
     if (!s) return;
     const th = this.theme(machineId, this.cfg.partyBase.col[0]);
-    const sweep = { fx: this.fx('Wipe'), sx: 190, ix: 128, bri: 255, col: [th[0], th[1]] };
+    const white = [255, 255, 255, 255], black = [0, 0, 0, 0];
     const gold = this.cfg.milestoneGold || [255, 190, 0, 0];
-    const pattern = kind === 'open' ? { fx: this.fx('Running'), sx: 200, ix: 128, bri: 255, col: [th[0], th[1]] } // "come play me"
-      : kind === 'crown' ? { ...this.themeChase(machineId, th[0], 160), col: [gold, th[0], this.cfg.houseWhite] }
-      : kind === 'rivalry' && colors.length >= 2 ? { ...this.themeChase(machineId, th[0], 170), col: [colors[0], colors[1], th[0]] }
-      : this.themeChase(machineId, th[0], 150);
-    this.sequence([s.top, s.curb], [[0, sweep], [1200, pattern]], 2, DUR.spotlight - 1200);
-    const room = { fx: this.fx('Breathe'), sx: 60, ix: 128, bri: 170, col: [th[0], th[1]] };
-    for (const id of this.baseSegs()) this.effect(id, room, 2, DUR.spotlight);
+    // A highlight: the machine snaps to white, then runs a fast, hard-edged pattern (color against
+    // black, or white sparks on solid color) while everything else drops to a dim glow.
+    const flash = { fx: this.fx('Solid'), bri: 255, col: [white, black] };
+    const pattern = kind === 'open' ? { fx: this.fx('Theater'), sx: 235, ix: 128, bri: 255, col: [th[0], black] } // "come play me": marching dots
+      : kind === 'crown' ? { fx: this.fx('Chase Flash'), sx: 220, ix: 128, bri: 255, col: [gold, white] } // gold with white bursts
+      : kind === 'rivalry' && colors.length >= 2 ? { fx: this.fx('Theater'), sx: 230, ix: 128, bri: 255, col: [colors[0], colors[1]] } // the two players, alternating
+      : { fx: this.fx('Solid Glitter'), sx: 255, ix: 170, bri: 255, col: [th[0], black] }; // the machine's color, sparkling
+    this.sequence([s.top, s.curb], [[0, flash], [250, pattern]], 2, DUR.spotlight - 250);
+    const dim = this.cfg.spotlightDim ?? 18;
+    for (const id of [...this.baseSegs(), ...this.allMachineSegs()]) {
+      if (id === s.top || id === s.curb) continue;
+      const rest = this.restState(id);
+      if (rest.on && this.seg(id).prio < 2) this.effect(id, { ...rest, bri: dim }, 2, DUR.spotlight);
+    }
   }
 
   // A player unlocks their overall ranking: the room breathes once in their color.
