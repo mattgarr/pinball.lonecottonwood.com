@@ -1,10 +1,14 @@
 // Music → garage lights, from the music this laptop is playing (no microphone).
-//   node scripts/music-sync.mjs                 (runs until stopped; leave it going all night)
+//   Normally runs as the "Garage Lights Listener" app, started at login (bash scripts/listener/install.sh).
+//   node scripts/music-sync.mjs                 (by hand, from Terminal)
 //   node scripts/music-sync.mjs --debug         (prints levels and beats)
+//
+// The host lights card picks the sound for the lights: "Controller mic" (default: the controller's own
+// microphone, this script stays idle and hears nothing) or "Laptop sound" (this script captures and sends).
 //
 // It hears exactly what the laptop plays through scripts/systap (a Core Audio process tap, macOS 14.2+;
 // built on first run). Nothing about the sound output changes: the music stays on the AirPlay speakers.
-// The first run asks to let Terminal record system audio (Privacy & Security → Screen & System Audio
+// The first run asks to let the app (or Terminal) record system audio (Privacy & Security → Screen & System Audio
 // Recording). (AUDIO_DEVICE="BlackHole 2ch" records that device with sox instead.) Then it:
 //   1. Sends WLED "Audio Sync" packets (v2, UDP multicast 239.0.0.1:11988, ~45/s) so every sound-reactive
 //      effect (Music mode) follows the song instead of the controller's mic. The controller's
@@ -41,10 +45,14 @@ const rpc = async (fn, body) => {
   if (!r.ok) throw new Error(`${fn}: ${r.status}`);
   return r.json();
 };
-const topic = await rpc('host_lights_topic', { p_pass: pass });
-if (!topic) throw new Error('No lights channel (wrong host passcode?)');
+// At login the network may not be up yet: keep asking.
+let topic = null;
+for (let wait = 2000; !topic; wait = Math.min(wait * 2, 60000)) {
+  try { topic = await rpc('host_lights_topic', { p_pass: pass }); if (!topic) throw new Error('no lights channel (wrong host passcode?)'); }
+  catch (e) { console.log(new Date().toLocaleTimeString(), `waiting for the lights channel: ${e.message}`); await new Promise(r => setTimeout(r, wait)); }
+}
 
-let settings = { on: false, lag: 2000 };
+let settings = { on: false, lag: 2000 }, gotSettings = false;
 let beats = 0, level = 0;
 const log = (...a) => console.log(new Date().toLocaleTimeString(), ...a);
 
@@ -55,10 +63,19 @@ async function poll() {
   try { wled = await (await fetch(`${WLED}/json/state`, { signal: AbortSignal.timeout(1500) })).json(); } catch { wled = null; }
 }
 setInterval(poll, 1500); await poll();
-try { // receive the audio feed instead of the mic (harmless to repeat)
-  await fetch(`${WLED}/json/cfg`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ um: { AudioReactive: { sync: { port: 11988, mode: 2 } } } }), signal: AbortSignal.timeout(3000) });
-  log('controller audio sync: receive');
-} catch { log('controller not reachable yet; will keep trying to pulse'); }
+// The controller's AudioReactive sync mode: 2 = receive this laptop's feed, 0 = its own microphone.
+// Re-applied until it sticks (the controller may be off, or rebooted since).
+let wantMode = 0, hasMode = null;
+async function applyMode() {
+  if (hasMode === wantMode) return;
+  const mode = wantMode;
+  try {
+    const r = await fetch(`${WLED}/json/cfg`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ um: { AudioReactive: { sync: { port: 11988, mode } } } }), signal: AbortSignal.timeout(3000) });
+    if (!r.ok) throw new Error(r.status);
+    hasMode = mode; log(`controller listens to: ${mode === 2 ? 'this laptop' : 'its microphone'}`);
+  } catch { /* try again soon */ }
+}
+setInterval(() => { if (!wled) hasMode = null; applyMode(); }, 10000);
 
 const pulseOk = () => wled?.on && BASE_SEGS.every(id => { const s = wled.seg?.find(x => x.id === id); return s && s.on && PULSE_FX.has(s.fx); });
 let resting = false;
@@ -79,11 +96,14 @@ mq.on('message', (t, m) => {
     const s = JSON.parse(m.toString());
     const was = settings.on;
     settings = { on: !!s.on, lag: Math.max(0, Math.min(5000, Number(s.lag) || 0)) };
-    log(`beat pulse ${settings.on ? 'ON' : 'off'}, lag ${settings.lag} ms`);
+    if (was !== settings.on || !gotSettings) log(settings.on ? `sound for the lights: this laptop (speaker delay ${settings.lag} ms)` : 'sound for the lights: the controller mic (idle)');
+    gotSettings = true;
     if (was && !settings.on) unrest();
+    wantMode = settings.on ? 2 : 0; applyMode();
+    if (settings.on) startCapture(); else stopCapture();
   } catch { /* ignore */ }
 });
-const status = () => mq.connected && mq.publish(`${topic}/beat/status`, JSON.stringify({ running: true, at: Date.now(), level: Math.round(level), beats, on: settings.on, lag: settings.lag }), { retain: true });
+const status = () => mq.connected && mq.publish(`${topic}/beat/status`, JSON.stringify({ running: true, at: Date.now(), level: Math.round(level), beats, on: settings.on, lag: settings.lag, capturing: !!cap }), { retain: true });
 setInterval(status, 5000);
 
 // --- audio analysis ------------------------------------------------------------------------------
@@ -155,11 +175,14 @@ if (!DEVICE && (!existsSync(TAP) || statSync(TAP).mtimeMs < statSync(TAP_SRC).mt
 }
 let heard = 0, silentSince = Date.now(), warned = false;
 setInterval(() => { // nothing but silence for a while: most likely the recording permission
-  if (heard > 0) { heard = 0; silentSince = Date.now(); warned = false; return; }
-  if (!warned && Date.now() - silentSince > 20000) { warned = true; log('only silence so far. If music is playing: System Settings → Privacy & Security → Screen & System Audio Recording → allow Terminal (under "System Audio Recording Only"), then restart this.'); }
+  if (!cap || heard > 0) { heard = 0; silentSince = Date.now(); warned = false; return; }
+  if (!warned && Date.now() - silentSince > 20000) { warned = true; log('only silence so far. If music is playing: System Settings → Privacy & Security → Screen & System Audio Recording → allow "Garage Lights Listener" (or Terminal, when run by hand) under "System Audio Recording Only".'); }
 }, 5000);
+let cap = null;
+function stopCapture() { if (!cap) return; const c = cap; cap = null; c.kill('SIGTERM'); log('stopped listening'); }
 function startCapture() {
-  const sox = DEVICE
+  if (cap) return;
+  const sox = cap = DEVICE
     ? spawn('sox', ['-q', '-t', 'coreaudio', DEVICE, '-t', 'raw', '-r', String(RATE), '-e', 'signed', '-b', '16', '-c', '1', '-'], { stdio: ['ignore', 'pipe', 'pipe'] })
     : spawn(TAP, [], { stdio: ['ignore', 'pipe', 'pipe'] });
   let buf = Buffer.alloc(0);
@@ -168,14 +191,22 @@ function startCapture() {
     while (buf.length >= N * 2) {
       const frame = new Int16Array(N);
       for (let i = 0; i < N; i++) { frame[i] = buf.readInt16LE(i * 2); if (frame[i] > 300 || frame[i] < -300) heard++; }
+      if (cap !== sox) return;
       buf = buf.subarray(N * 2);
       analyze(frame);
     }
   });
   sox.stderr.on('data', d => { const m = /RATE (\d+)/.exec(d.toString()); if (m) setRate(Number(m[1])); else if (DEBUG) process.stderr.write(d); });
-  sox.on('exit', code => { log(`audio capture stopped (${code}); restarting in 3 s`); setTimeout(startCapture, 3000); });
+  sox.on('exit', code => {
+    if (cap !== sox) return; // stopped on purpose
+    cap = null; log(`audio capture stopped (${code}); restarting in 3 s`);
+    setTimeout(() => { if (settings.on) startCapture(); }, 3000);
+  });
   log(DEVICE ? `listening to "${DEVICE}"` : 'listening to everything this laptop plays');
 }
-startCapture();
-const bye = () => { unrest(); mq.publish(`${topic}/beat/status`, JSON.stringify({ running: false, at: Date.now() }), { retain: true }, () => process.exit(0)); setTimeout(() => process.exit(0), 1500); };
+// Capture starts when the host card picks "Laptop sound" (the retained setting arrives on connect).
+const bye = async () => {
+  stopCapture(); unrest();
+  wantMode = 0; hasMode = null; await applyMode(); // hand the lights back to the controller's mic
+  mq.publish(`${topic}/beat/status`, JSON.stringify({ running: false, at: Date.now() }), { retain: true }, () => process.exit(0)); setTimeout(() => process.exit(0), 1500); };
 process.on('SIGINT', bye); process.on('SIGTERM', bye);

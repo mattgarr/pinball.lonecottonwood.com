@@ -147,22 +147,24 @@ export default function LightsPanel({ busy, run }) {
           {Object.entries(LIGHTS.music).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
         </select>
       </label>
-      <p className="muted small">Music mode follows the music playing on the laptop while the music listener runs (otherwise the controller's microphone). Score and champion flashes still play on top.</p>
+      <p className="muted small">Music mode listens to the sound source below. Score and champion flashes still play on top.</p>
       <div className="lights-dimmer">
+        <div className="muted small">Sound for the lights</div>
         <div className="row gap lights-row">
-          <button type="button" className={beat.on ? 'primary' : 'secondary'} onClick={() => saveBeat({ ...beat, on: !beat.on })}>
-            {beat.on ? 'Beat pulse: ON (tap to stop)' : 'Beat pulse'}
-          </button>
+          <button type="button" className={beat.on ? 'secondary' : 'primary'} aria-pressed={!beat.on} onClick={() => beat.on && saveBeat({ ...beat, on: false })}>Controller mic</button>
+          <button type="button" className={beat.on ? 'primary' : 'secondary'} aria-pressed={beat.on} onClick={() => !beat.on && saveBeat({ ...beat, on: true })}>Laptop sound</button>
         </div>
         <label className="lights-dimmer-head" htmlFor="beat-lag">
           <span>Speaker delay</span>
-          <span className="lights-dimmer-val">{(beat.lag / 1000).toFixed(1)} s</span>
+          <span className="lights-dimmer-val">{beat.on ? `${(beat.lag / 1000).toFixed(1)} s` : 'n/a'}</span>
         </label>
-        <input id="beat-lag" type="range" min={0} max={3000} step={100} value={beat.lag}
+        <input id="beat-lag" type="range" min={0} max={3000} step={100} value={beat.lag} disabled={!beat.on}
           aria-valuetext={`${(beat.lag / 1000).toFixed(1)} seconds`} onChange={e => saveBeat({ ...beat, lag: Number(e.target.value) }, true)} />
-        <p className="muted small">The attract looks brighten on every kick drum of the music playing on the laptop. Leave it on all night if you like. If the pulses come before the beat you hear, add delay (AirPlay speakers play about 2 s late). {listener?.running && now - (listener.at || 0) < 20000
-          ? `Music listener running on the laptop (${listener.beats ?? 0} beats heard).`
-          : 'The music listener isn\'t running on the laptop: start it with node scripts/music-sync.mjs.'}</p>
+        <p className="muted small">{beat.on
+          ? <>The lights follow exactly what the laptop plays, and the attract looks brighten on every kick drum. If the pulses come before the beat you hear, add delay (AirPlay speakers play about 2 s late). {listener?.running && now - (listener.at || 0) < 20000
+            ? `Garage Lights Listener running on the laptop (${listener.beats ?? 0} beats heard).`
+            : 'The Garage Lights Listener isn\'t running on the laptop, so the controller mic is used for now. Install it once with bash scripts/listener/install.sh (it then starts by itself at login).'}</>
+          : 'The controller hears the room through its own microphone: nothing to run on the laptop. It also hears talking and cheering; for tighter beats, pick Laptop sound.'}</p>
       </div>
       <div className="lights-test">
         <div className="muted small">Test a machine's flash:</div>
