@@ -105,7 +105,9 @@ function unrest() { if (resting && pulseOk()) post({ seg: BASE_SEGS.map(id => ({
 // Streams while the host's music mode is DJ light (the base layers run WLED's DJ Light as the fallback)
 // and nothing else is up. A TV moment (a machine zone lighting up, the base layers changing: flashes,
 // house lights, the reveal) hands the strip straight back to the controller's own effects.
-const DJ_FX = LIGHTS.effects['DJ Light'];
+// WLED effect the base layers run (the fallback) → what the laptop draws instead.
+const DRAWN = Object.fromEntries(Object.entries(LIGHTS.music).filter(([, m]) => m.laptop).map(([fx, m]) => [LIGHTS.effects[fx], m.laptop]));
+const LOOK_NAME = Object.fromEntries(Object.values(LIGHTS.music).filter(m => m.laptop).map(m => [m.laptop, m.label]));
 const MACHINE_SEGS = [2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14];
 let show = null, segState = new Map(), masterOn = true, apiAt = 0;
 async function loadShow() {
@@ -113,22 +115,27 @@ async function loadShow() {
     const [row] = await (await fetch(`${SUPA}/rest/v1/lights_settings?select=zones&id=eq.1`, { headers: { apikey: KEY } })).json();
     if (!row?.zones?.top?.length) return;
     const host = new URL(WLED).hostname;
-    const was = show?.running;
+    const was = show?.running && show.mode;
     show?.stop();
     show = new LightShow({ host, zones: row.zones });
-    if (was) show.start();
+    if (was) show.start(was);
   } catch { /* keep the old one */ }
 }
 await loadShow();
 setInterval(loadShow, 5 * 60000);
-const showWanted = () => settings.on && !!cap && masterOn
-  && [0, 1, 8].every(id => { const g = segState.get(id); return g && g.on !== false && g.fx === DJ_FX; })
-  && MACHINE_SEGS.every(id => segState.get(id)?.on !== true);
+const showWanted = () => {
+  if (!settings.on || !cap || !masterOn || !MACHINE_SEGS.every(id => segState.get(id)?.on !== true)) return null;
+  const base = [0, 1, 8].map(id => segState.get(id));
+  if (!base.every(g => g && g.on !== false && g.fx === base[0].fx)) return null;
+  return DRAWN[base[0].fx] || null;
+};
 function updateShow() {
   if (!show) return;
-  const want = showWanted();
-  if (want && !show.running) { post({ lor: 0 }); show.start(); log('DJ light: the laptop is drawing it'); }
-  else if (!want && show.running) { show.stop(); post({ lor: 1 }); } // the controller's effects show right away
+  const mode = showWanted();
+  if (mode && (!show.running || show.mode !== mode)) {
+    if (!show.running) post({ lor: 0 });
+    show.start(mode); log(`${LOOK_NAME[mode] || mode}: the laptop is drawing it`);
+  } else if (!mode && show.running) { show.stop(); post({ lor: 1 }); } // the controller's effects show right away
 }
 // What the TV sends the controller (same channel): seen as it happens, faster than polling.
 function onApi(m) {
@@ -324,7 +331,7 @@ function analyze(samples) {
   const send = () => {
     sendSync(vol, smooth, beat, bands, peakMag, peakBin * HZ);
     if (beat) kick();
-    if (show?.running) show.feed({ vol, beat, hat, hz, strength });
+    if (show?.running) show.feed({ vol, bands, beat, hat, hz, strength });
   };
   const ms = lag();
   if (ms > 0) setTimeout(send, ms); else send();

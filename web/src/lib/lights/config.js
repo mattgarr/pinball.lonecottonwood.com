@@ -159,17 +159,19 @@ export const LIGHTS = {
 
   // Music mode: the ambient layers (walls, beam band, curb) run one of these instead of the party
   // base, in sync; score / champion / leader flashes still play on top.
-  // center: the effect grows from the middle, moved to the machines' middle (musicCenterAfter).
-  // grp: LEDs per effect pixel. Freqwave and DJ Light push each pixel outward one step at a time and
-  // lose a little each step, so one LED per step dies out a few feet from the center; 5 reaches the walls.
+  // Music modes. The key is the WLED effect the base layers run; `laptop` modes are drawn by the laptop
+  // (scripts/lightshow.mjs: one LED at a time, from the machines' middle) whenever Laptop sound is on,
+  // and that WLED effect is only the fallback (it also tells the laptop which look to draw).
+  // center: the fallback grows from the middle, moved to the machines' middle (musicCenterAfter).
+  // grp: LEDs per fallback pixel (Freqwave / DJ Light fade out before the walls at 1).
   music: {
+    'DJ Light': { label: 'Shockwaves', laptop: 'pulses', sx: 128, ix: 128, center: true, grp: 5 },
+    Freqwave: { label: 'Color by pitch', laptop: 'wave', sx: 128, ix: 128, center: true, grp: 5 },
+    Gravimeter: { label: 'Spectrum bloom', laptop: 'spectrum', sx: 128, ix: 128 },
+    Puddlepeak: { label: 'Fireworks', laptop: 'fireworks', sx: 128, ix: 128 },
+    Pixelwave: { label: 'Thunderstorm', laptop: 'storm', sx: 128, ix: 128, center: true },
+    Waterfall: { label: 'Comet chase', laptop: 'comets', sx: 200, ix: 128 },
     Gravcentric: { label: 'VU meter from the center', sx: 128, ix: 128, center: true },
-    Waterfall: { label: 'Waterfall of the beat', sx: 200, ix: 128 },
-    Freqwave: { label: 'Color by pitch', sx: 128, ix: 128, center: true, grp: 5 },
-    // DJ light is drawn by the laptop (scripts/lightshow.mjs) while Laptop sound is on; WLED's DJ Light
-    // (centered, 5-LED steps) shows when it isn't.
-    'DJ Light': { label: 'DJ light (pulses fly to the walls)', sx: 128, ix: 128, center: true, grp: 5 },
-    Puddlepeak: { label: 'Splashes on the beat', sx: 128, ix: 128 },
   },
   musicCenterAfter: 5, // the center-out music looks start between Cactus Canyon (5) and Whirlwind (3)
 
