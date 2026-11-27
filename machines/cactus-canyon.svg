@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" preserveAspectRatio="xMidYMid slice" font-family="'Arial Black','Helvetica Neue',Helvetica,sans-serif">
+  <defs>
+    <linearGradient id="ccBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e8902f"/>
+      <stop offset="0.45" stop-color="#c25a1e"/>
+      <stop offset="1" stop-color="#5e2410"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="300" fill="url(#ccBg)"/>
+  <!-- sun -->
+  <circle cx="512" cy="92" r="46" fill="#ffd86b" fill-opacity="0.9"/>
+  <circle cx="512" cy="92" r="62" fill="none" stroke="#ffe7a0" stroke-opacity="0.4" stroke-width="3"/>
+  <!-- mesa silhouette -->
+  <path d="M360 300 L360 232 L404 232 L404 206 L470 206 L470 232 L560 232 L560 196 L640 196 L640 300 Z" fill="#3a160a" fill-opacity="0.55"/>
+  <!-- saguaro cactus -->
+  <g fill="#2f5d2a">
+    <rect x="556" y="150" width="20" height="92" rx="9"/>
+    <rect x="534" y="176" width="16" height="40" rx="8"/>
+    <rect x="534" y="176" width="34" height="15" rx="7"/>
+    <rect x="582" y="166" width="16" height="40" rx="8"/>
+    <rect x="566" y="166" width="32" height="15" rx="7"/>
+  </g>
+  <text x="38" y="132" fill="#fff4e0" font-size="52" font-weight="900" letter-spacing="1">CACTUS</text>
+  <text x="38" y="190" fill="#ffe2b0" font-size="52" font-weight="900" letter-spacing="1">CANYON</text>
+  <text x="42" y="232" fill="#3a160a" font-size="19" letter-spacing="5">BALLY · 1998 · DOT-MATRIX</text>
+</svg>

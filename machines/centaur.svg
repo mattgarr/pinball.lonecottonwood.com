@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" preserveAspectRatio="xMidYMid slice" font-family="'Arial Black','Helvetica Neue',Helvetica,sans-serif">
+  <defs>
+    <linearGradient id="cBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b1014"/>
+      <stop offset="0.55" stop-color="#3a0d12"/>
+      <stop offset="1" stop-color="#8c0f1c"/>
+    </linearGradient>
+    <radialGradient id="cGlow" cx="0.78" cy="0.35" r="0.6">
+      <stop offset="0" stop-color="#ff2a36" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ff2a36" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="640" height="300" fill="url(#cBg)"/>
+  <rect width="640" height="300" fill="url(#cGlow)"/>
+  <!-- concentric "orbs" target motif -->
+  <g fill="none" stroke="#ff3b46" stroke-opacity="0.4">
+    <circle cx="500" cy="120" r="34" stroke-width="10"/>
+    <circle cx="500" cy="120" r="58" stroke-width="6" stroke-opacity="0.25"/>
+    <circle cx="500" cy="120" r="82" stroke-width="4" stroke-opacity="0.15"/>
+  </g>
+  <!-- angular cyborg bolt -->
+  <path d="M404 40 L470 40 L432 132 L486 132 L378 270 L420 156 L372 156 Z" fill="#ff2a36" fill-opacity="0.9"/>
+  <path d="M404 40 L470 40 L432 132 L486 132 L378 270 L420 156 L372 156 Z" fill="none" stroke="#ffd0d3" stroke-opacity="0.5" stroke-width="2"/>
+  <text x="40" y="150" fill="#ffffff" font-size="74" font-weight="900" letter-spacing="2">CENTAUR</text>
+  <text x="44" y="190" fill="#ff8a90" font-size="22" letter-spacing="8">BALLY · 1981</text>
+  <text x="44" y="244" fill="#ffffff" fill-opacity="0.55" font-size="16" letter-spacing="3" font-family="'Courier New',monospace">7-SEGMENT · WIDEBODY</text>
+</svg>
