@@ -106,7 +106,8 @@ function unrest() { if (resting && pulseOk()) post({ seg: BASE_SEGS.map(id => ({
 // and nothing else is up. A TV moment (a machine zone lighting up, the base layers changing: flashes,
 // house lights, the reveal) hands the strip straight back to the controller's own effects.
 // WLED effect the base layers run (the fallback) → what the laptop draws instead.
-const DRAWN = Object.fromEntries(Object.entries(LIGHTS.music).filter(([, m]) => m.laptop).map(([fx, m]) => [LIGHTS.effects[fx], m.laptop]));
+// Off unless DRAW_LOOKS=1: streaming swamped the controller's Wi-Fi (2026-11-26), even at 10 fps.
+const DRAWN = process.env.DRAW_LOOKS === '1' ? Object.fromEntries(Object.entries(LIGHTS.music).filter(([, m]) => m.laptop).map(([fx, m]) => [LIGHTS.effects[fx], m.laptop])) : {};
 const LOOK_NAME = Object.fromEntries(Object.values(LIGHTS.music).filter(m => m.laptop).map(m => [m.laptop, m.label]));
 const MACHINE_SEGS = [2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14];
 let show = null, segState = new Map(), masterOn = true, apiAt = 0;
@@ -329,7 +330,8 @@ function analyze(samples) {
   if (hat) lastHat = now;
   const strength = Math.min(1, bass / Math.max(bassAvg * 3, 1e-6));
   const send = () => {
-    sendSync(vol, smooth, beat, bands, peakMag, peakBin * HZ);
+    // While the laptop draws the look, the controller needs no audio feed (and its Wi-Fi is busy enough).
+    if (!show?.running) sendSync(vol, smooth, beat, bands, peakMag, peakBin * HZ);
     if (beat) kick();
     if (show?.running) show.feed({ vol, bands, beat, hat, hz, strength });
   };
