@@ -25,9 +25,9 @@ export const LIGHTS = {
   // between the player's color and the main color; a champion chase alternates all three.
   machineThemes: {
     2: { name: 'Fathom', colors: [[0, 210, 120, 0], [0, 90, 240, 0], [140, 255, 220, 0]] }, // sea green, ocean blue, seafoam
-    1: { name: 'Centaur', colors: [[255, 0, 25, 0], [90, 0, 18, 0], [10, 25, 45, 200]] }, // lipstick red, wine, chrome (W chip)
+    1: { name: 'Centaur', colors: [[255, 0, 0, 0], [90, 0, 0, 0], [10, 25, 45, 200]] }, // pure red (255,0,25 looked magenta on the strip, Nov 26), dark red, chrome (W chip)
     3: { name: 'Whirlwind', colors: [[10, 90, 255, 0], [0, 30, 180, 0], [255, 220, 60, 0]] }, // electric blue, storm navy, lightning yellow
-    4: { name: 'White Water', colors: [[0, 120, 255, 0], [20, 60, 70, 210], [255, 110, 0, 0]] }, // river blue, foam white (W chip), life-jacket orange
+    4: { name: 'White Water', colors: [[255, 110, 0, 0], [0, 120, 255, 0], [20, 60, 70, 210]] }, // life-jacket orange (sent as traffic-cone orange; blue was too close to Whirlwind, Nov 26), river blue, foam white (W chip)
     5: { name: 'Cactus Canyon', colors: [[255, 190, 0, 0], [255, 80, 0, 0], [230, 20, 60, 0]] }, // sunset gold, deep orange, rose red
     6: { name: 'Dungeons & Dragons', colors: [VIOLET, [230, 0, 170, 0], [200, 150, 255, 0]] }, // purple (deep violet), magenta, lavender
   },
@@ -177,10 +177,17 @@ export function alignZones(cfg, start, widths) {
 }
 
 // The curb zones: the same width as each top zone, starting at the curb's first machine edge.
-export function stackUnder(topZones, curbStart) {
+// curbStart may be left of the curb's first pixel (the real strip starts partway under the first
+// machine, Nov 26 calibration): that zone is then cut off at the strip's start.
+export function stackUnder(topZones, curbStart, cfg = LIGHTS) {
   const shift = curbStart - topZones[0].start;
-  return topZones.map(z => ({ machineId: z.machineId, start: z.start + shift, stop: z.stop + shift }));
+  const first = cfg.runs.curb.start;
+  return topZones.map(z => ({ machineId: z.machineId, start: Math.max(first, z.start + shift), stop: z.stop + shift }));
 }
+
+// Where the curb's first machine edge would be (even if it's left of the strip): measured from the
+// first zone's far edge, which is never cut off.
+export const curbStartOf = zones => zones.curb[0].stop - (zones.top[0].stop - zones.top[0].start);
 
 // From the first machine edge to the last.
 export const spanOf = zones => ({ start: zones[0].start, stop: zones[zones.length - 1].stop });
@@ -195,7 +202,7 @@ export function beamOf(cfg = LIGHTS) {
 // Where the curb sits under the beam: curb pixel k is under beam pixel (curbOffset + k), found by
 // lining up the first machine's edge on both runs.
 export function curbOffset(zones, cfg = LIGHTS) {
-  return (zones.top[0].start - beamOf(cfg).start) - (zones.curb[0].start - cfg.runs.curb.start);
+  return (zones.top[0].start - beamOf(cfg).start) - (curbStartOf(zones) - cfg.runs.curb.start);
 }
 
 // The stretch of the beam directly above the real curb strip (for drawing the simulator).

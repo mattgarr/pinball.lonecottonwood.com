@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ensureLightsTopic, getHostPass, host, useParty } from '../lib/store.js';
 import { LightsEngine } from '../lib/lights/engine.js';
-import { LIGHTS, defaultZones, stackUnder, parkOf } from '../lib/lights/config.js';
+import { LIGHTS, defaultZones, stackUnder, curbStartOf, parkOf } from '../lib/lights/config.js';
 import { publish } from '../lib/lights/mqtt.js';
 
 const P = LIGHTS.pointerSeg;
@@ -91,7 +91,7 @@ export default function HostCalibrate() {
       const base = settings?.zones || defaultZones();
       const zones = { ...base, [runKey]: zonesFrom(marks) };
       // New top widths: keep the curb stacked under them (same left edge, same widths).
-      if (runKey === 'top') zones.curb = stackUnder(zones.top, base.curb[0].start);
+      if (runKey === 'top') zones.curb = stackUnder(zones.top, curbStartOf(base));
       await host.setLights({ zones });
       publish('control', { cmd: 'layout', zones, at: Date.now() }); // the TV pushes the new bounds
       setMsg(`Saved the ${runKey === 'top' ? 'top run' : 'curb run'} zones.`);
