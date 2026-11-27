@@ -86,16 +86,26 @@ export class LightsEngine {
     if (!this.isBase(id)) return this.machineRest(id);
     if (this.music) {
       const m = this.cfg.music[this.music];
-      return { id, on: true, fx: this.fx(this.music), sx: m.sx, ix: m.ix, pal: this.cfg.rainbowPal ?? 4, bri: 255, col: this.cfg.partyBase.col }; // music mode on the corrected rainbow
+      return { id, on: true, fx: this.fx(this.music), sx: m.sx, ix: m.ix, pal: this.cfg.rainbowPal ?? 4, bri: 255, col: this.cfg.partyBase.col, grp: m.grp ?? 1 }; // music mode on the corrected rainbow
     }
     const list = this.cfg.ambientCycle;
     if (list?.length) {
       const a = list[this.cycleIdx % list.length];
       const col = a.col ? a.col.map(n => this.cfg.coolColors[n]) : this.cfg.partyBase.col;
-      return { id, on: true, fx: this.fx(a.fx), sx: a.sx ?? 128, ix: a.ix ?? 128, pal: a.pal ?? 0, bri: this.cfg.ambientBri ?? 170, col };
+      return { id, on: true, fx: this.fx(a.fx), sx: a.sx ?? 128, ix: a.ix ?? 128, pal: a.pal ?? 0, bri: this.cfg.ambientBri ?? 170, col, grp: 1 };
     }
     const b = this.cfg.partyBase;
-    return { id, on: true, fx: this.fx(b.fx), sx: b.sx, ix: b.ix, pal: b.pal ?? 0, bri: b.bri, col: b.col };
+    return { id, on: true, fx: this.fx(b.fx), sx: b.sx, ix: b.ix, pal: b.pal ?? 0, bri: b.bri, col: b.col, grp: 1 };
+  }
+
+  // How far (pixels) the top run's middle sits right of the point center-out music looks start from
+  // (between Cactus Canyon and Whirlwind): the base layers are rotated by this much while one is up.
+  musicShift(zones = this.zones) {
+    const m = this.music && this.cfg.music[this.music];
+    const z = m?.center && zones?.top?.find(t => t.machineId === this.cfg.musicCenterAfter);
+    if (!z) return 0;
+    const { top } = this.cfg.runs;
+    return Math.floor((top.stop - top.start) / 2) + top.start - z.stop;
   }
 
   // Rotate the ambient effect. Layers at rest switch now (together, so they stay in sync); busy ones
@@ -125,7 +135,9 @@ export class LightsEngine {
   // Music mode on (an effect name from cfg.music) or off (null). Layers at rest switch now; layers
   // busy with an effect switch when it ends.
   setMusic(name) {
+    const was = this.musicShift();
     this.music = name && this.cfg.music[name] ? name : null;
+    if (this.musicShift() !== was) this.applyLayout();
     if (this.house || this.revealing) return;
     for (const id of [...this.baseSegs(), ...this.allMachineSegs()]) if (this.seg(id).prio === 0) this.queue(this.restState(id));
     this.flush();
@@ -214,12 +226,14 @@ export class LightsEngine {
     // The curb is the top run's length too (pixels past the real strip don't exist), shifted by `of`,
     // so curb pixel k shows what the top pixel directly above it shows.
     const len = top.stop - top.start;
+    // A center-out music look shows top pixel k + s at pixel k, so its middle lands on the machines' middle.
+    const s = this.musicShift(zones);
     const d = beamOf(this.cfg).start - top.start + curbOffset(zones, this.cfg); // curb pixel k = top pixel k + d
-    const of = (((this.cfg.wledOffsetAdds === false ? d : -d) % len) + len) % len;
+    const wrap = x => (((this.cfg.wledOffsetAdds === false ? x : -x) % len) + len) % len;
     this.needsLayout = false;
-    this.queue({ id: top.baseSeg, start: top.start, stop: top.stop });
-    this.queue({ id: top.bandSeg, start: top.start, stop: top.stop });
-    this.queue({ id: curb.baseSeg, start: curb.start, stop: curb.start + len, of });
+    this.queue({ id: top.baseSeg, start: top.start, stop: top.stop, of: wrap(s) });
+    this.queue({ id: top.bandSeg, start: top.start, stop: top.stop, of: wrap(s) });
+    this.queue({ id: curb.baseSeg, start: curb.start, stop: curb.start + len, of: wrap(d + s) });
     this.cfg.machineOrder.forEach((mid, i) => {
       const t = zones.top.find(z => z.machineId === mid) || zones.top[i];
       const c = zones.curb.find(z => z.machineId === mid) || zones.curb[i];

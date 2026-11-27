@@ -22,6 +22,24 @@ beforeEach(() => {
 afterEach(() => { e.destroy(); vi.useRealTimers(); });
 
 describe('lights engine', () => {
+  it('center-out music looks start between Cactus Canyon and Whirlwind, in wider steps', () => {
+    const zones = { top: [[2, 70, 82], [1, 82, 94], [5, 94, 105], [3, 105, 116], [4, 116, 127], [6, 127, 138]].map(([machineId, start, stop]) => ({ machineId, start, stop })),
+      curb: [[2, 235, 243], [1, 243, 255], [5, 255, 266], [3, 266, 277], [4, 277, 288], [6, 288, 299]].map(([machineId, start, stop]) => ({ machineId, start, stop })) };
+    e.applyLayout(zones); e.flush(); e.start(); sent = [];
+    e.setMusic('DJ Light'); vi.advanceTimersByTime(100);
+    // The top run's middle (pixel 117) shows the effect's middle 12 pixels to the left, at 105.
+    expect(e.musicShift()).toBe(12);
+    const top = segsFor(0).at(-1), band = segsFor(1).at(-1), curb = segsFor(8);
+    expect(top.of).toBe(235 - 12);
+    expect(band.of).toBe(235 - 12);
+    expect(top.grp).toBe(5);
+    const curbOf = curb.find(x => x.of !== undefined).of;
+    // Back to the ambient looks: no rotation, one LED per pixel, curb rotation back to the plain stack.
+    sent = []; e.setMusic(null); vi.advanceTimersByTime(100);
+    expect(segsFor(0).find(x => x.of !== undefined).of).toBe(0);
+    expect(segsFor(0).at(-1).grp).toBe(1);
+    expect((segsFor(8).find(x => x.of !== undefined).of - curbOf + 235) % 235).toBe(12);
+  });
   it('start pushes zones, turns machine segments off and applies the party base', () => {
     e.start();
     expect(sent).toHaveLength(1);

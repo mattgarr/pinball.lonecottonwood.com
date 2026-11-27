@@ -159,13 +159,17 @@ export const LIGHTS = {
 
   // Music mode: the ambient layers (walls, beam band, curb) run one of these instead of the party
   // base, in sync; score / champion / leader flashes still play on top.
+  // center: the effect grows from the middle, moved to the machines' middle (musicCenterAfter).
+  // grp: LEDs per effect pixel. Freqwave and DJ Light push each pixel outward one step at a time and
+  // lose a little each step, so one LED per step dies out a few feet from the center; 5 reaches the walls.
   music: {
-    Gravcentric: { label: 'VU meter from the center', sx: 128, ix: 128 },
+    Gravcentric: { label: 'VU meter from the center', sx: 128, ix: 128, center: true },
     Waterfall: { label: 'Waterfall of the beat', sx: 200, ix: 128 },
-    Freqwave: { label: 'Color by pitch', sx: 128, ix: 128 },
-    'DJ Light': { label: 'DJ light', sx: 128, ix: 128 },
+    Freqwave: { label: 'Color by pitch', sx: 128, ix: 128, center: true, grp: 5 },
+    'DJ Light': { label: 'DJ light', sx: 128, ix: 128, center: true, grp: 5 },
     Puddlepeak: { label: 'Splashes on the beat', sx: 128, ix: 128 },
   },
+  musicCenterAfter: 5, // the center-out music looks start between Cactus Canyon (5) and Whirlwind (3)
 
   houseWhite: [0, 0, 0, 255], // the strip's dedicated white chip
   ambientPreset: 1, // Matt's Arcade Attract playlist; the app never writes presets
